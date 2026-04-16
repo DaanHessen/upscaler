@@ -1,0 +1,210 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+    --bg-dark: #0a0a0a;
+    --card-bg: rgba(20, 20, 20, 0.8);
+    --accent: #00f2fe;
+    --accent-glow: rgba(0, 242, 254, 0.4);
+    --text-primary: #ffffff;
+    --text-secondary: #9ca3af;
+    --error: #ef4444;
+    --border: rgba(255, 255, 255, 0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-image: radial-gradient(circle at 50% 50%, #1a1a1a 0%, #0a0a0a 100%);
+}
+
+#app {
+    width: 100%;
+    max-width: 480px;
+    padding: 2rem;
+}
+
+.glass-card {
+    background: var(--card-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 2.5rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+h1 {
+    font-size: 1.875rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(to right, #fff, #9ca3af);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-align: center;
+}
+
+p.subtitle {
+    color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 2rem;
+    font-size: 0.875rem;
+}
+
+/* Auth Styles */
+.auth-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.hidden {
+    display: none !important;
+}
+
+input {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem;
+    color: white;
+    font-size: 0.875rem;
+    transition: all 0.2s ease;
+}
+
+input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+button {
+    width: 100%;
+    background: var(--accent);
+    color: black;
+    border: none;
+    border-radius: 12px;
+    padding: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 20px var(--accent-glow);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.toggle-auth {
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin-top: 1rem;
+    cursor: pointer;
+}
+
+.toggle-auth span {
+    color: var(--accent);
+}
+
+/* Uploader Styles */
+.upload-zone {
+    border: 2px dashed var(--border);
+    border-radius: 20px;
+    padding: 3rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 1.5rem;
+}
+
+.upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--accent);
+    background: rgba(0, 242, 254, 0.05);
+}
+
+.upload-icon {
+    font-size: 2.5rem;
+    margin-bottom: 1rem;
+    display: block;
+}
+
+#image-preview {
+    max-width: 100%;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.status-message {
+    font-size: 0.875rem;
+    text-align: center;
+    margin-top: 1rem;
+}
+
+.error-message {
+    color: var(--error);
+}
+
+.success-message {
+    color: var(--accent);
+}
+
+.result-container {
+    margin-top: 2rem;
+    text-align: center;
+}
+
+.result-image {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    margin-bottom: 1rem;
+}
+
+.logout-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-secondary);
+    margin-top: 2rem;
+    font-size: 0.75rem;
+    padding: 0.5rem;
+}
+
+.logout-btn:hover {
+    border-color: var(--error);
+    color: var(--error);
+    box-shadow: none;
+}
+
+.loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: var(--accent);
+    animation: spin 1s ease-in-out infinite;
+    display: inline-block;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

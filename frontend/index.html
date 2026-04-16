@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gemini Upscaler | Premium SaaS</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="glass-card">
+            <h1>Gemini Upscaler</h1>
+            <p class="subtitle">AI-Powered Super Resolution</p>
+
+            <div id="auth-view" class="auth-container">
+                <input type="email" id="email" placeholder="Email Address">
+                <input type="password" id="password" placeholder="Password">
+                <button id="auth-submit">Sign In</button>
+                <div class="toggle-auth" id="toggle-auth">
+                    New here? <span>Create an account</span>
+                </div>
+                <div id="auth-status" class="status-message error-message hidden"></div>
+            </div>
+
+            <div id="dashboard-view" class="hidden">
+                <div id="upload-zone" class="upload-zone">
+                    <span class="upload-icon">✦</span>
+                    <p>Drop image or click to upload</p>
+                    <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                        Max Size: 15MB
+                    </p>
+                    <input type="file" id="file-input" style="display: none" accept="image/*">
+                </div>
+
+                <div id="preview-container" class="hidden">
+                    <img id="image-preview" src="">
+                    <button id="upscale-submit">Start Upscale</button>
+                </div>
+
+                <div id="status" class="status-message"></div>
+
+                <div id="result-container" class="result-container hidden">
+                    <p style="margin-bottom: 1rem; color: var(--accent);">Processing Complete!</p>
+                    <img id="result-image" class="result-image" src="">
+                    <button id="download-btn">Download 4K Result</button>
+                </div>
+
+                <button id="logout-btn" class="logout-btn">Log out</button>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
