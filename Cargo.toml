@@ -1,7 +1,7 @@
 [package]
 name = "upscaler"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -14,12 +14,10 @@ base64 = "0.22"
 image = "0.25"
 imageproc = "0.25"
 axum = { version = "0.7", features = ["multipart", "macros"] }
-tower-http = { version = "0.5", features = ["cors", "fs", "limit"] }
+tower-http = { version = "0.5", features = ["cors", "fs"] }
 tower_governor = "0.4"
 infer = "0.16"
 bytes = "1.6"
-futures-util = "0.3"
-tower = { version = "0.4" }
 aws-sdk-s3 = { version = "1.66", features = ["behavior-version-latest"] }
 aws-config = { version = "1.5", features = ["behavior-version-latest"] }
 jsonwebtoken = { version = "10.3", features = ["aws_lc_rs", "use_pem"] }
@@ -29,3 +27,7 @@ uuid = { version = "1.11", features = ["v4", "serde"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rustls = { version = "0.23", features = ["ring"] }
+nsfw = "0.2.0"
+
+[build-dependencies]
+ureq = "3.3.0"

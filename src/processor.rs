@@ -2,10 +2,56 @@ use base64::{engine::general_purpose, Engine as _};
 use image::{DynamicImage, GenericImageView};
 use std::error::Error;
 use std::io::Cursor;
+use std::sync::OnceLock;
+use nsfw::{create_model, examine, Model};
+use tracing::info;
+
+static NSFW_MODEL: OnceLock<Model> = OnceLock::new();
+
+pub fn init_nsfw() {
+    let model_bytes = include_bytes!(concat!(env!("OUT_DIR"), "/model.onnx"));
+    let model = create_model(&model_bytes[..]).expect("Failed to initialize NSFW model check");
+    NSFW_MODEL.set(model).ok();
+    info!("NSFW Moderation Model initialized successfully.");
+}
+
+pub fn is_nsfw(img: &DynamicImage) -> Result<bool, Box<dyn Error + Send + Sync>> {
+    let model = NSFW_MODEL.get().ok_or("NSFW model not initialized")?;
+    
+    // Parse image
+    let rgba = img.to_rgba8();
+
+    let result = examine(model, &rgba).map_err(|e| e.to_string())?;
+    
+    let mut porn = 0.0;
+    let mut hentai = 0.0;
+
+    for class in &result {
+        let name_lower = format!("{:?}", class.metric).to_lowercase();
+        match name_lower.as_str() {
+            "porn" => porn = class.score,
+            "hentai" => hentai = class.score,
+            _ => {}
+        }
+    }
+    
+    info!("NSFW Check - porn: {:.3}, hentai: {:.3}", porn, hentai);
+    
+    if porn > 0.6 || hentai > 0.6 {
+        return Ok(true);
+    }
+    
+    Ok(false)
+}
 
 pub enum ResizeMode {
-    Crop,
     Pad,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum ImageStyle {
+    Illustration,
+    Photography,
 }
 
 struct GeminiRatio {
@@ -32,19 +78,13 @@ const SUPPORTED_RATIOS: &[GeminiRatio] = &[
     GeminiRatio { name: "8:1", target_width: 2048, target_height: 256, ratio: 8.0 },
 ];
 
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum ImageStyle {
-    Illustration,
-    Photography,
-}
-
 pub struct ProcessedImage {
     pub base64_data: String,
     pub ratio_name: String,
     pub style: ImageStyle,
 }
 
-fn analyze_style(img: &DynamicImage) -> ImageStyle {
+pub fn analyze_style(img: &DynamicImage) -> ImageStyle {
     use imageproc::filter::laplacian_filter;
     
     // 1. Convert to grayscale for analysis
@@ -63,16 +103,13 @@ fn analyze_style(img: &DynamicImage) -> ImageStyle {
         .map(|&p| (p - mean).powi(2))
         .sum::<f32>() / n;
 
-    println!("Detected Laplacian Variance: {:.2}", variance);
+    info!("Detected Laplacian Variance: {:.2}", variance);
 
-    // Baseline Threshold: 100.0 (per play-book)
-    // < 100.0 = Illustration (flat blocks, low gradient change)
-    // >= 100.0 = Photography (textures, high gradient change)
     if variance < 100.0 {
-        println!("Classification: ILLUSTRATION");
+        info!("Classification: ILLUSTRATION");
         ImageStyle::Illustration
     } else {
-        println!("Classification: PHOTOGRAPHY");
+        info!("Classification: PHOTOGRAPHY");
         ImageStyle::Photography
     }
 }
@@ -80,7 +117,7 @@ fn analyze_style(img: &DynamicImage) -> ImageStyle {
 pub fn preprocess_image(
     data: Vec<u8>,
     mode: ResizeMode,
-) -> Result<ProcessedImage, Box<dyn Error>> {
+) -> Result<ProcessedImage, Box<dyn Error + Send + Sync>> {
     // 1. Validate MIME with Magic Bytes
     let info = infer::get(&data).ok_or("Unable to determine file format")?;
     if !info.mime_type().starts_with("image/") {
@@ -92,6 +129,8 @@ pub fn preprocess_image(
     let (width, height) = img.dimensions();
     let current_ratio = width as f32 / height as f32;
     
+    info!("Input image: {}x{} (ratio={:.3})", width, height, current_ratio);
+
     // 3. Find nearest ratio
     let nearest = SUPPORTED_RATIOS
         .iter()
@@ -103,25 +142,10 @@ pub fn preprocess_image(
         })
         .ok_or("No supported ratios found")?;
 
-    println!("Matched ratio: {} (Target: {}x{})", nearest.name, nearest.target_width, nearest.target_height);
+    info!("Matched ratio: {} (target: {}x{})", nearest.name, nearest.target_width, nearest.target_height);
 
-    // 4. Resize and Crop/Pad
+    // 4. Resize and Pad
     let processed_img = match mode {
-        ResizeMode::Crop => {
-            let scale_w = nearest.target_width as f32 / width as f32;
-            let scale_h = nearest.target_height as f32 / height as f32;
-            let scale = scale_w.max(scale_h);
-
-            let new_w = (width as f32 * scale).round() as u32;
-            let new_h = (height as f32 * scale).round() as u32;
-
-            let resized = img.resize(new_w, new_h, image::imageops::FilterType::Lanczos3);
-            
-            let x = (new_w.saturating_sub(nearest.target_width)) / 2;
-            let y = (new_h.saturating_sub(nearest.target_height)) / 2;
-            
-            resized.crop_imm(x, y, nearest.target_width, nearest.target_height)
-        }
         ResizeMode::Pad => {
             let scaled = img.resize(nearest.target_width, nearest.target_height, image::imageops::FilterType::Lanczos3);
             let mut canvas = DynamicImage::new_rgb8(nearest.target_width, nearest.target_height);

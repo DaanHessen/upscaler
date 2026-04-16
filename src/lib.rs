@@ -2,9 +2,9 @@ pub mod auth;
 pub mod client;
 pub mod models;
 pub mod processor;
-pub mod prompts;
 pub mod storage;
 pub mod db;
+pub mod prompts;
 
 // Removed unused Arc import
 

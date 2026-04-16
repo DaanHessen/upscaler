@@ -5,8 +5,7 @@ use axum::{
 };
 use jsonwebtoken::{decode, decode_header, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
-use tracing::error;
-use base64::{engine::general_purpose, Engine as _};
+use tracing::{info, error, warn};
 use std::error::Error;
 use std::sync::Arc;
 use gcp_auth::{Token, TokenProvider};
@@ -49,7 +48,7 @@ where
     type Rejection = (StatusCode, String);
 
     async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, Self::Rejection> {
-        // 1. Extract Bearer token from headers
+        // 1. Extract Bearer token
         let auth_header = parts
             .headers
             .get(AUTHORIZATION)
@@ -57,66 +56,70 @@ where
             .ok_or((StatusCode::UNAUTHORIZED, "Missing Authorization header".to_string()))?;
 
         if !auth_header.starts_with("Bearer ") {
-            return Err((StatusCode::UNAUTHORIZED, "Invalid Authorization header".to_string()));
+            return Err((StatusCode::UNAUTHORIZED, "Invalid Authorization header format".to_string()));
         }
 
-        let token_str = auth_header[7..].to_string();
+        let token_str = &auth_header[7..];
 
-        // 2. Decode header to identify algorithm and key ID
-        let header = decode_header(&token_str).map_err(|e| {
-            (StatusCode::UNAUTHORIZED, format!("Header error: {}", e))
+        // 2. Decode the token header to determine algorithm and key ID
+        let header = decode_header(token_str).map_err(|e| {
+            error!("Failed to decode JWT header: {}", e);
+            (StatusCode::UNAUTHORIZED, format!("Malformed token header: {}", e))
         })?;
 
-        // 3. Extract AppState using FromRef
+        info!("JWT header: alg={:?}, kid={:?}", header.alg, header.kid);
+
         let app_state = Arc::<AppState>::from_ref(state);
 
-        // 4. Prepare DecodingKey based on the algorithm in the token header
+        // 3. Build the DecodingKey based on the token's algorithm
         let decoding_key = match header.alg {
             Algorithm::HS256 => {
+                // HS256: Use the Supabase JWT secret as raw bytes (it's a plain string, NOT base64)
                 let secret = &app_state.supabase_jwt_secret;
-                let secret_bytes = match general_purpose::STANDARD.decode(secret.trim().as_bytes()) {
-                    Ok(bytes) => bytes,
-                    Err(_) => secret.trim().as_bytes().to_vec(),
-                };
-                DecodingKey::from_secret(&secret_bytes)
+                info!("Using HS256 with JWT secret ({} bytes)", secret.len());
+                DecodingKey::from_secret(secret.as_bytes())
             }
-            Algorithm::ES256 | Algorithm::RS256 => {
-                let kid = header.kid.as_ref().ok_or((StatusCode::UNAUTHORIZED, "Missing kid in token header".to_string()))?;
-                let jwk = app_state.jwks.find(kid).ok_or_else(|| {
-                    (StatusCode::UNAUTHORIZED, format!("Key ID {} not found in JWKS", kid))
+            Algorithm::ES256 => {
+                // ES256: Look up the public key from JWKS by key ID
+                let kid = header.kid.as_ref().ok_or_else(|| {
+                    error!("ES256 token is missing 'kid' header field");
+                    (StatusCode::UNAUTHORIZED, "ES256 token missing key ID".to_string())
                 })?;
-                
-                // SURGICAL FIX: Strip the algorithm field from the JWK before parsing.
-                // This prevents jsonwebtoken from failing due to internal algorithm mismatches
-                // even when the key and token types are compatible.
-                let mut jwk_stripped = jwk.clone();
-                jwk_stripped.common.key_algorithm = None;
 
-                DecodingKey::from_jwk(&jwk_stripped).map_err(|e| {
-                    error!("DecodingKey creation failed: {}", e);
-                    (StatusCode::INTERNAL_SERVER_ERROR, "JWT configuration error".to_string())
+                let jwk = app_state.jwks.find(kid).ok_or_else(|| {
+                    error!("Key ID '{}' not found in JWKS (have {} keys)", kid, app_state.jwks.keys.len());
+                    (StatusCode::UNAUTHORIZED, format!("Unknown key ID: {}", kid))
+                })?;
+
+                // Strip the algorithm field from the JWK to prevent internal mismatches
+                // in the jsonwebtoken crate's key parsing logic.
+                let mut jwk_clean = jwk.clone();
+                jwk_clean.common.key_algorithm = None;
+
+                info!("Using ES256 with JWKS key (kid={})", kid);
+                DecodingKey::from_jwk(&jwk_clean).map_err(|e| {
+                    error!("Failed to create DecodingKey from JWK: {}", e);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "JWT key configuration error".to_string())
                 })?
             }
-            _ => return Err((StatusCode::UNAUTHORIZED, format!("Unsupported algorithm: {:?}", header.alg))),
+            other => {
+                warn!("Received token with unsupported algorithm: {:?}", other);
+                return Err((StatusCode::UNAUTHORIZED, format!("Unsupported algorithm: {:?}", other)));
+            }
         };
 
-        // 5. Configure validation settings
+        // 4. Validate — only allow the exact algorithm from the token header
         let mut validation = Validation::new(header.alg);
-        validation.validate_aud = false; 
-        
-        // Explicitly allow both symmetric and asymmetric algorithms
-        validation.algorithms = vec![Algorithm::HS256, Algorithm::ES256, Algorithm::RS256];
+        validation.validate_aud = false;
 
-        // 6. Final decode and signature verification
-        let token_data = decode::<Claims>(
-            &token_str,
-            &decoding_key,
-            &validation,
-        )
-        .map_err(|e| {
-            error!("JWT Validation Failed: {}", e);
-            (StatusCode::UNAUTHORIZED, format!("Invalid token: {}", e))
-        })?;
+        // 5. Decode and verify signature
+        let token_data = decode::<Claims>(token_str, &decoding_key, &validation)
+            .map_err(|e| {
+                error!("JWT verification failed (alg={:?}): {}", header.alg, e);
+                (StatusCode::UNAUTHORIZED, format!("Token verification failed: {}", e))
+            })?;
+
+        info!("JWT verified successfully for user: {}", token_data.claims.sub);
 
         Ok(JwtAuth {
             user_id: token_data.claims.sub,

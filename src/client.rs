@@ -3,6 +3,8 @@ use crate::models::{
 };
 use reqwest::Client;
 use std::error::Error;
+use std::time::Duration;
+use tracing::{info, error};
 
 pub struct VertexClient {
     http_client: Client,
@@ -12,8 +14,13 @@ pub struct VertexClient {
 
 impl VertexClient {
     pub fn new(project_id: String, location: String) -> Self {
+        let http_client = Client::builder()
+            .timeout(Duration::from_secs(120)) // Gemini image generation can take up to 90s
+            .build()
+            .expect("Failed to build HTTP client");
+
         Self {
-            http_client: Client::new(),
+            http_client,
             project_id,
             location,
         }
@@ -24,25 +31,28 @@ impl VertexClient {
         token: &str,
         request: GenerateContentRequest,
     ) -> Result<GenerateContentResponse, Box<dyn Error + Send + Sync>> {
-        let host = "aiplatform.googleapis.com";
-
         let url = format!(
-            "https://{}/v1/projects/{}/locations/{}/publishers/google/models/gemini-3-pro-image-preview:generateContent",
-            host, self.project_id, self.location
+            "https://aiplatform.googleapis.com/v1/projects/{}/locations/{}/publishers/google/models/gemini-3-pro-image-preview:generateContent",
+            self.project_id, self.location
         );
 
+        info!("Sending request to Gemini API...");
+
         let response = self.http_client
-            .post(url)
+            .post(&url)
             .bearer_auth(token)
             .json(&request)
             .send()
             .await?;
 
-        if !response.status().is_success() {
+        let status = response.status();
+        if !status.is_success() {
             let error_text = response.text().await?;
-            return Err(format!("API Error: {}", error_text).into());
+            error!("Gemini API error ({}): {}", status, error_text);
+            return Err(format!("Gemini API {} : {}", status, error_text).into());
         }
 
+        info!("Gemini API responded successfully");
         let result = response.json::<GenerateContentResponse>().await?;
         Ok(result)
     }

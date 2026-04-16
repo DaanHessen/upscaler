@@ -148,8 +148,8 @@ upscaleSubmit.addEventListener('click', async () => {
 
     // 2. Lock UI
     upscaleSubmit.disabled = true;
-    upscaleSubmit.innerHTML = `<span class="loading-spinner"></span> Processing AI Upscale...`;
-    showStatus("Sending to Gemini API...", "success-message");
+    upscaleSubmit.innerHTML = `<span class="loading-spinner"></span> Sending to server...`;
+    showStatus("Uploading Original Image...", "success-message");
 
     const formData = new FormData();
     formData.append("image", selectedFile);
@@ -174,20 +174,51 @@ upscaleSubmit.addEventListener('click', async () => {
 
         if (!response.ok) {
             const errText = await response.text();
-            throw new Error(errText || "Upscale failed");
+            throw new Error(errText || "Submission failed");
         }
 
         const data = await response.json();
+        const jobId = data.job_id;
         
-        // Success
-        resultImage.src = data.image_url;
-        resultContainer.classList.remove('hidden');
-        previewContainer.classList.add('hidden');
-        showStatus("Optimization Complete!", "success-message");
+        showStatus("In Queue...", "success-message");
+
+        const pollJob = async () => {
+            const res = await fetch(`/upscales/${jobId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!res.ok) {
+                throw new Error("Failed to poll status.");
+            }
+
+            const statusData = await res.json();
+
+            if (statusData.status === 'COMPLETED') {
+                resultImage.src = statusData.image_url;
+                resultContainer.classList.remove('hidden');
+                previewContainer.classList.add('hidden');
+                showStatus("Optimization Complete!", "success-message");
+                upscaleSubmit.disabled = false;
+                upscaleSubmit.innerText = "Start Upscale";
+            } else if (statusData.status === 'FAILED') {
+                throw new Error(statusData.error || "Vertex AI processing failed.");
+            } else {
+                if (statusData.status === 'PROCESSING') {
+                    upscaleSubmit.innerHTML = `<span class="loading-spinner"></span> Processing with Vertex AI...`;
+                    showStatus("Processing...", "success-message");
+                }
+                setTimeout(pollJob, 3000);
+            }
+        };
+
+        // Start polling loop
+        pollJob();
 
     } catch (err) {
         showStatus(`Error: ${err.message}`, "error-message");
-    } finally {
         upscaleSubmit.disabled = false;
         upscaleSubmit.innerText = "Start Upscale";
     }
