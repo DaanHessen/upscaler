@@ -19,29 +19,61 @@ pub fn init_nsfw() {
 pub fn is_nsfw(img: &DynamicImage) -> Result<bool, Box<dyn Error + Send + Sync>> {
     let model = NSFW_MODEL.get().ok_or("NSFW model not initialized")?;
     
-    // Parse image
     let rgba = img.to_rgba8();
-
     let result = examine(model, &rgba).map_err(|e| e.to_string())?;
     
     let mut porn = 0.0;
     let mut hentai = 0.0;
+    let mut sexy = 0.0;
+    let mut neutral = 0.0;
+    let mut drawing = 0.0;
 
     for class in &result {
         let name_lower = format!("{:?}", class.metric).to_lowercase();
         match name_lower.as_str() {
             "porn" => porn = class.score,
             "hentai" => hentai = class.score,
+            "sexy" => sexy = class.score,
+            "neutral" => neutral = class.score,
+            "drawing" | "drawings" => drawing = class.score,
             _ => {}
         }
     }
     
-    info!("NSFW Check - porn: {:.3}, hentai: {:.3}", porn, hentai);
-    
-    if porn > 0.6 || hentai > 0.6 {
+    info!("NSFW scores — porn: {:.3}, hentai: {:.3}, sexy: {:.3}, neutral: {:.3}, drawing: {:.3}", 
+        porn, hentai, sexy, neutral, drawing);
+
+    // --- Layered Decision Logic ---
+    //
+    // The local MobileNet classifier (OpenNSFW2) is highly prone to false positives
+    // on innocuous close-up skin images (feet, hands, shoulders, swimwear).
+    // Vertex AI has its own robust multi-modal safety system as the real gatekeeper.
+    // This local filter exists ONLY to save API costs by catching obviously explicit content.
+    //
+    // Strategy:
+    //   1. If neutral + drawing together account for >15% of the signal, it's extremely
+    //      unlikely to be actual porn — the model is just confused by skin tones.
+    //   2. Only block if a single category is near-certain (>0.99), OR if the combined
+    //      explicit signal (porn + hentai) dominates with >0.95 AND the safe categories
+    //      are nearly zero.
+
+    let safe_signal = neutral + drawing;
+    let explicit_signal = porn + hentai;
+
+    // Hard block: model is overwhelmingly confident in a single explicit category
+    if porn > 0.99 || hentai > 0.99 {
+        info!("NSFW BLOCKED — single category near-certain (porn={:.3}, hentai={:.3})", porn, hentai);
         return Ok(true);
     }
-    
+
+    // Combined block: strong explicit signal with almost no safe signal
+    if explicit_signal > 0.95 && safe_signal < 0.02 {
+        info!("NSFW BLOCKED — combined explicit={:.3}, safe={:.3}", explicit_signal, safe_signal);
+        return Ok(true);
+    }
+
+    // Everything else passes through — Vertex AI will catch anything we miss
+    info!("NSFW PASSED — explicit={:.3}, safe={:.3}", explicit_signal, safe_signal);
     Ok(false)
 }
 
@@ -82,54 +114,54 @@ const SUPPORTED_RATIOS: &[GeminiRatio] = &[
 pub struct ProcessedImage {
     pub base64_data: String,
     pub ratio_name: String,
-    pub style: ImageStyle,
+}
+
+/// Euclidean color distance between two RGB pixels. Returns a value 0..441 (sqrt(255²×3)).
+#[inline]
+fn color_distance(a: &image::Rgb<u8>, b: &image::Rgb<u8>) -> f32 {
+    let dr = a.0[0] as f32 - b.0[0] as f32;
+    let dg = a.0[1] as f32 - b.0[1] as f32;
+    let db = a.0[2] as f32 - b.0[2] as f32;
+    (dr * dr + dg * dg + db * db).sqrt()
 }
 
 pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle {
-    use imageproc::filter::laplacian_filter;
     use std::collections::HashSet;
     
-    let mut photo_score = 0.0;
-    let mut illustration_score = 0.0;
+    let mut photo_score: f32 = 0.0;
+    let mut illustration_score: f32 = 0.0;
 
-    // 1. Metadata Check (Definitive Signal)
+    // --- Signal 1: EXIF Metadata (Definitive for photography) ---
     if let Some(data) = raw_data {
         let mut cursor = std::io::Cursor::new(data);
         if let Ok(reader) = Reader::new().read_from_container(&mut cursor) {
-            let mut metadata_found = false;
             let camera_tags = [Tag::Make, Tag::Model, Tag::Software, Tag::DateTime];
-            for f in reader.fields() {
-                if camera_tags.contains(&f.tag) {
-                    metadata_found = true;
-                    break;
-                }
-            }
-            if metadata_found {
-                info!("Ensemble: EXIF camera metadata detected (+5.0 Photo)");
+            let has_camera_data = reader.fields().any(|f| camera_tags.contains(&f.tag));
+            if has_camera_data {
+                info!("Style: EXIF camera metadata detected (+5.0 Photo)");
                 photo_score += 5.0;
             }
         }
     }
 
-    // 2. Alpha Channel Check
+    // --- Signal 2: Alpha Channel / Transparency ---
     if img.color().has_alpha() {
         let rgba = img.to_rgba8();
-        // Check if many pixels have actual transparency
         let has_transparency = rgba.pixels().step_by(10).take(1000).any(|p| p.0[3] < 255);
         if has_transparency {
-            info!("Ensemble: Transparency detected (+3.0 Illustration)");
+            info!("Style: Transparency detected (+3.0 Illustration)");
             illustration_score += 3.0;
         }
     }
 
-    // 3. Shannon Entropy (Randomness/Complexity)
+    // --- Signal 3: Shannon Entropy ---
     let gray_img = img.to_luma8();
     let mut counts = [0usize; 256];
     for p in gray_img.pixels().step_by(4) {
         counts[p.0[0] as usize] += 1;
     }
     let total_samples = counts.iter().sum::<usize>() as f32;
-    let mut entropy = 0.0;
+    let mut entropy: f32 = 0.0;
     if total_samples > 0.0 {
         for &count in counts.iter() {
             if count > 0 {
@@ -139,26 +171,20 @@ pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle 
         }
     }
 
-    // 4. Sharpness (Laplacian Variance)
-    let laplacian = laplacian_filter(&gray_img);
-    let pixels: Vec<f32> = laplacian.pixels().step_by(2).map(|p| p.0[0] as f32).collect();
-    let n = pixels.len() as f32;
-    let variance = if n > 0.0 {
-        let mean = pixels.iter().sum::<f32>() / n;
-        pixels.iter().map(|&p| (p - mean).powi(2)).sum::<f32>() / n
-    } else {
-        0.0
-    };
-
-    // 5. Flatness (Digital Cleanliness)
     let (w, h) = img.dimensions();
     let sample_step = (w / 100).max(1).min(h / 100).max(1);
-    let mut flat_count = 0;
-    let mut samples = 0;
     let rgb = img.to_rgb8();
-    for y in (0..h-1).step_by(sample_step as usize) {
-        for x in (0..w-1).step_by(sample_step as usize) {
-            if rgb.get_pixel(x, y) == rgb.get_pixel(x + 1, y) {
+
+    // --- Signal 4: Fuzzy Flatness (adjacent pixel similarity) ---
+    // V6 used exact `==` which fails on JPEG-compressed art. Now uses a color
+    // distance threshold. 8.0 tolerates JPEG artifacts in real art without
+    // making compressed photo gradients (sky, fog) register as "flat".
+    const FLAT_THRESHOLD: f32 = 8.0;
+    let mut flat_count = 0u64;
+    let mut samples = 0u64;
+    for y in (0..h.saturating_sub(1)).step_by(sample_step as usize) {
+        for x in (0..w.saturating_sub(1)).step_by(sample_step as usize) {
+            if color_distance(rgb.get_pixel(x, y), rgb.get_pixel(x + 1, y)) < FLAT_THRESHOLD {
                 flat_count += 1;
             }
             samples += 1;
@@ -166,33 +192,205 @@ pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle 
     }
     let flatness = if samples > 0 { flat_count as f32 / samples as f32 } else { 0.0 };
 
-    // 6. Color Diversity
-    let mut colors = HashSet::with_capacity(1000);
+    // --- Signal 5: Quantized Color Palette ---
+    // Instead of counting raw unique RGB triples (inflated by JPEG noise), quantize
+    // to 4-bit per channel (16×16×16 = 4096 bins). Illustrations cluster into far
+    // fewer quantized bins than photographs.
+    let mut quant_colors = HashSet::with_capacity(512);
+    let mut raw_colors = HashSet::with_capacity(1000);
     for y in (0..h).step_by((sample_step * 2) as usize) {
         for x in (0..w).step_by((sample_step * 2) as usize) {
-            colors.insert(rgb.get_pixel(x, y));
-            if colors.len() > 5000 { break; } 
+            let px = rgb.get_pixel(x, y);
+            raw_colors.insert(*px);
+            // Quantize to 4-bit per channel
+            let qr = px.0[0] >> 4;
+            let qg = px.0[1] >> 4;
+            let qb = px.0[2] >> 4;
+            quant_colors.insert((qr, qg, qb));
+            if raw_colors.len() > 5000 { break; }
         }
     }
-    let color_count = colors.len();
+    let color_count = raw_colors.len();
+    let quantized_color_count = quant_colors.len();
 
-    // 7. Scoring Logic V5
-    // Entropy is the strongest photo signal (photos > 7.0, art < 6.0)
-    if entropy > 7.2 { photo_score += 2.0; }
-    if entropy < 6.5 { illustration_score += 1.5; }
+    // --- Signal 6: Fuzzy Pixel Art Grid Detection ---
+    // V6 used exact `==` for grid matching which always fails on JPEG pixel art.
+    // Now uses color distance threshold to tolerate JPEG compression artifacts.
+    const GRID_THRESHOLD: f32 = 20.0;
+    let mut grid_matches = 0u64;
+    let mut grid_samples = 0u64;
+    let grid_step = sample_step.max(2) as usize;
+    for y in (0..h.saturating_sub(2)).step_by(grid_step) {
+        for x in (0..w.saturating_sub(2)).step_by(grid_step) {
+            let p1 = rgb.get_pixel(x, y);
+            let p2 = rgb.get_pixel(x + 2, y);
+            if color_distance(p1, p2) < GRID_THRESHOLD {
+                grid_matches += 1;
+            }
+            grid_samples += 1;
+        }
+    }
+    let grid_uniformity = if grid_samples > 0 { grid_matches as f32 / grid_samples as f32 } else { 0.0 };
+
+    // --- Signal 7: Gradient Magnitude Distribution ---
+    // Photos have smooth, continuous gradient distributions. Illustrations have a
+    // bimodal distribution: many pixels with ~0 gradient (flat fills) and spikes at
+    // high gradients (hard edges). We measure this as the ratio of "near-zero gradient"
+    // pixels to total — a high ratio means lots of flat fills (illustration signal).
+    let mut grad_zero_count = 0u64;
+    let mut grad_high_count = 0u64;
+    let mut grad_samples = 0u64;
+    for y in (1..h.saturating_sub(1)).step_by(sample_step as usize) {
+        for x in (1..w.saturating_sub(1)).step_by(sample_step as usize) {
+            let center = gray_img.get_pixel(x, y).0[0] as f32;
+            let right  = gray_img.get_pixel(x + 1, y).0[0] as f32;
+            let below  = gray_img.get_pixel(x, y + 1).0[0] as f32;
+            let grad_mag = ((right - center).powi(2) + (below - center).powi(2)).sqrt();
+            
+            if grad_mag < 3.0 {
+                grad_zero_count += 1;
+            } else if grad_mag > 40.0 {
+                grad_high_count += 1;
+            }
+            grad_samples += 1;
+        }
+    }
+    let grad_flat_ratio = if grad_samples > 0 { grad_zero_count as f32 / grad_samples as f32 } else { 0.0 };
+    let grad_edge_ratio = if grad_samples > 0 { grad_high_count as f32 / grad_samples as f32 } else { 0.0 };
+
+    // --- Signal 8: Saturation Variance ---
+    // Photos have naturally varying saturation across the image. Illustrations tend to
+    // use uniform, deliberately-chosen saturations within their flat color regions.
+    // Low saturation variance = illustration signal.
+    let mut sat_sum = 0.0f64;
+    let mut sat_sq_sum = 0.0f64;
+    let mut sat_samples = 0u64;
+    for y in (0..h).step_by((sample_step * 2) as usize) {
+        for x in (0..w).step_by((sample_step * 2) as usize) {
+            let px = rgb.get_pixel(x, y);
+            let r = px.0[0] as f32 / 255.0;
+            let g = px.0[1] as f32 / 255.0;
+            let b = px.0[2] as f32 / 255.0;
+            let max_c = r.max(g).max(b);
+            let min_c = r.min(g).min(b);
+            let sat = if max_c > 0.0 { (max_c - min_c) / max_c } else { 0.0 };
+            sat_sum += sat as f64;
+            sat_sq_sum += (sat * sat) as f64;
+            sat_samples += 1;
+        }
+    }
+    let sat_mean = if sat_samples > 0 { sat_sum / sat_samples as f64 } else { 0.0 };
+    let sat_variance = if sat_samples > 1 {
+        (sat_sq_sum / sat_samples as f64 - sat_mean * sat_mean).max(0.0)
+    } else { 0.0 };
+
+    // --- Signal 9: NSFW model drawing score (free — already computed if available) ---
+    // We can leverage the NSFW model's "drawings" classification as a side signal.
+    // Skipped if model isn't loaded (it's not critical).
+    let mut nsfw_drawing_score: f32 = 0.0;
+    if let Some(model) = NSFW_MODEL.get() {
+        let rgba = img.to_rgba8();
+        if let Ok(result) = examine(model, &rgba) {
+            for class in &result {
+                let name_lower = format!("{:?}", class.metric).to_lowercase();
+                if name_lower == "drawing" || name_lower == "drawings" {
+                    nsfw_drawing_score = class.score;
+                }
+            }
+        }
+    }
+
+    // ===================================================================
+    // Scoring Logic V7.1 — cross-validated signals to prevent false positives
+    // ===================================================================
     
-    // Flatness (The Neutral Zone)
-    if flatness > 0.40 { illustration_score += 3.0; } // Heavy illustration
-    else if flatness > 0.25 { illustration_score += 1.0; } // Likely illustration/high compression
-    else if flatness < 0.08 { photo_score += 1.5; } // Natural grain
+    // --- Entropy signals ---
+    if entropy > 7.2 {
+        photo_score += 2.0;
+    }
 
-    // Combinations
-    if color_count > 4000 && entropy > 7.0 { photo_score += 2.0; }
-    if color_count < 1000 && flatness > 0.15 { illustration_score += 2.0; }
+    // Low entropy + high flatness = classic illustration (flat fills)
+    if entropy < 5.5 && flatness > 0.50 {
+        illustration_score += 3.0;
+    } else if entropy < 6.0 && flatness > 0.60 {
+        illustration_score += 2.0;
+    }
 
-    info!("Ensemble V5 - Entropy: {:.2}, Flat: {:.2}, Colors: {}, Var: {:.1}", 
-        entropy, flatness, color_count, variance);
-    info!("Total Scores - Photo: {:.1}, Illustration: {:.1}", photo_score, illustration_score);
+    // --- Flatness signals (thresholds raised because fuzzy matching inflates scores) ---
+    // With fuzzy matching (threshold=8), even photo gradients score ~0.3-0.5 flatness.
+    // Real illustrations with flat fills score 0.6+. Require higher bar.
+    if flatness > 0.60 && entropy < 6.5 {
+        illustration_score += 2.5;
+    } else if flatness > 0.60 && entropy >= 6.5 {
+        // High flatness + high entropy = compressed photo with gradients, NOT illustration
+        photo_score += 1.0;
+    }
+    
+    if flatness < 0.15 {
+        photo_score += 1.5;
+    }
+
+    // --- Pixel art detection (now with fuzzy grid matching) ---
+    if grid_uniformity > 0.50 && flatness > 0.20 && entropy < 7.0 {
+        info!("Style: Pixel art grid pattern detected (uniformity={:.2})", grid_uniformity);
+        illustration_score += 3.0;
+    }
+
+    // --- Gradient bimodality (cross-validated against entropy) ---
+    // Photos with big skies/dark areas have high grad_flat_ratio too, but they
+    // also have high entropy from sensor noise. Real illustrations have flat
+    // gradients AND low entropy. Only fire this signal when entropy corroborates.
+    if grad_flat_ratio > 0.65 && grad_edge_ratio > 0.03 && entropy < 7.0 {
+        info!("Style: Gradient bimodality detected (flat={:.2}, edge={:.2}, entropy={:.2}) — illustration signal", 
+            grad_flat_ratio, grad_edge_ratio, entropy);
+        illustration_score += 3.0;
+    } else if grad_flat_ratio > 0.55 && grad_edge_ratio > 0.02 && entropy < 6.5 {
+        illustration_score += 1.5;
+    } else if grad_flat_ratio < 0.30 {
+        // Very few flat gradient regions = continuous photographic texture
+        photo_score += 1.5;
+    }
+
+    // --- Quantized palette clustering (cross-validated against entropy) ---
+    // Photos with muted/monochrome palettes can have low quantized colors too,
+    // so require entropy corroboration.
+    if quantized_color_count < 80 && entropy < 6.5 {
+        info!("Style: Low quantized palette ({} bins, entropy={:.2}) — strong illustration signal", quantized_color_count, entropy);
+        illustration_score += 3.0;
+    } else if quantized_color_count < 200 && entropy < 6.5 {
+        illustration_score += 1.5;
+    } else if quantized_color_count > 800 {
+        photo_score += 1.5;
+    }
+
+    // --- Saturation variance (cross-validated against entropy) ---
+    // Low sat_variance in photos happens with monochrome/muted shots (fog, B&W).
+    // Only count as illustration signal if entropy also supports it.
+    if sat_variance < 0.008 && sat_mean > 0.05 && entropy < 6.5 {
+        info!("Style: Low saturation variance ({:.4}, entropy={:.2}) — illustration signal", sat_variance, entropy);
+        illustration_score += 2.0;
+    } else if sat_variance > 0.04 {
+        photo_score += 1.0;
+    }
+
+    // --- Legacy color + entropy combos ---
+    if color_count > 4000 && entropy > 7.0 {
+        photo_score += 2.0;
+    }
+    if color_count < 1000 && flatness > 0.15 {
+        illustration_score += 2.0;
+    }
+
+    // --- NSFW model drawing classifier as tiebreaker ---
+    if nsfw_drawing_score > 0.70 {
+        illustration_score += 1.5;
+    } else if nsfw_drawing_score > 0.40 {
+        illustration_score += 0.5;
+    }
+
+    info!("Ensemble V7.1 — Entropy: {:.2}, Flat: {:.2}, Colors: {} (quant: {}), Grid: {:.2}, GradFlat: {:.2}, GradEdge: {:.2}, SatVar: {:.4}, DrawingML: {:.2}", 
+        entropy, flatness, color_count, quantized_color_count, grid_uniformity, grad_flat_ratio, grad_edge_ratio, sat_variance, nsfw_drawing_score);
+    info!("Total Scores — Photo: {:.1}, Illustration: {:.1}", photo_score, illustration_score);
 
     if photo_score >= illustration_score {
         info!("Final Verdict: PHOTOGRAPHY");
@@ -246,10 +444,7 @@ pub fn preprocess_image(
         }
     };
 
-    // 5. Style Analysis
-    let style = analyze_style(&img, Some(&data));
-
-    // 6. Encode to Base64 (for Gemini request)
+    // 5. Encode to Base64 (for Gemini request)
     let mut buffer = Cursor::new(Vec::new());
     let jpeg_encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 95);
     processed_img.write_with_encoder(jpeg_encoder)?;
@@ -259,6 +454,5 @@ pub fn preprocess_image(
     Ok(ProcessedImage {
         base64_data,
         ratio_name: nearest.name.to_string(),
-        style,
     })
 }

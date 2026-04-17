@@ -37,6 +37,13 @@ use upscaler::AppState;
 struct SubmitResponse {
     success: bool,
     job_id: Uuid,
+    final_style: String,
+}
+
+#[derive(Serialize)]
+struct ModerateResponse {
+    nsfw: bool,
+    detected_style: String,
 }
 
 #[derive(Serialize)]
@@ -136,6 +143,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     // Authenticated + rate-limited routes
     let api_routes = Router::new()
         .route("/health", get(health_check))
+        .route("/moderate", post(moderate_handler))
         .route("/upscale", post(upscale_handler))
         .route("/upscales/:job_id", get(poll_upscale_handler))
         .route("/history", get(history_handler))
@@ -173,6 +181,51 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
 async fn health_check() -> impl IntoResponse {
     Json(serde_json::json!({ "status": "healthy" }))
+}
+
+async fn moderate_handler(
+    State(_state): State<Arc<AppState>>,
+    jwt: JwtAuth,
+    mut multipart: Multipart,
+) -> impl IntoResponse {
+    // Validate user, but don't strictly require DB presence just for moderation check
+    if Uuid::parse_str(&jwt.user_id).is_err() {
+        return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response();
+    }
+
+    let mut image_data = None;
+    while let Ok(Some(field)) = multipart.next_field().await {
+        if field.name() == Some("image") {
+            image_data = field.bytes().await.ok();
+            break; // We only need the image for this endpoint
+        }
+    }
+
+    let data = match image_data {
+        Some(d) => d.to_vec(),
+        None => return err_json(StatusCode::BAD_REQUEST, "Missing 'image' field").into_response(),
+    };
+
+    let img = match image::load_from_memory(&data) {
+        Ok(i) => i,
+        Err(e) => {
+            error!("Failed to decode image for moderation: {}", e);
+            return err_json(StatusCode::BAD_REQUEST, "Invalid image data").into_response();
+        }
+    };
+
+    let is_explicit = is_nsfw(&img).unwrap_or(false);
+
+    let detected_style = analyze_style(&img, Some(&data));
+    let style_str = match detected_style {
+        ImageStyle::Illustration => "ILLUSTRATION",
+        ImageStyle::Photography => "PHOTOGRAPHY",
+    };
+
+    (StatusCode::OK, Json(ModerateResponse {
+        nsfw: is_explicit,
+        detected_style: style_str.to_string(),
+    })).into_response()
 }
 
 // --- Credit & Stripe Handlers ---
@@ -410,6 +463,7 @@ async fn upscale_handler(
     let mut image_data = None;
     let mut temperature_raw: Option<String> = None;
     let mut quality_raw: Option<String> = None;
+    let mut style_override_raw: Option<String> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
@@ -421,6 +475,9 @@ async fn upscale_handler(
             }
             Some("quality") => {
                 quality_raw = field.text().await.ok();
+            }
+            Some("style") => {
+                style_override_raw = field.text().await.ok();
             }
             _ => {} // Ignore unknown fields
         }
@@ -458,7 +515,7 @@ async fn upscale_handler(
         None => DEFAULT_QUALITY.to_string(),
     };
 
-    info!("Parameters: temperature={}, quality={}", temperature, quality);
+    info!("Parameters: temperature={}, quality={}, style_override={:?}", temperature, quality, style_override_raw);
 
     // --- Credit pre-flight check ---
     // Ensure user exists in public.users
@@ -493,14 +550,22 @@ async fn upscale_handler(
         }
     }
 
-    // 0.1 Style Analysis
-    let detected_style = analyze_style(&img, Some(&data));
-    let style_str = match detected_style {
-        ImageStyle::Illustration => "ILLUSTRATION",
-        ImageStyle::Photography => "PHOTOGRAPHY",
+    // 0.1 Style Resolution logic
+    // Determine the style to use. Priority: User override > Auto detection
+    let style_str = match style_override_raw.as_deref().unwrap_or("AUTO").to_uppercase().as_str() {
+        "ILLUSTRATION" => "ILLUSTRATION",
+        "PHOTOGRAPHY" => "PHOTOGRAPHY",
+        _ => {
+            // Fallback to auto-detection if "AUTO" or invalid value provided
+            let detected_style = analyze_style(&img, Some(&data));
+            match detected_style {
+                ImageStyle::Illustration => "ILLUSTRATION",
+                ImageStyle::Photography => "PHOTOGRAPHY",
+            }
+        }
     };
 
-    info!("Received clean {} upload from user {} ({} bytes)", style_str, user_id, data.len());
+    info!("Received clean upload from user {} (size: {} bytes). Final Style Strategy: {}", user_id, data.len(), style_str);
 
     // --- Atomic credit deduction (before any heavy processing) ---
     // This uses SELECT ... FOR UPDATE to prevent double-spending
@@ -563,9 +628,9 @@ async fn upscale_handler(
         error!("Failed to set credits_charged on job {}: {}", job_id, e);
     }
 
-    info!("Job {} enqueued for user {} (temp={}, quality={}, cost={})", job_id, user_id, temperature, quality, credit_cost);
+    info!("Job {} enqueued for user {} (style={}, temp={}, quality={}, cost={})", job_id, user_id, style_str, temperature, quality, credit_cost);
 
-    (StatusCode::ACCEPTED, Json(SubmitResponse { success: true, job_id })).into_response()
+    (StatusCode::ACCEPTED, Json(SubmitResponse { success: true, job_id, final_style: style_str.to_string() })).into_response()
 }
 
 // --- Queue Worker ---
@@ -689,6 +754,17 @@ async fn process_upscale_job(state: &Arc<AppState>, job: &upscaler::db::UpscaleR
         .ok_or("No image data in Gemini response")?;
 
     let image_bytes = general_purpose::STANDARD.decode(&inline_data.data)?;
+
+    if candidate.finish_reason == "SAFETY" {
+        return Err("Image rejected by internal safety filters.".into());
+    }
+
+    // Google Vertex AI sometimes returns a 64x64 pure black image bypass instead of explicitly tagging SAFETY
+    if let Ok(generated_img) = image::load_from_memory(&image_bytes) {
+        if generated_img.width() == 64 && generated_img.height() == 64 {
+            return Err("Image rejected by internal safety filters.".into());
+        }
+    }
 
     // 5. Upload result back
     let processed_id = Uuid::new_v4();

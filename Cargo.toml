@@ -43,3 +43,10 @@ path = "test/validator.rs"
 [[bin]]
 name = "exploit-test"
 path = "test/exploit_test.rs"
+
+[[bin]]
+name = "single-nsfw-test"
+path = "test/single_nsfw_test.rs"
+[[bin]]
+name = "image-tester"
+path = "test/classifier_summary.rs"

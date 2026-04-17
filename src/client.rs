@@ -48,8 +48,8 @@ impl VertexClient {
         let status = response.status();
         if !status.is_success() {
             let error_text = response.text().await?;
-            error!("Gemini API error ({}): {}", status, error_text);
-            return Err(format!("Gemini API {} : {}", status, error_text).into());
+            error!("Upstream AI provider error ({}): {}", status, error_text);
+            return Err("An internal processing error occurred while generating the image.".into());
         }
 
         info!("Gemini API responded successfully");
