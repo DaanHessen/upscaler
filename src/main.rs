@@ -1,5 +1,6 @@
 use upscaler::auth::{AuthProvider, JwtAuth};
 use upscaler::client::VertexClient;
+use upscaler::credits;
 use upscaler::storage::StorageService;
 use upscaler::db::DbService;
 use upscaler::models::{
@@ -15,8 +16,9 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use uuid::Uuid;
 use axum::{
+    body::Bytes,
     extract::{DefaultBodyLimit, Multipart, State, Path},
-    http::StatusCode,
+    http::{StatusCode, HeaderMap},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
@@ -24,8 +26,8 @@ use axum::{
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::cors::CorsLayer;
 use tower_http::services::ServeDir;
-use serde::Serialize;
-use tracing::{info, error};
+use serde::{Serialize, Deserialize};
+use tracing::{info, error, warn};
 
 use upscaler::AppState;
 
@@ -130,15 +132,28 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             .unwrap(),
     );
 
-    let app = Router::new()
+    // --- Routes ---
+    // Authenticated + rate-limited routes
+    let api_routes = Router::new()
         .route("/health", get(health_check))
         .route("/upscale", post(upscale_handler))
         .route("/upscales/:job_id", get(poll_upscale_handler))
         .route("/history", get(history_handler))
+        .route("/balance", get(balance_handler))
+        .route("/checkout", post(checkout_handler))
         .layer(DefaultBodyLimit::max(15 * 1024 * 1024)) // 15MB
         .layer(GovernorLayer { config: governor_conf })
+        .with_state(state.clone());
+
+    // Stripe webhook — NO auth, NO rate-limit (Stripe sends raw JSON with its own signature)
+    let webhook_routes = Router::new()
+        .route("/stripe/webhook", post(stripe_webhook_handler))
+        .with_state(state.clone());
+
+    let app = Router::new()
+        .merge(api_routes)
+        .merge(webhook_routes)
         .layer(CorsLayer::permissive())
-        .with_state(state)
         .fallback_service(ServeDir::new("frontend"));
 
     let addr = SocketAddr::from(([0, 0, 0, 0], port));
@@ -158,6 +173,160 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
 async fn health_check() -> impl IntoResponse {
     Json(serde_json::json!({ "status": "healthy" }))
+}
+
+// --- Credit & Stripe Handlers ---
+
+async fn balance_handler(
+    State(state): State<Arc<AppState>>,
+    jwt: JwtAuth,
+) -> impl IntoResponse {
+    let user_id = match Uuid::parse_str(&jwt.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+    };
+
+    // Auto-create user row if first visit
+    if let Err(e) = credits::ensure_user_exists(state.db.pool(), user_id).await {
+        error!("Failed to ensure user exists: {}", e);
+        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+    }
+
+    match credits::get_balance(state.db.pool(), user_id).await {
+        Ok(balance) => (StatusCode::OK, Json(serde_json::json!({
+            "credits": balance
+        }))).into_response(),
+        Err(e) => {
+            error!("Failed to fetch balance for user {}: {}", user_id, e);
+            err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch balance").into_response()
+        }
+    }
+}
+
+#[derive(Deserialize)]
+struct CheckoutRequest {
+    tier: String,
+}
+
+async fn checkout_handler(
+    State(state): State<Arc<AppState>>,
+    jwt: JwtAuth,
+    Json(body): Json<CheckoutRequest>,
+) -> impl IntoResponse {
+    let user_id = match Uuid::parse_str(&jwt.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+    };
+
+    // Ensure user exists before checkout
+    if let Err(e) = credits::ensure_user_exists(state.db.pool(), user_id).await {
+        error!("Failed to ensure user exists: {}", e);
+        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+    }
+
+    // Build success/cancel URLs from the request origin
+    let base_url = env::var("PUBLIC_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+    let success_url = format!("{}/?payment=success", base_url);
+    let cancel_url = format!("{}/?payment=cancelled", base_url);
+
+    match upscaler::stripe::create_checkout_session(
+        &body.tier,
+        &jwt.user_id,
+        &success_url,
+        &cancel_url,
+    ).await {
+        Ok(url) => (StatusCode::OK, Json(serde_json::json!({
+            "url": url
+        }))).into_response(),
+        Err(e) => {
+            error!("Stripe checkout failed for user {}: {}", user_id, e);
+            err_json(StatusCode::INTERNAL_SERVER_ERROR, &format!("Checkout failed: {}", e)).into_response()
+        }
+    }
+}
+
+async fn stripe_webhook_handler(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> impl IntoResponse {
+    // 1. Extract the Stripe-Signature header
+    let sig_header = match headers.get("stripe-signature").and_then(|v| v.to_str().ok()) {
+        Some(s) => s.to_string(),
+        None => {
+            warn!("Stripe webhook: missing Stripe-Signature header");
+            return (StatusCode::BAD_REQUEST, "Missing signature").into_response();
+        }
+    };
+
+    // 2. Get webhook secret
+    let webhook_secret = match env::var("STRIPE_WEBHOOK_SECRET") {
+        Ok(s) => s,
+        Err(_) => {
+            error!("STRIPE_WEBHOOK_SECRET not configured");
+            return (StatusCode::INTERNAL_SERVER_ERROR, "Webhook not configured").into_response();
+        }
+    };
+
+    // 3. Verify signature (anti-spoofing + anti-replay)
+    if let Err(e) = upscaler::stripe::verify_webhook_signature(&body, &sig_header, &webhook_secret) {
+        error!("Stripe webhook signature verification failed: {}", e);
+        return (StatusCode::UNAUTHORIZED, "Invalid signature").into_response();
+    }
+
+    // 4. Parse the event
+    let payload: serde_json::Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to parse webhook payload: {}", e);
+            return (StatusCode::BAD_REQUEST, "Invalid JSON").into_response();
+        }
+    };
+
+    let event_type = payload.get("type").and_then(|v| v.as_str()).unwrap_or("unknown");
+    info!("Stripe webhook received: {}", event_type);
+
+    // 5. Only process checkout.session.completed
+    if event_type != "checkout.session.completed" {
+        // Acknowledge but ignore other event types
+        return (StatusCode::OK, "Event ignored").into_response();
+    }
+
+    // 6. Parse checkout data
+    let checkout = match upscaler::stripe::parse_checkout_completed(&payload) {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Failed to parse checkout event: {}", e);
+            return (StatusCode::BAD_REQUEST, "Invalid checkout event").into_response();
+        }
+    };
+
+    // 7. Parse user ID
+    let user_id = match Uuid::parse_str(&checkout.user_id) {
+        Ok(id) => id,
+        Err(_) => {
+            error!("Invalid user_id in checkout metadata: {}", checkout.user_id);
+            return (StatusCode::BAD_REQUEST, "Invalid user ID").into_response();
+        }
+    };
+
+    // 8. Add credits (with replay protection via unique index)
+    match credits::add_credits(
+        state.db.pool(),
+        user_id,
+        checkout.credits,
+        &checkout.session_id,
+    ).await {
+        Ok(()) => {
+            info!("Webhook processed: {} credits added to user {} (session: {})", 
+                checkout.credits, user_id, checkout.session_id);
+            (StatusCode::OK, "Credits added").into_response()
+        }
+        Err(e) => {
+            error!("Failed to add credits for session {}: {}", checkout.session_id, e);
+            (StatusCode::INTERNAL_SERVER_ERROR, "Failed to process payment").into_response()
+        }
+    }
 }
 
 async fn history_handler(
@@ -222,6 +391,12 @@ async fn poll_upscale_handler(
     (StatusCode::OK, Json(response)).into_response()
 }
 
+/// Valid quality tiers that map directly to Gemini's imageSize parameter
+const VALID_QUALITIES: &[&str] = &["1K", "2K", "4K"];
+const DEFAULT_QUALITY: &str = "2K";
+const DEFAULT_TEMPERATURE: f32 = 0.0;
+const MAX_TEMPERATURE: f32 = 2.0;
+
 async fn upscale_handler(
     State(state): State<Arc<AppState>>,
     jwt: JwtAuth,
@@ -233,11 +408,21 @@ async fn upscale_handler(
     };
 
     let mut image_data = None;
+    let mut temperature_raw: Option<String> = None;
+    let mut quality_raw: Option<String> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
-        if field.name() == Some("image") {
-            image_data = field.bytes().await.ok();
-            break;
+        match field.name() {
+            Some("image") => {
+                image_data = field.bytes().await.ok();
+            }
+            Some("temperature") => {
+                temperature_raw = field.text().await.ok();
+            }
+            Some("quality") => {
+                quality_raw = field.text().await.ok();
+            }
+            _ => {} // Ignore unknown fields
         }
     }
 
@@ -245,6 +430,44 @@ async fn upscale_handler(
         Some(d) => d.to_vec(),
         None => return err_json(StatusCode::BAD_REQUEST, "Missing 'image' field").into_response(),
     };
+
+    // --- Server-side parameter validation (anti-tamper) ---
+
+    // Temperature: parse, clamp to [0.0, 2.0], snap to 0.1 step
+    let temperature = match &temperature_raw {
+        Some(t) => {
+            let parsed: f32 = t.parse().unwrap_or(DEFAULT_TEMPERATURE);
+            let clamped = parsed.clamp(0.0, MAX_TEMPERATURE);
+            (clamped * 10.0).round() / 10.0 // Snap to 0.1 step
+        }
+        None => DEFAULT_TEMPERATURE,
+    };
+
+    // Quality: validate against allowed values
+    let quality = match &quality_raw {
+        Some(q) => {
+            let upper = q.trim().to_uppercase();
+            if VALID_QUALITIES.contains(&upper.as_str()) {
+                upper
+            } else {
+                return err_json(StatusCode::BAD_REQUEST, 
+                    &format!("Invalid quality '{}'. Must be one of: 1K, 2K, 4K", q)
+                ).into_response();
+            }
+        }
+        None => DEFAULT_QUALITY.to_string(),
+    };
+
+    info!("Parameters: temperature={}, quality={}", temperature, quality);
+
+    // --- Credit pre-flight check ---
+    // Ensure user exists in public.users
+    if let Err(e) = credits::ensure_user_exists(state.db.pool(), user_id).await {
+        error!("Failed to ensure user exists: {}", e);
+        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+    }
+
+    let credit_cost = credits::calculate_cost(&quality);
 
     // Decode image once for both NSFW and Style analysis
     let img = match image::load_from_memory(&data) {
@@ -279,25 +502,68 @@ async fn upscale_handler(
 
     info!("Received clean {} upload from user {} ({} bytes)", style_str, user_id, data.len());
 
+    // --- Atomic credit deduction (before any heavy processing) ---
+    // This uses SELECT ... FOR UPDATE to prevent double-spending
+    let deduct_result = credits::deduct_credits(
+        state.db.pool(),
+        user_id,
+        credit_cost,
+        Uuid::nil(), // temporary — will be replaced with actual job_id after insert
+    ).await;
+
+    match deduct_result {
+        Ok(new_balance) => {
+            info!("Charged {} credits for user {} (remaining: {})", credit_cost, user_id, new_balance);
+        }
+        Err(e) => {
+            let msg = e.to_string();
+            if msg.contains("Insufficient credits") {
+                return (StatusCode::PAYMENT_REQUIRED, Json(ErrorResponse {
+                    success: false,
+                    error: format!("Insufficient credits. This upscale costs {} credits. Please purchase more.", credit_cost),
+                })).into_response();
+            }
+            error!("Credit deduction failed for user {}: {}", user_id, e);
+            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to process credits").into_response();
+        }
+    }
+
     let original_id = Uuid::new_v4();
     let original_path = format!("{}/originals/{}.png", user_id, original_id);
 
     // 1. Upload original to S3 synchronously to avoid race condition with the Queue Worker
     if let Err(e) = state.storage.upload_object(&original_path, data, "image/png").await {
         error!("Failed to save original image: {}", e);
+        // Refund credits on upload failure
+        if let Err(refund_err) = credits::refund_credits(state.db.pool(), user_id, credit_cost, Uuid::nil()).await {
+            error!("CRITICAL: Failed to refund {} credits to user {} after upload failure: {}", credit_cost, user_id, refund_err);
+        }
         return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to upload image").into_response();
     }
 
-    // 2. Insert into queue as PENDING
-    let job_id = match state.db.insert_job(user_id, &original_path, style_str).await {
+    // 2. Insert into queue as PENDING (with credits_charged for refund tracking)
+    let job_id = match state.db.insert_job(user_id, &original_path, style_str, temperature, &quality).await {
         Ok(id) => id,
         Err(e) => {
             error!("Failed to insert job into database: {}", e);
+            // Refund credits on queue insertion failure
+            if let Err(refund_err) = credits::refund_credits(state.db.pool(), user_id, credit_cost, Uuid::nil()).await {
+                error!("CRITICAL: Failed to refund {} credits to user {} after DB failure: {}", credit_cost, user_id, refund_err);
+            }
             return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to enqueue job").into_response();
         }
     };
 
-    info!("Job {} enqueued for user {}", job_id, user_id);
+    // Update the job with credits_charged for refund tracking
+    if let Err(e) = sqlx::query("UPDATE upscales SET credits_charged = $1 WHERE id = $2")
+        .bind(credit_cost)
+        .bind(job_id)
+        .execute(state.db.pool())
+        .await {
+        error!("Failed to set credits_charged on job {}: {}", job_id, e);
+    }
+
+    info!("Job {} enqueued for user {} (temp={}, quality={}, cost={})", job_id, user_id, temperature, quality, credit_cost);
 
     (StatusCode::ACCEPTED, Json(SubmitResponse { success: true, job_id })).into_response()
 }
@@ -328,6 +594,18 @@ async fn queue_worker(state: Arc<AppState>) {
                         error!("Job {} failed: {}", job.id, e);
                         if let Err(db_err) = state_clone.db.update_job_failed(job.id, &e.to_string()).await {
                             error!("Failed to update job status to FAILED for {}: {}", job.id, db_err);
+                        }
+                        // Refund credits on processing failure
+                        if job.credits_charged > 0 {
+                            info!("Refunding {} credits to user {} for failed job {}", job.credits_charged, job.user_id, job.id);
+                            if let Err(refund_err) = credits::refund_credits(
+                                state_clone.db.pool(),
+                                job.user_id,
+                                job.credits_charged,
+                                job.id,
+                            ).await {
+                                error!("CRITICAL: Failed to refund credits for job {}: {}", job.id, refund_err);
+                            }
                         }
                     } else {
                         info!("Job {} completed successfully.", job.id);
@@ -395,13 +673,13 @@ async fn process_upscale_job(state: &Arc<AppState>, job: &upscaler::db::UpscaleR
             response_modalities: vec!["IMAGE".to_string()],
             image_config: Some(ImageConfig {
                 aspect_ratio: processed.ratio_name,
-                image_size: "4K".to_string(),
+                image_size: job.quality.clone(),
             }),
-            temperature: Some(0.0),
+            temperature: Some(job.temperature),
         },
     };
 
-    info!("Sending request to Vertex AI for job {}", job.id);
+    info!("Sending request to Vertex AI for job {} (temp={}, quality={})", job.id, job.temperature, job.quality);
     let gemini_response = state.client.generate_image(token_data.as_str(), request).await?;
 
     let candidate = gemini_response.candidates.first()

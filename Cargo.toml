@@ -29,6 +29,17 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rustls = { version = "0.23", features = ["ring"] }
 nsfw = "0.2.0"
 kamadak-exif = "0.6"
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
 
 [build-dependencies]
 ureq = "3.3.0"
+
+[[bin]]
+name = "batch-test"
+path = "test/validator.rs"
+
+[[bin]]
+name = "exploit-test"
+path = "test/exploit_test.rs"

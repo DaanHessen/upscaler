@@ -1,12 +1,12 @@
 pub mod auth;
 pub mod client;
+pub mod credits;
 pub mod models;
 pub mod processor;
 pub mod storage;
+pub mod stripe;
 pub mod db;
 pub mod prompts;
-
-// Removed unused Arc import
 
 use crate::client::VertexClient;
 use crate::auth::AuthProvider;
