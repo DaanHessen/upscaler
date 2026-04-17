@@ -5,6 +5,7 @@ use std::io::Cursor;
 use std::sync::OnceLock;
 use nsfw::{create_model, examine, Model};
 use tracing::info;
+use exif::{Reader, Tag};
 
 static NSFW_MODEL: OnceLock<Model> = OnceLock::new();
 
@@ -84,33 +85,121 @@ pub struct ProcessedImage {
     pub style: ImageStyle,
 }
 
-pub fn analyze_style(img: &DynamicImage) -> ImageStyle {
+pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle {
     use imageproc::filter::laplacian_filter;
+    use std::collections::HashSet;
     
-    // 1. Convert to grayscale for analysis
+    let mut photo_score = 0.0;
+    let mut illustration_score = 0.0;
+
+    // 1. Metadata Check (Definitive Signal)
+    if let Some(data) = raw_data {
+        let mut cursor = std::io::Cursor::new(data);
+        if let Ok(reader) = Reader::new().read_from_container(&mut cursor) {
+            let mut metadata_found = false;
+            let camera_tags = [Tag::Make, Tag::Model, Tag::Software, Tag::DateTime];
+            for f in reader.fields() {
+                if camera_tags.contains(&f.tag) {
+                    metadata_found = true;
+                    break;
+                }
+            }
+            if metadata_found {
+                info!("Ensemble: EXIF camera metadata detected (+5.0 Photo)");
+                photo_score += 5.0;
+            }
+        }
+    }
+
+    // 2. Alpha Channel Check
+    if img.color().has_alpha() {
+        let rgba = img.to_rgba8();
+        // Check if many pixels have actual transparency
+        let has_transparency = rgba.pixels().step_by(10).take(1000).any(|p| p.0[3] < 255);
+        if has_transparency {
+            info!("Ensemble: Transparency detected (+3.0 Illustration)");
+            illustration_score += 3.0;
+        }
+    }
+
+    // 3. Shannon Entropy (Randomness/Complexity)
     let gray_img = img.to_luma8();
-    
-    // 2. Apply Laplacian filter to detect edges
+    let mut counts = [0usize; 256];
+    for p in gray_img.pixels().step_by(4) {
+        counts[p.0[0] as usize] += 1;
+    }
+    let total_samples = counts.iter().sum::<usize>() as f32;
+    let mut entropy = 0.0;
+    if total_samples > 0.0 {
+        for &count in counts.iter() {
+            if count > 0 {
+                let p = count as f32 / total_samples;
+                entropy -= p * p.log2();
+            }
+        }
+    }
+
+    // 4. Sharpness (Laplacian Variance)
     let laplacian = laplacian_filter(&gray_img);
-    
-    // 3. Calculate Variance
-    let pixels: Vec<f32> = laplacian.pixels().map(|p| p.0[0] as f32).collect();
+    let pixels: Vec<f32> = laplacian.pixels().step_by(2).map(|p| p.0[0] as f32).collect();
     let n = pixels.len() as f32;
-    if n == 0.0 { return ImageStyle::Photography; }
-    
-    let mean = pixels.iter().sum::<f32>() / n;
-    let variance = pixels.iter()
-        .map(|&p| (p - mean).powi(2))
-        .sum::<f32>() / n;
-
-    info!("Detected Laplacian Variance: {:.2}", variance);
-
-    if variance < 100.0 {
-        info!("Classification: ILLUSTRATION");
-        ImageStyle::Illustration
+    let variance = if n > 0.0 {
+        let mean = pixels.iter().sum::<f32>() / n;
+        pixels.iter().map(|&p| (p - mean).powi(2)).sum::<f32>() / n
     } else {
-        info!("Classification: PHOTOGRAPHY");
+        0.0
+    };
+
+    // 5. Flatness (Digital Cleanliness)
+    let (w, h) = img.dimensions();
+    let sample_step = (w / 100).max(1).min(h / 100).max(1);
+    let mut flat_count = 0;
+    let mut samples = 0;
+    let rgb = img.to_rgb8();
+    for y in (0..h-1).step_by(sample_step as usize) {
+        for x in (0..w-1).step_by(sample_step as usize) {
+            if rgb.get_pixel(x, y) == rgb.get_pixel(x + 1, y) {
+                flat_count += 1;
+            }
+            samples += 1;
+        }
+    }
+    let flatness = if samples > 0 { flat_count as f32 / samples as f32 } else { 0.0 };
+
+    // 6. Color Diversity
+    let mut colors = HashSet::with_capacity(1000);
+    for y in (0..h).step_by((sample_step * 2) as usize) {
+        for x in (0..w).step_by((sample_step * 2) as usize) {
+            colors.insert(rgb.get_pixel(x, y));
+            if colors.len() > 5000 { break; } 
+        }
+    }
+    let color_count = colors.len();
+
+    // 7. Scoring Logic V5
+    // Entropy is the strongest photo signal (photos > 7.0, art < 6.0)
+    if entropy > 7.2 { photo_score += 2.0; }
+    if entropy < 6.5 { illustration_score += 1.5; }
+    
+    // Flatness (The Neutral Zone)
+    if flatness > 0.40 { illustration_score += 3.0; } // Heavy illustration
+    else if flatness > 0.25 { illustration_score += 1.0; } // Likely illustration/high compression
+    else if flatness < 0.08 { photo_score += 1.5; } // Natural grain
+
+    // Combinations
+    if color_count > 4000 && entropy > 7.0 { photo_score += 2.0; }
+    if color_count < 1000 && flatness > 0.15 { illustration_score += 2.0; }
+
+    info!("Ensemble V5 - Entropy: {:.2}, Flat: {:.2}, Colors: {}, Var: {:.1}", 
+        entropy, flatness, color_count, variance);
+    info!("Total Scores - Photo: {:.1}, Illustration: {:.1}", photo_score, illustration_score);
+
+    if photo_score >= illustration_score {
+        info!("Final Verdict: PHOTOGRAPHY");
         ImageStyle::Photography
+    } else {
+        info!("Final Verdict: ILLUSTRATION");
+        ImageStyle::Illustration
     }
 }
 
@@ -158,7 +247,7 @@ pub fn preprocess_image(
     };
 
     // 5. Style Analysis
-    let style = analyze_style(&img);
+    let style = analyze_style(&img, Some(&data));
 
     // 6. Encode to Base64 (for Gemini request)
     let mut buffer = Cursor::new(Vec::new());

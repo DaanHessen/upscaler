@@ -28,6 +28,7 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 rustls = { version = "0.23", features = ["ring"] }
 nsfw = "0.2.0"
+kamadak-exif = "0.6"
 
 [build-dependencies]
 ureq = "3.3.0"

@@ -271,7 +271,7 @@ async fn upscale_handler(
     }
 
     // 0.1 Style Analysis
-    let detected_style = analyze_style(&img);
+    let detected_style = analyze_style(&img, Some(&data));
     let style_str = match detected_style {
         ImageStyle::Illustration => "ILLUSTRATION",
         ImageStyle::Photography => "PHOTOGRAPHY",
