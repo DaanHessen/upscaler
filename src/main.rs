@@ -56,6 +56,20 @@ struct PollResponse {
 }
 
 #[derive(Serialize)]
+struct HistoryItem {
+    id: Uuid,
+    status: String,
+    created_at: chrono::DateTime<chrono::Utc>,
+    quality: String,
+    style: Option<String>,
+    temperature: f32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    image_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    error: Option<String>,
+}
+
+#[derive(Serialize)]
 struct ErrorResponse {
     success: bool,
     error: String,
@@ -391,13 +405,38 @@ async fn history_handler(
         Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
     };
 
-    match state.db.get_user_history(user_id).await {
-        Ok(records) => (StatusCode::OK, Json(records)).into_response(),
+    let records = match state.db.get_user_history(user_id).await {
+        Ok(r) => r,
         Err(e) => {
             error!("Failed to fetch history for user {}: {}", user_id, e);
-            err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to load history").into_response()
+            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to load history").into_response();
         }
+    };
+
+    let mut history = Vec::new();
+    for rec in records {
+        let mut item = HistoryItem {
+            id: rec.id,
+            status: rec.status,
+            created_at: rec.created_at,
+            quality: rec.quality,
+            style: rec.style,
+            temperature: rec.temperature,
+            image_url: None,
+            error: rec.error_msg,
+        };
+
+        if item.status == "COMPLETED" {
+            if let Some(path) = rec.output_path {
+                if let Ok(url) = state.storage.get_signed_url(&path).await {
+                    item.image_url = Some(url);
+                }
+            }
+        }
+        history.push(item);
     }
+
+    (StatusCode::OK, Json(history)).into_response()
 }
 
 async fn poll_upscale_handler(

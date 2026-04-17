@@ -198,6 +198,7 @@ function switchToPage(pageId) {
 // ===========================
 
 let isSignUpMode = false;
+let isSessionChecking = false;
 
 function initAuth() {
     dom.authForm.addEventListener("submit", handleAuthSubmit);
@@ -269,37 +270,41 @@ function hideAuthMsg() {
 }
 
 async function checkSession() {
-    const { data: { session } } = await sb.auth.getSession();
-    
-    if (session) {
-        dom.authOverlay.classList.add("hidden");
-        dom.appShell.classList.remove("hidden");
+    if (isSessionChecking) return;
+    isSessionChecking = true;
+
+    try {
+        const { data: { session } } = await sb.auth.getSession();
         
-        // Sync User UI
-        const email = session.user.email;
-        dom.sidebarEmail.textContent = email;
-        dom.userChip.textContent = email.charAt(0).toUpperCase();
-        dom.acctEmail.textContent = email;
-        dom.acctAvatar.textContent = email.charAt(0).toUpperCase();
-        dom.acctSince.textContent = "Joined " + new Date(session.user.created_at).toLocaleDateString();
-        
-        loadBalance();
-        syncStats();
-    } else {
-        dom.authOverlay.classList.remove("hidden");
-        dom.appShell.classList.add("hidden");
+        if (session) {
+            dom.authOverlay.classList.add("hidden");
+            dom.appShell.classList.remove("hidden");
+            
+            const email = session.user.email;
+            dom.sidebarEmail.textContent = email;
+            dom.userChip.textContent = email.charAt(0).toUpperCase();
+            dom.acctEmail.textContent = email;
+            dom.acctAvatar.textContent = email.charAt(0).toUpperCase();
+            dom.acctSince.textContent = "Joined " + new Date(session.user.created_at).toLocaleDateString();
+            
+            // Initial data load
+            loadBalance();
+            syncStats();
+        } else {
+            dom.authOverlay.classList.remove("hidden");
+            dom.appShell.classList.add("hidden");
+        }
+    } catch (err) {
+        console.error("Session check error:", err);
+    } finally {
+        isSessionChecking = false;
+        initIcons();
     }
-    initIcons();
 }
 
 async function getAuthToken() {
     const { data: { session } } = await sb.auth.getSession();
-    if (!session) {
-        showToast("Your session expired. Re-auth required.", "error");
-        checkSession();
-        return null;
-    }
-    return session.access_token;
+    return session ? session.access_token : null;
 }
 
 // ===========================
@@ -591,6 +596,20 @@ async function pollJob(id, token) {
         const res = await fetch(`/upscales/${id}`, {
             headers: { "Authorization": `Bearer ${token}` }
         });
+        
+        if (res.status === 401 || res.status === 403) {
+            showToast("Session expired — please sign in again.", "warning");
+            resetUpscaleFlow();
+            checkSession();
+            return;
+        }
+
+        if (res.status === 404) {
+            showToast("Upscale job not found.", "error");
+            resetUpscaleFlow();
+            return;
+        }
+
         if (!res.ok) throw new Error();
         
         const data = await res.json();
@@ -681,36 +700,56 @@ function renderHistory(items) {
     
     if (!items || items.length === 0) {
         dom.historyEmpty.classList.remove("hidden");
+        dom.historyEmpty.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon-ring">
+                    <i data-lucide="image"></i>
+                </div>
+                <h3>No upscales yet</h3>
+                <p>Your processed images will appear here.</p>
+                <button class="btn btn-primary btn-sm" onclick="switchToPage('upscale')" style="margin-top: 1rem;">
+                    <i data-lucide="plus"></i> Start Upscaling
+                </button>
+            </div>
+        `;
+        initIcons();
         return;
     }
     
     dom.historyEmpty.classList.add("hidden");
     items.forEach((item, idx) => {
         const card = document.createElement("div");
-        card.className = "history-card";
+        card.className = "history-card shadow-sm";
         card.style.animationDelay = (idx * 50) + "ms";
 
         const statusLabel = item.status.charAt(0) + item.status.slice(1).toLowerCase();
-        const dateStr = new Date(item.created_at).toLocaleDateString([], { month: "short", day: "numeric" });
+        const dateStr = new Date(item.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
         
         card.innerHTML = `
-            ${item.image_url ? 
-                `<img src="${item.image_url}" class="hist-thumb" alt="Result">` : 
-                `<div class="hist-thumb-placeholder"><i data-lucide="image"></i></div>`
-            }
-            <div class="hist-body">
-                <div class="hist-row">
+            <div class="hist-media">
+                ${item.image_url ? 
+                    `<img src="${item.image_url}" class="hist-thumb" alt="Result" loading="lazy">` : 
+                    `<div class="hist-thumb-placeholder"><i data-lucide="image"></i></div>`
+                }
+                <div class="hist-status-overlay">
                     <span class="status-tag ${item.status.toLowerCase()}">${statusLabel}</span>
-                    <span class="hist-date">${dateStr}</span>
                 </div>
-                <div class="hist-tags">
-                    <span class="meta-pill">${item.quality}</span>
-                    <span class="meta-pill">${item.style || "Auto"}</span>
+            </div>
+            <div class="hist-body">
+                <div class="hist-meta-row">
+                    <span class="hist-date">${dateStr}</span>
+                    <div class="hist-config-pills">
+                        <span class="meta-pill">${item.quality}</span>
+                        <span class="meta-pill">${item.style || "Auto"}</span>
+                    </div>
                 </div>
                 ${item.status === "COMPLETED" ? 
                     `<button class="hist-view-btn" data-url="${item.image_url}">
-                        <i data-lucide="external-link"></i> View Result
-                    </button>` : ""
+                        <i data-lucide="eye"></i> View Result
+                    </button>` : 
+                    item.status === "FAILED" ? 
+                    `<div class="hist-error-box"><i data-lucide="alert-circle"></i> Error</div>` :
+                    `<div class="hist-pulse-box"><span class="btn-spinner-sm"></span> Processing</div>`
                 }
             </div>
         `;
@@ -718,7 +757,13 @@ function renderHistory(items) {
     });
 
     dom.historyGrid.querySelectorAll(".hist-view-btn").forEach(btn => {
-        btn.addEventListener("click", () => window.open(btn.dataset.url, "_blank"));
+        btn.addEventListener("click", () => {
+            if (btn.dataset.url && btn.dataset.url !== "undefined") {
+                window.open(btn.dataset.url, "_blank");
+            } else {
+                showToast("Image URL is not available yet.", "warning");
+            }
+        });
     });
     
     initIcons();
