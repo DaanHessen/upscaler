@@ -5,7 +5,7 @@ use axum::{
 };
 use jsonwebtoken::{decode, decode_header, DecodingKey, Validation, Algorithm};
 use serde::{Deserialize, Serialize};
-use tracing::{info, error, warn};
+use tracing::{debug, error, trace, warn};
 use std::error::Error;
 use std::sync::Arc;
 use gcp_auth::{Token, TokenProvider};
@@ -130,5 +130,14 @@ where
         Ok(JwtAuth {
             user_id: token_data.claims.sub,
         })
+    }
+}
+
+impl JwtAuth {
+    pub fn is_admin(&self, state: &crate::AppState) -> bool {
+        match &state.admin_user_id {
+            Some(admin_id) => self.user_id == *admin_id,
+            None => false,
+        }
     }
 }

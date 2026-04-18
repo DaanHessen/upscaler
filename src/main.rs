@@ -128,6 +128,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     info!("Loaded {} public key(s) from Supabase JWKS", jwks.keys.len());
 
     let supabase_jwt_secret = env::var("SUPABASE_JWT_SECRET").expect("SUPABASE_JWT_SECRET must be set");
+    let admin_user_id = env::var("ADMIN_USER_ID").ok();
 
     let state = Arc::new(AppState { 
         client, 
@@ -136,6 +137,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         db,
         jwks,
         supabase_jwt_secret,
+        admin_user_id,
     });
 
     // Spawn Background Services
@@ -169,6 +171,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/history", get(history_handler))
         .route("/balance", get(balance_handler))
         .route("/checkout", post(checkout_handler))
+        .route("/admin/insights", get(admin_insights_handler))
         .layer(DefaultBodyLimit::max(25 * 1024 * 1024)) // 25MB
         .layer(GovernorLayer { config: governor_conf })
         .with_state(state.clone());
@@ -201,6 +204,23 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
 async fn health_check() -> impl IntoResponse {
     Json(serde_json::json!({ "status": "healthy" }))
+}
+
+async fn admin_insights_handler(
+    State(state): State<Arc<AppState>>,
+    jwt: JwtAuth,
+) -> impl IntoResponse {
+    if !jwt.is_admin(&state) {
+        return err_json(StatusCode::FORBIDDEN, "Admin access required").into_response();
+    }
+    
+    match state.db.get_recent_moderation_logs().await {
+        Ok(logs) => (StatusCode::OK, Json(logs)).into_response(),
+        Err(e) => {
+            error!("Failed to fetch moderation logs: {}", e);
+            err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response()
+        }
+    }
 }
 
 async fn moderate_handler(

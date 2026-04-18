@@ -184,4 +184,23 @@ impl DbService {
             .await?;
         Ok(())
     }
+
+    pub async fn get_recent_moderation_logs(&self) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
+        let logs = sqlx::query_as::<sqlx::Postgres, (Uuid, Uuid, String, DateTime<Utc>)>(
+            "SELECT id, user_id, path, created_at FROM moderation_logs ORDER BY created_at DESC LIMIT 50"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let result = logs.into_iter().map(|(id, u_id, path, created)| {
+            serde_json::json!({
+                "id": id,
+                "user_id": u_id,
+                "path": path,
+                "created_at": created
+            })
+        }).collect();
+
+        Ok(result)
+    }
 }

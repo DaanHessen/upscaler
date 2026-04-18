@@ -21,4 +21,5 @@ pub struct AppState {
     pub db: DbService,
     pub jwks: JwkSet,
     pub supabase_jwt_secret: String,
+    pub admin_user_id: Option<String>,
 }
