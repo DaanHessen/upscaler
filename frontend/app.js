@@ -1,5 +1,5 @@
 /* =========================================================
-   Gemini Upscaler — Application Logic v2
+   Upscaler — Application Logic v2
    SaaS Platform with Sidebar Navigation & Premium Features
    ========================================================= */
 
@@ -10,8 +10,8 @@
 const SUPABASE_URL  = "https://avdchsjlsuqnmdbxlrby.supabase.co";
 const SUPABASE_ANON = "sb_publishable_HF_GNcqC04vKZ8T1fliN1A_tF0R7Eg1";
 
-const COST_TABLE    = { "1K": 1, "2K": 2, "4K": 4 };
-const MAX_FILE_SIZE = 15 * 1024 * 1024; // 15 MB
+const COST_TABLE    = { "2K": 2, "4K": 4 };
+const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25 MB
 const POLL_INTERVAL = 3000;             // ms
 
 // ===========================
@@ -39,8 +39,8 @@ const $ = (id) => document.getElementById(id);
 
 const dom = {
     // Top Level Shells
-    authOverlay:   $("auth-overlay"),
-    appShell:      $("app-shell"),
+    landingPage:    $("landing-page"),
+    appShell:       $("app-shell"),
     
     // Auth
     authForm:      $("auth-form"),
@@ -114,7 +114,10 @@ const dom = {
     // Stats
     statCredits:   $("stat-credits"),
     statUpscales:  $("stat-upscales"),
-    statQuality:   $("stat-quality"),
+    
+    // Page: Admin
+    navAdmin:      $("nav-admin"),
+    adminLogsBody: $("admin-logs-body"),
 };
 
 // ===========================
@@ -130,6 +133,9 @@ document.addEventListener("DOMContentLoaded", () => {
     initSlider();
     initBilling();
     initPopover();
+    initSideBarCollapse();
+    initTooltips();
+    initHistoryModal();
     checkPaymentParams();
     checkSession();
 });
@@ -192,10 +198,43 @@ function switchToPage(pageId) {
 
     if (pageId === "history") loadHistory();
     if (pageId === "billing") loadBalance();
+    if (pageId === "admin")   loadAdminInsights();
     if (pageId === "account") syncAccountDetails();
 
     document.body.classList.remove("sidebar-open");
     initIcons();
+}
+
+function initSideBarCollapse() {
+    const btn = $("sidebar-collapse");
+    if (!btn) return;
+
+    btn.addEventListener("click", () => {
+        dom.sidebar.classList.toggle("collapsed");
+        const isCollapsed = dom.sidebar.classList.contains("collapsed");
+        localStorage.setItem("sidebar-collapsed", isCollapsed);
+    });
+
+    // Restore state
+    if (localStorage.getItem("sidebar-collapsed") === "true") {
+        dom.sidebar.classList.add("collapsed");
+    }
+}
+
+function initTooltips() {
+    const tips = {
+        style: "Identify if the image is a real photo or an artistic illustration to help the AI process it correctly.",
+        resolution: "Choose between standard HD (2K) or ultra high-definition (4K). Costs vary by resolution.",
+        creativity: "Low values stay identical to the original. High values allow the AI to 'hallucinate' more detail, creating sharper results."
+    };
+
+    document.querySelectorAll(".help-trigger").forEach(el => {
+        el.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const key = el.dataset.tip;
+            showToast(tips[key] || "No info available.", "info");
+        });
+    });
 }
 
 // ===========================
@@ -298,7 +337,7 @@ async function checkSession() {
         const { data: { session } } = await sb.auth.getSession();
         
         if (session) {
-            dom.authOverlay.classList.add("hidden");
+            dom.landingPage.classList.add("hidden");
             dom.appShell.classList.remove("hidden");
             
             const email = session.user.email;
@@ -311,10 +350,11 @@ async function checkSession() {
             dom.popoverJoined.textContent = "Joined " + new Date(session.user.created_at).toLocaleDateString();
             
             // Initial data load
+            checkAdminAccess();
             loadBalance();
             syncStats();
         } else {
-            dom.authOverlay.classList.remove("hidden");
+            dom.landingPage.classList.remove("hidden");
             dom.appShell.classList.add("hidden");
         }
     } catch (err) {
@@ -615,7 +655,11 @@ async function startUpscale() {
             body: fd
         });
 
-        if (res.status === 402) throw new Error("Insufficient credits");
+        if (res.status === 402) {
+            showInsufficientCreditsModal();
+            throw new Error("Insufficient credits");
+        }
+        if (res.status === 413) throw new Error("Image too large (>25MB)");
         if (!res.ok) throw new Error("Upload failed");
 
         const data = await res.json();
@@ -679,10 +723,12 @@ async function pollJob(id, token) {
 function showResult(data) {
     dom.compareAfter.src = data.image_url;
     
+    // Fix undefined issue: Backend returns 'quality', 'style', 'temperature'
+    // Ensure we use the correct keys from poll data
     dom.resultMeta.innerHTML = `
-        <span class="meta-pill">${data.quality}</span>
+        <span class="meta-pill">${data.quality || selectedQuality}</span>
         <span class="meta-pill">${data.style || "Auto"}</span>
-        <span class="meta-pill">T=${data.temperature}</span>
+        <span class="meta-pill">T=${data.temperature !== undefined ? data.temperature : temperature}</span>
     `;
     
     transitionTo("stResult");
@@ -707,23 +753,17 @@ function showResult(data) {
 
 function initSlider() {
     const box = dom.compareBox;
-    let isDragging = false;
-
+    
     const move = (e) => {
-        if (!isDragging) return;
         const rect = box.getBoundingClientRect();
-        const x = (e.pageX || e.touches[0].pageX) - rect.left;
+        const x = (e.pageX || (e.touches && e.touches[0].pageX)) - rect.left;
         let pct = (x / rect.width) * 100;
         pct = Math.max(0, Math.min(100, pct));
         box.style.setProperty("--split", pct + "%");
     };
 
-    box.addEventListener("mousedown", () => isDragging = true);
-    window.addEventListener("mouseup", () => isDragging = false);
-    window.addEventListener("mousemove", move);
-    
-    box.addEventListener("touchstart", () => isDragging = true);
-    window.addEventListener("touchend", () => isDragging = false);
+    // Requested: slider should work with hover (mousemove without drag)
+    box.addEventListener("mousemove", move);
     box.addEventListener("touchmove", move);
 }
 
@@ -732,6 +772,11 @@ function initSlider() {
 // ===========================
 
 async function loadHistory() {
+    // 1. Check local cache first for snappiness
+    if (historyData.length > 0) {
+        renderHistory(historyData);
+    }
+
     const token = await getAuthToken();
     if (!token) return;
 
@@ -740,6 +785,9 @@ async function loadHistory() {
             headers: { "Authorization": `Bearer ${token}` }
         });
         const records = await res.json();
+        
+        // Update cache
+        historyData = records;
         renderHistory(records);
     } catch (err) {
         console.error(err);
@@ -772,16 +820,17 @@ function renderHistory(items) {
     items.forEach((item, idx) => {
         const card = document.createElement("div");
         card.className = "history-card shadow-sm";
-        card.style.opacity = "0"; // Start hidden for GSAP
+        card.style.opacity = "0"; 
 
-        const statusLabel = item.status.charAt(0) + item.status.slice(1).toLowerCase();
-        const dateStr = new Date(item.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
+        const isExpired = item.status === "EXPIRED";
+        const statusLabel = isExpired ? "Expired" : item.status.charAt(0) + item.status.slice(1).toLowerCase();
+        const dateStr = new Date(item.created_at).toLocaleDateString([], { month: "short", day: "numeric" });
         
         card.innerHTML = `
-            <div class="hist-media">
+            <div class="hist-media ${isExpired ? 'expired' : ''}">
                 ${item.image_url ? 
                     `<img src="${item.image_url}" class="hist-thumb" alt="Result" loading="lazy">` : 
-                    `<div class="hist-thumb-placeholder"><i data-lucide="image"></i></div>`
+                    `<div class="hist-thumb-placeholder"><i data-lucide="${isExpired ? 'trash-2' : 'image'}"></i></div>`
                 }
                 <div class="hist-status-overlay">
                     <span class="status-tag ${item.status.toLowerCase()}">${statusLabel}</span>
@@ -796,9 +845,11 @@ function renderHistory(items) {
                     </div>
                 </div>
                 ${item.status === "COMPLETED" ? 
-                    `<button class="hist-view-btn" data-url="${item.image_url}">
-                        <i data-lucide="eye"></i> View Result
+                    `<button class="hist-view-btn" data-id="${item.id}">
+                        <i data-lucide="maximize-2"></i> View Result
                     </button>` : 
+                    isExpired ?
+                    `<div class="hist-expired-msg">Deleted after 24h</div>` :
                     item.status === "FAILED" ? 
                     `<div class="hist-error-box"><i data-lucide="alert-circle"></i> Error</div>` :
                     `<div class="hist-pulse-box"><span class="btn-spinner-sm"></span> Processing</div>`
@@ -817,15 +868,51 @@ function renderHistory(items) {
 
     dom.historyGrid.querySelectorAll(".hist-view-btn").forEach(btn => {
         btn.addEventListener("click", () => {
-            if (btn.dataset.url && btn.dataset.url !== "undefined") {
-                window.open(btn.dataset.url, "_blank");
+            const id = btn.dataset.id;
+            const item = historyData.find(i => i.id === id);
+            if (item && item.image_url) {
+                openHistoryModal(item);
             } else {
-                showToast("Image URL is not available yet.", "warning");
+                showToast("Image is no longer available.", "warning");
             }
         });
     });
     
     initIcons();
+}
+
+function initHistoryModal() {
+    const modal = $("history-modal");
+    if (!modal) return;
+    
+    modal.querySelector(".modal-overlay").addEventListener("click", () => modal.classList.add("hidden"));
+    modal.querySelector(".modal-close").addEventListener("click", () => modal.classList.add("hidden"));
+}
+
+function openHistoryModal(item) {
+    const modal = $("history-modal");
+    const wrap = $("modal-slider-wrap");
+    modal.classList.remove("hidden");
+    
+    // We don't always have the 'before' image in history data yet, 
+    // but the backend stores it. For now, we show the result in a premium way.
+    wrap.innerHTML = `
+        <div class="modal-image-view">
+            <img src="${item.image_url}" alt="Result">
+            <div class="modal-info">
+                <h3>Result Details</h3>
+                <div class="modal-meta">
+                    <span>${item.quality}</span>
+                    <span>${item.style || 'Auto'}</span>
+                    <span>T=${item.temperature}</span>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="window.open('${item.image_url}', '_blank')">
+                    <i data-lucide="download"></i> Download Full Size
+                </button>
+            </div>
+        </div>
+    `;
+    if (window.lucide) lucide.createIcons();
 }
 
 // ===========================
@@ -895,18 +982,25 @@ function showToast(msg, type = "info") {
     t.className = `toast t-${type}`;
     
     const icons = { success: "check-circle", error: "alert-circle", warning: "alert-triangle", info: "info" };
-    t.innerHTML = `<i data-lucide="${icons[type] || "info"}"></i><span>${msg}</span>`;
+    // Use Lucide for consistent icons in toasts
+    const iconName = icons[type] || "info";
+    t.innerHTML = `<i data-lucide="${iconName}"></i><span>${msg}</span>`;
     
     dom.toastWrap.appendChild(t);
-    initIcons();
+    if (window.lucide) lucide.createIcons();
     
     const kill = () => {
         t.classList.add("exit");
         setTimeout(() => t.remove(), 300);
     };
     
-    setTimeout(kill, 4000);
+    setTimeout(kill, 5000);
     t.addEventListener("click", kill);
+}
+
+function showInsufficientCreditsModal() {
+    showToast("You need more credits to perform this upscale.", "warning");
+    setTimeout(() => switchToPage("billing"), 1500);
 }
 
 function checkPaymentParams() {
@@ -926,4 +1020,55 @@ function animateNumber(el, from, to, duration) {
         if (prog < 1) requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
+}
+
+async function checkAdminAccess() {
+    const token = await getAuthToken();
+    if (!token) return;
+
+    try {
+        const res = await fetch("/admin/insights", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (res.ok) {
+            dom.navAdmin.classList.remove("hidden");
+        }
+    } catch (err) {
+        // Silently fail, they are just not an admin
+    }
+}
+
+async function loadAdminInsights() {
+    const token = await getAuthToken();
+    if (!token) return;
+
+    try {
+        const res = await fetch("/admin/insights", {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        const logs = await res.json();
+        renderAdminLogs(logs);
+    } catch (err) {
+        showToast("Access Denied", "error");
+    }
+}
+
+function renderAdminLogs(logs) {
+    dom.adminLogsBody.innerHTML = "";
+    if (logs.length === 0) {
+        dom.adminLogsBody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>No logs found</td></tr>";
+        return;
+    }
+
+    logs.forEach(log => {
+        const tr = document.createElement("tr");
+        const date = new Date(log.created_at).toLocaleString();
+        tr.innerHTML = `
+            <td>${date}</td>
+            <td><code>${log.user_id.substring(0,8)}...</code></td>
+            <td><small>${log.path}</small></td>
+            <td><span class="status-tag failed">NSFW Rejected</span></td>
+        `;
+        dom.adminLogsBody.appendChild(tr);
+    });
 }
