@@ -131,4 +131,57 @@ impl DbService {
 
         Ok(records)
     }
+
+    // --- Moderation & Janitor Methods ---
+
+    pub async fn insert_moderation_log(
+        &self,
+        user_id: Uuid,
+        path: &str,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        sqlx::query(
+            "INSERT INTO moderation_logs (user_id, path) VALUES ($1, $2)"
+        )
+        .bind(user_id)
+        .bind(path)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_expired_jobs(&self) -> Result<Vec<(Uuid, String, Option<String>)>, Box<dyn Error + Send + Sync>> {
+        let records = sqlx::query_as::<sqlx::Postgres, (Uuid, String, Option<String>)>(
+            "SELECT id, input_path, output_path FROM upscales WHERE created_at < NOW() - INTERVAL '24 hours' AND status != 'EXPIRED'"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(records)
+    }
+
+    pub async fn mark_job_expired(&self, id: Uuid) -> Result<(), Box<dyn Error + Send + Sync>> {
+        sqlx::query(
+            "UPDATE upscales SET status = 'EXPIRED', input_path = '', output_path = NULL WHERE id = $1"
+        )
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+        Ok(())
+    }
+
+    pub async fn get_expired_moderation_logs(&self) -> Result<Vec<(Uuid, String)>, Box<dyn Error + Send + Sync>> {
+        let records = sqlx::query_as::<sqlx::Postgres, (Uuid, String)>(
+            "SELECT id, path FROM moderation_logs WHERE created_at < NOW() - INTERVAL '24 hours'"
+        )
+        .fetch_all(&self.pool)
+        .await?;
+        Ok(records)
+    }
+
+    pub async fn delete_moderation_log(&self, id: Uuid) -> Result<(), Box<dyn Error + Send + Sync>> {
+        sqlx::query("DELETE FROM moderation_logs WHERE id = $1")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+        Ok(())
+    }
 }

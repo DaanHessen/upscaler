@@ -7,10 +7,15 @@
     <meta name="description" content="Transform your images with Gemini AI. Professional-grade upscaling for photography and illustration in 1K, 2K, and 4K.">
     <meta name="theme-color" content="#0a0a0b">
     <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/lucide@0.344.0/dist/umd/lucide.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
 </head>
 <body>
+<div class="noise-overlay"></div>
 
 <!-- ============================================================
      AUTH OVERLAY — shown when not logged in
@@ -82,16 +87,35 @@
             <button class="nav-item" data-page="billing" type="button">
                 <i data-lucide="wallet"></i> Billing
             </button>
-            <button class="nav-item" data-page="account" type="button">
-                <i data-lucide="user"></i> Account
-            </button>
         </nav>
 
         <div class="sidebar-footer">
-            <div class="sidebar-user-email" id="sidebar-email">—</div>
-            <button class="sidebar-logout" id="sidebar-logout" type="button">
-                <i data-lucide="log-out"></i> Sign out
-            </button>
+            <div class="sidebar-user-section" id="user-trigger">
+                <div class="user-avatar-sm" id="sidebar-avatar-initials">?</div>
+                <div class="sidebar-user-info">
+                    <span class="sidebar-user-name" id="sidebar-email">Loading...</span>
+                    <span class="sidebar-user-rank">Pro Plan</span>
+                </div>
+                <i data-lucide="chevron-up" class="sidebar-chevron"></i>
+            </div>
+            
+            <!-- Account Popover -->
+            <div class="user-popover hidden" id="user-popover">
+                <div class="popover-header">
+                    <div class="user-popover-avatar" id="popover-avatar">?</div>
+                    <div class="user-popover-info">
+                        <span class="user-popover-email" id="popover-email">...</span>
+                        <span class="user-popover-joined" id="popover-joined">...</span>
+                    </div>
+                </div>
+                <div class="popover-divider"></div>
+                <div class="popover-menu">
+                    <button class="popover-item" id="sidebar-logout">
+                        <i data-lucide="log-out"></i>
+                        Sign out
+                    </button>
+                </div>
+            </div>
         </div>
     </aside>
 
@@ -126,11 +150,11 @@
                 <!-- Quick stats -->
                 <div class="stats-row">
                     <div class="stat-card">
-                        <div class="stat-value" id="stat-credits">—</div>
+                        <div class="stat-value skeleton" id="stat-credits"></div>
                         <div class="stat-label">Credits Available</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-value" id="stat-upscales">—</div>
+                        <div class="stat-value skeleton" id="stat-upscales"></div>
                         <div class="stat-label">Total Upscales</div>
                     </div>
                     <div class="stat-card">
@@ -316,21 +340,6 @@
                 </div>
             </div>
 
-
-            <!-- ===================== PAGE: ACCOUNT ===================== -->
-            <div id="page-account" class="page">
-                <div class="page-header">
-                    <h1>Account</h1>
-                    <p>Your profile and preferences</p>
-                </div>
-
-                <div class="account-grid">
-                    <!-- Profile -->
-                    <div class="account-card">
-                        <h3><i data-lucide="user"></i> Profile</h3>
-                        <div class="profile-row">
-                            <div class="profile-avatar-lg" id="acct-avatar">?</div>
-                            <div>
                                 <div class="profile-email" id="acct-email">—</div>
                                 <div class="profile-since" id="acct-since">—</div>
                             </div>

@@ -18,16 +18,16 @@ const POLL_INTERVAL = 3000;             // ms
 //  2. State Management
 // ===========================
 
-let selectedFile      = null;      // Current image file
-let detectedStyle     = null;      // "PHOTOGRAPHY" | "ILLUSTRATION"
-let selectedQuality   = "2K";      // Current quality selection
-let selectedStyle     = "AUTO";    // Current style selection
-let temperature       = 0.0;       // Gemini creativity
-let currentJobId      = null;      // Active processing job ID
-let creditBalance     = null;      // User credit balance
-let pollTimer         = null;      // Polling handle
-let historyData       = [];        // Cached history records
-let activePage        = "upscale"; // "upscale" | "history" | "billing" | "account"
+let selectedFile      = null;      
+let detectedStyle     = null;      
+let selectedQuality   = localStorage.getItem("upscale-quality") || "2K";
+let selectedStyle     = localStorage.getItem("upscale-style") || "AUTO";
+let temperature       = parseFloat(localStorage.getItem("upscale-temp")) || 0.0;
+let currentJobId      = null;      
+let creditBalance     = null;      
+let pollTimer         = null;      
+let historyData       = [];        
+let activePage        = "upscale"; 
 
 const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 
@@ -52,6 +52,7 @@ const dom = {
     authMsg:       $("auth-msg"),
     
     // Navigation
+    // Navigation & Popover
     sidebar:       $("sidebar"),
     sidebarNav:    document.querySelectorAll(".nav-item"),
     sidebarLogout: $("sidebar-logout"),
@@ -59,7 +60,12 @@ const dom = {
     sidebarOverlay:$("sidebar-overlay"),
     hamburger:     $("hamburger"),
     topbarTitle:   $("topbar-title"),
-    userChip:      $("user-chip"),
+    userTrigger:   $("user-trigger"),
+    userPopover:   $("user-popover"),
+    userAvatar:    $("sidebar-avatar-initials"),
+    popoverEmail:  $("popover-email"),
+    popoverJoined: $("popover-joined"),
+    popoverAvatar: $("popover-avatar"),
     
     // Global Elements
     creditCount:   $("credit-count"),
@@ -105,14 +111,10 @@ const dom = {
     billingBalance:$("billing-balance"),
     buyBtns:       document.querySelectorAll(".buy-btn"),
     
-    // Page: Account
-    acctAvatar:    $("acct-avatar"),
-    acctEmail:     $("acct-email"),
-    acctSince:     $("acct-since"),
-    acctTotal:     $("acct-total"),
-    acctCompleted: $("acct-completed"),
-    acctBalance:   $("acct-balance"),
-    pwForm:        $("pw-form"),
+    // Stats
+    statCredits:   $("stat-credits"),
+    statUpscales:  $("stat-upscales"),
+    statQuality:   $("stat-quality"),
 };
 
 // ===========================
@@ -127,7 +129,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initWorkspace();
     initSlider();
     initBilling();
-    initAccount();
+    initPopover();
     checkPaymentParams();
     checkSession();
 });
@@ -160,35 +162,38 @@ function initNavigation() {
 }
 
 function switchToPage(pageId) {
+    if (activePage === pageId) return;
+    const prevPage = dom.pages[Array.from(dom.pages).findIndex(p => p.id === `page-${activePage}`)];
+    const nextPage = dom.pages[Array.from(dom.pages).findIndex(p => p.id === `page-${pageId}`)];
+    
     activePage = pageId;
     
     // Update Sidebar UI
     dom.sidebarNav.forEach(btn => {
-        const isActive = btn.dataset.page === pageId;
-        btn.classList.toggle("active", isActive);
-    });
-
-    // Update Content Visibility
-    dom.pages.forEach(p => {
-        const isTarget = p.id === `page-${pageId}`;
-        p.classList.toggle("active", isTarget);
+        btn.classList.toggle("active", btn.dataset.page === pageId);
     });
 
     // Update Title
-    const titleMap = {
-        upscale: "Upscale",
-        history: "History",
-        billing: "Billing",
-        account: "Account"
-    };
+    const titleMap = { upscale: "Upscale", history: "History", billing: "Billing" };
     dom.topbarTitle.textContent = titleMap[pageId] || "Dashboard";
 
-    // Trigger page-specific loads
+    // GSAP Transition
+    if (prevPage && nextPage) {
+        gsap.to(prevPage, { opacity: 0, y: -10, duration: 0.2, ease: "power2.in", onComplete: () => {
+            prevPage.classList.remove("active");
+            gsap.set(prevPage, { clearProps: "all" });
+            
+            nextPage.classList.add("active");
+            gsap.fromTo(nextPage, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" });
+        }});
+    } else {
+        dom.pages.forEach(p => p.classList.toggle("active", p.id === `page-${pageId}`));
+    }
+
     if (pageId === "history") loadHistory();
     if (pageId === "billing") loadBalance();
     if (pageId === "account") syncAccountDetails();
 
-    // Close mobile menu
     document.body.classList.remove("sidebar-open");
     initIcons();
 }
@@ -215,8 +220,24 @@ function initAuth() {
 
     dom.sidebarLogout.addEventListener("click", async () => {
         await sb.auth.signOut();
+        dom.userPopover.classList.add("hidden");
         checkSession();
         showToast("Logged out successfully.", "info");
+    });
+}
+
+function initPopover() {
+    dom.userTrigger.addEventListener("click", (e) => {
+        e.stopPropagation();
+        dom.userPopover.classList.toggle("hidden");
+    });
+    
+    window.addEventListener("click", () => {
+        dom.userPopover.classList.add("hidden");
+    });
+    
+    dom.userPopover.addEventListener("click", (e) => {
+        e.stopPropagation();
     });
 }
 
@@ -281,11 +302,13 @@ async function checkSession() {
             dom.appShell.classList.remove("hidden");
             
             const email = session.user.email;
+            const initials = email.charAt(0).toUpperCase();
+            
             dom.sidebarEmail.textContent = email;
-            dom.userChip.textContent = email.charAt(0).toUpperCase();
-            dom.acctEmail.textContent = email;
-            dom.acctAvatar.textContent = email.charAt(0).toUpperCase();
-            dom.acctSince.textContent = "Joined " + new Date(session.user.created_at).toLocaleDateString();
+            dom.popoverEmail.textContent = email;
+            dom.userAvatar.textContent = initials;
+            dom.popoverAvatar.textContent = initials;
+            dom.popoverJoined.textContent = "Joined " + new Date(session.user.created_at).toLocaleDateString();
             
             // Initial data load
             loadBalance();
@@ -332,13 +355,14 @@ function updateBalanceUI(val) {
     const prev = creditBalance;
     creditBalance = val;
 
-    // Update all balance displays
-    const elements = [dom.creditCount, $("stat-credits"), dom.billingBalance, dom.acctBalance];
+    const elements = [dom.creditCount, dom.statCredits, dom.billingBalance];
     
     elements.forEach(el => {
         if (!el) return;
+        el.classList.remove("skeleton");
         if (prev !== null && prev !== val && el === dom.creditCount) {
             animateNumber(el, prev, val, 600);
+            gsap.fromTo(dom.creditBadge, { scale: 1 }, { scale: 1.1, duration: 0.1, yoyo: true, repeat: 1, ease: "power2.out" });
             dom.creditBadge.classList.add("pulse");
             setTimeout(() => dom.creditBadge.classList.remove("pulse"), 600);
         } else {
@@ -389,9 +413,22 @@ async function startCheckout(tier) {
 const STATES = ["stUpload", "stModerating", "stConfig", "stProcessing", "stResult"];
 
 function transitionTo(stateName) {
-    STATES.forEach(s => {
-        dom[s].classList.toggle("hidden", s !== stateName);
-    });
+    const currentState = STATES.find(s => !dom[s].classList.contains("hidden"));
+    const nextState = stateName;
+
+    if (currentState === nextState) return;
+
+    if (currentState) {
+        gsap.to(dom[currentState], { opacity: 0, duration: 0.15, onComplete: () => {
+            dom[currentState].classList.add("hidden");
+            gsap.set(dom[currentState], { clearProps: "all" });
+            
+            dom[nextState].classList.remove("hidden");
+            gsap.fromTo(dom[nextState], { opacity: 0, y: 5 }, { opacity: 1, y: 0, duration: 0.25, ease: "power2.out" });
+        }});
+    } else {
+        STATES.forEach(s => dom[s].classList.toggle("hidden", s !== stateName));
+    }
     initIcons();
 }
 
@@ -483,6 +520,7 @@ function initWorkspace() {
         const p = e.target.closest(".pill");
         if (!p) return;
         selectedQuality = p.dataset.v;
+        localStorage.setItem("upscale-quality", selectedQuality);
         updatePills(dom.pillsQuality, selectedQuality);
         updateCost();
     });
@@ -492,12 +530,14 @@ function initWorkspace() {
         const p = e.target.closest(".pill");
         if (!p) return;
         selectedStyle = p.dataset.v;
+        localStorage.setItem("upscale-style", selectedStyle);
         updatePills(dom.pillsStyle, selectedStyle);
     });
 
     // Slider
     dom.tempSlider.addEventListener("input", () => {
         temperature = parseFloat(dom.tempSlider.value);
+        localStorage.setItem("upscale-temp", temperature);
         dom.tempVal.textContent = temperature.toFixed(1);
         const pct = (temperature / 2) * 100;
         dom.tempSlider.style.setProperty("--progress", `${pct}%`);
@@ -526,14 +566,16 @@ function updateCost() {
 }
 
 function resetConfigSliders() {
-    selectedQuality = "2K";
-    selectedStyle = "AUTO";
-    temperature = 0.0;
-    updatePills(dom.pillsQuality, "2K");
-    updatePills(dom.pillsStyle, "AUTO");
-    dom.tempSlider.value = 0;
-    dom.tempSlider.style.setProperty("--progress", "0%");
-    dom.tempVal.textContent = "0.0";
+    // Re-apply from LS or defaults
+    selectedQuality = localStorage.getItem("upscale-quality") || "2K";
+    selectedStyle = localStorage.getItem("upscale-style") || "AUTO";
+    temperature = parseFloat(localStorage.getItem("upscale-temp")) || 0.0;
+    
+    updatePills(dom.pillsQuality, selectedQuality);
+    updatePills(dom.pillsStyle, selectedStyle);
+    dom.tempSlider.value = temperature;
+    dom.tempSlider.style.setProperty("--progress", `${(temperature/2)*100}%`);
+    dom.tempVal.textContent = temperature.toFixed(1);
     updateCost();
 }
 
@@ -637,7 +679,6 @@ async function pollJob(id, token) {
 function showResult(data) {
     dom.compareAfter.src = data.image_url;
     
-    // Meta pill rendering
     dom.resultMeta.innerHTML = `
         <span class="meta-pill">${data.quality}</span>
         <span class="meta-pill">${data.style || "Auto"}</span>
@@ -645,6 +686,16 @@ function showResult(data) {
     `;
     
     transitionTo("stResult");
+    
+    // Aesthetic Reveal Animation
+    dom.compareBox.style.setProperty("--split", "0%");
+    gsap.to(dom.compareBox, { 
+        duration: 1.2, 
+        "--split": "50%", 
+        ease: "expo.out", 
+        delay: 0.5 
+    });
+
     showToast("Upscale successful!", "success");
     loadBalance();
     syncStats();
@@ -717,10 +768,11 @@ function renderHistory(items) {
     }
     
     dom.historyEmpty.classList.add("hidden");
+    const cards = [];
     items.forEach((item, idx) => {
         const card = document.createElement("div");
         card.className = "history-card shadow-sm";
-        card.style.animationDelay = (idx * 50) + "ms";
+        card.style.opacity = "0"; // Start hidden for GSAP
 
         const statusLabel = item.status.charAt(0) + item.status.slice(1).toLowerCase();
         const dateStr = new Date(item.created_at).toLocaleDateString([], { month: "short", day: "numeric", year: "numeric" });
@@ -754,7 +806,14 @@ function renderHistory(items) {
             </div>
         `;
         dom.historyGrid.appendChild(card);
+        cards.push(card);
     });
+
+    // GSAP Staggered Entry
+    gsap.fromTo(cards, 
+        { opacity: 0, y: 20 }, 
+        { opacity: 1, y: 0, duration: 0.4, stagger: 0.05, ease: "power2.out", clearProps: "transform" }
+    );
 
     dom.historyGrid.querySelectorAll(".hist-view-btn").forEach(btn => {
         btn.addEventListener("click", () => {

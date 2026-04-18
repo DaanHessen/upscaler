@@ -99,4 +99,20 @@ impl StorageService {
         let data = resp.body.collect().await?.into_bytes();
         Ok(data.to_vec())
     }
+
+    pub async fn delete_object(&self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.client
+            .delete_object()
+            .bucket(&self.bucket)
+            .key(path)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("S3 delete failed: bucket={}, key={}, error={:?}", self.bucket, path, e);
+                Box::new(e) as Box<dyn Error + Send + Sync>
+            })?;
+
+        info!("Deleted {} from bucket '{}'", path, self.bucket);
+        Ok(())
+    }
 }

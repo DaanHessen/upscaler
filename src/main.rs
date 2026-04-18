@@ -138,13 +138,19 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         supabase_jwt_secret,
     });
 
-    // Spawn Background Queue Worker
+    // Spawn Background Services
     let worker_state = state.clone();
     tokio::spawn(async move {
         queue_worker(worker_state).await;
     });
 
+    let janitor_state = state.clone();
+    tokio::spawn(async move {
+        janitor_service(janitor_state).await;
+    });
+
     // Rate Limiting: 5 requests per minute per IP, burst of 5
+    // .per_second(12) means replenish 1 token every 12s (60/12 = 5 per min)
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
             .per_second(12)
@@ -163,7 +169,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/history", get(history_handler))
         .route("/balance", get(balance_handler))
         .route("/checkout", post(checkout_handler))
-        .layer(DefaultBodyLimit::max(15 * 1024 * 1024)) // 15MB
+        .layer(DefaultBodyLimit::max(25 * 1024 * 1024)) // 25MB
         .layer(GovernorLayer { config: governor_conf })
         .with_state(state.clone());
 
@@ -202,16 +208,16 @@ async fn moderate_handler(
     jwt: JwtAuth,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
-    // Validate user, but don't strictly require DB presence just for moderation check
-    if Uuid::parse_str(&jwt.user_id).is_err() {
-        return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response();
-    }
+    let user_id = match Uuid::parse_str(&jwt.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+    };
 
     let mut image_data = None;
     while let Ok(Some(field)) = multipart.next_field().await {
         if field.name() == Some("image") {
             image_data = field.bytes().await.ok();
-            break; // We only need the image for this endpoint
+            break; 
         }
     }
 
@@ -220,25 +226,31 @@ async fn moderate_handler(
         None => return err_json(StatusCode::BAD_REQUEST, "Missing 'image' field").into_response(),
     };
 
-    let img = match image::load_from_memory(&data) {
-        Ok(i) => i,
-        Err(e) => {
-            error!("Failed to decode image for moderation: {}", e);
+    // Offload CPU-heavy image processing to a blocking thread to keep the runtime responsive
+    let (is_explicit, style_str) = match tokio::task::spawn_blocking(move || {
+        let img = image::load_from_memory(&data).map_err(|e| e.to_string())?;
+        let is_explicit = is_nsfw(&img).unwrap_or(false);
+        let detected_style = analyze_style(&img, Some(&data));
+        let style_str = match detected_style {
+            ImageStyle::Illustration => "ILLUSTRATION",
+            ImageStyle::Photography => "PHOTOGRAPHY",
+        };
+        Ok::<(bool, String), String>((is_explicit, style_str.to_string()))
+    }).await {
+        Ok(Ok(res)) => res,
+        Ok(Err(e)) => {
+            error!("Failed to process image for moderation (user {}): {}", user_id, e);
             return err_json(StatusCode::BAD_REQUEST, "Invalid image data").into_response();
         }
-    };
-
-    let is_explicit = is_nsfw(&img).unwrap_or(false);
-
-    let detected_style = analyze_style(&img, Some(&data));
-    let style_str = match detected_style {
-        ImageStyle::Illustration => "ILLUSTRATION",
-        ImageStyle::Photography => "PHOTOGRAPHY",
+        Err(e) => {
+            error!("Moderation thread panic for user {}: {}", user_id, e);
+            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Processing error").into_response();
+        }
     };
 
     (StatusCode::OK, Json(ModerateResponse {
         nsfw: is_explicit,
-        detected_style: style_str.to_string(),
+        detected_style: style_str,
     })).into_response()
 }
 
@@ -484,7 +496,7 @@ async fn poll_upscale_handler(
 }
 
 /// Valid quality tiers that map directly to Gemini's imageSize parameter
-const VALID_QUALITIES: &[&str] = &["1K", "2K", "4K"];
+const VALID_QUALITIES: &[&str] = &["2K", "4K"];
 const DEFAULT_QUALITY: &str = "2K";
 const DEFAULT_TEMPERATURE: f32 = 0.0;
 const MAX_TEMPERATURE: f32 = 2.0;
@@ -518,7 +530,7 @@ async fn upscale_handler(
             Some("style") => {
                 style_override_raw = field.text().await.ok();
             }
-            _ => {} // Ignore unknown fields
+            _ => {} 
         }
     }
 
@@ -527,19 +539,38 @@ async fn upscale_handler(
         None => return err_json(StatusCode::BAD_REQUEST, "Missing 'image' field").into_response(),
     };
 
-    // --- Server-side parameter validation (anti-tamper) ---
+    // --- High Performance Optimization: Early Balance Check ---
+    // Check if user has minimum credits before doing ANY CPU work (decoding/NSFW/Style)
+    if let Err(e) = credits::ensure_user_exists(state.db.pool(), user_id).await {
+        error!("Failed to ensure user exists: {}", e);
+        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+    }
+    
+    match credits::get_balance(state.db.pool(), user_id).await {
+        Ok(balance) => {
+            if balance < 2 { // 2K is minimum quality now
+                return (StatusCode::PAYMENT_REQUIRED, Json(ErrorResponse {
+                    success: false,
+                    error: "Insufficient credits. Minimum upscale (2K) costs 2 credits.".to_string(),
+                })).into_response();
+            }
+        }
+        Err(e) => {
+            error!("Pre-flight credit check failed for user {}: {}", user_id, e);
+            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+        }
+    }
 
-    // Temperature: parse, clamp to [0.0, 2.0], snap to 0.1 step
+    // --- Server-side parameter validation ---
     let temperature = match &temperature_raw {
         Some(t) => {
             let parsed: f32 = t.parse().unwrap_or(DEFAULT_TEMPERATURE);
             let clamped = parsed.clamp(0.0, MAX_TEMPERATURE);
-            (clamped * 10.0).round() / 10.0 // Snap to 0.1 step
+            (clamped * 10.0).round() / 10.0 
         }
         None => DEFAULT_TEMPERATURE,
     };
 
-    // Quality: validate against allowed values
     let quality = match &quality_raw {
         Some(q) => {
             let upper = q.trim().to_uppercase();
@@ -547,72 +578,80 @@ async fn upscale_handler(
                 upper
             } else {
                 return err_json(StatusCode::BAD_REQUEST, 
-                    &format!("Invalid quality '{}'. Must be one of: 1K, 2K, 4K", q)
+                    &format!("Invalid quality '{}'. Must be one of: 2K, 4K", q)
                 ).into_response();
             }
         }
         None => DEFAULT_QUALITY.to_string(),
     };
 
-    info!("Parameters: temperature={}, quality={}, style_override={:?}", temperature, quality, style_override_raw);
-
-    // --- Credit pre-flight check ---
-    // Ensure user exists in public.users
-    if let Err(e) = credits::ensure_user_exists(state.db.pool(), user_id).await {
-        error!("Failed to ensure user exists: {}", e);
-        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
-    }
-
     let credit_cost = credits::calculate_cost(&quality);
 
-    // Decode image once for both NSFW and Style analysis
-    let img = match image::load_from_memory(&data) {
-        Ok(i) => i,
-        Err(e) => {
-            error!("Failed to decode image: {}", e);
-            return err_json(StatusCode::BAD_REQUEST, "Invalid image data").into_response();
+    // --- High Performance Optimization: Offload CPU work ---
+    let style_override_clone = style_override_raw.clone();
+    let data_clone = data.clone();
+    
+    let processing_result = tokio::task::spawn_blocking(move || {
+        let img = image::load_from_memory(&data_clone).map_err(|e| e.to_string())?;
+        
+        // 1. NSFW detection
+        let is_explicit = is_nsfw(&img).unwrap_or(false);
+        if is_explicit {
+            return Ok::<_, String>(ProcessingOutcome::RejectedNSFW);
         }
-    };
 
-    // 0. NSFW local guard
-    match is_nsfw(&img) {
-        Ok(true) => {
+        // 2. Style resolution
+        let style_str = match style_override_clone.as_deref().unwrap_or("AUTO").to_uppercase().as_str() {
+            "ILLUSTRATION" => "ILLUSTRATION".to_string(),
+            "PHOTOGRAPHY" => "PHOTOGRAPHY".to_string(),
+            _ => {
+                let detected_style = analyze_style(&img, Some(&data_clone));
+                match detected_style {
+                    ImageStyle::Illustration => "ILLUSTRATION".to_string(),
+                    ImageStyle::Photography => "PHOTOGRAPHY".to_string(),
+                }
+            }
+        };
+
+        Ok(ProcessingOutcome::Passed { style_str })
+    }).await;
+
+    let style_str = match processing_result {
+        Ok(Ok(ProcessingOutcome::Passed { style_str })) => style_str,
+        Ok(Ok(ProcessingOutcome::RejectedNSFW)) => {
             info!("Upload rejected for user {}: NSFW content detected", user_id);
+            // Save to insights folder for owner review and track in DB for Janitor cleanup
+            let rejected_id = Uuid::new_v4();
+            let rejected_path = format!("moderation/rejected/{}/{}.png", user_id, rejected_id);
+            let storage = state.storage.clone();
+            let db = state.db.clone();
+            tokio::spawn(async move {
+                if let Err(e) = storage.upload_object(&rejected_path, data, "image/png").await {
+                    error!("Failed to store rejected image for insights: {}", e);
+                } else {
+                    if let Err(e) = db.insert_moderation_log(user_id, &rejected_path).await {
+                        error!("Failed to log moderation entry for user {}: {}", user_id, e);
+                    }
+                }
+            });
             return err_json(StatusCode::BAD_REQUEST, "Image violates content guidelines (NSFW).").into_response();
         }
-        Ok(false) => {
-            // Passed
+        Ok(Err(e)) => {
+            error!("Image processing task failed for user {}: {}", user_id, e);
+            return err_json(StatusCode::BAD_REQUEST, "Invalid image data").into_response();
         }
         Err(e) => {
-            error!("Content moderation filter error: {}", e);
-            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Security check failed").into_response();
-        }
-    }
-
-    // 0.1 Style Resolution logic
-    // Determine the style to use. Priority: User override > Auto detection
-    let style_str = match style_override_raw.as_deref().unwrap_or("AUTO").to_uppercase().as_str() {
-        "ILLUSTRATION" => "ILLUSTRATION",
-        "PHOTOGRAPHY" => "PHOTOGRAPHY",
-        _ => {
-            // Fallback to auto-detection if "AUTO" or invalid value provided
-            let detected_style = analyze_style(&img, Some(&data));
-            match detected_style {
-                ImageStyle::Illustration => "ILLUSTRATION",
-                ImageStyle::Photography => "PHOTOGRAPHY",
-            }
+            error!("Image processing thread panic: {}", e);
+            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Processing error").into_response();
         }
     };
 
-    info!("Received clean upload from user {} (size: {} bytes). Final Style Strategy: {}", user_id, data.len(), style_str);
-
-    // --- Atomic credit deduction (before any heavy processing) ---
-    // This uses SELECT ... FOR UPDATE to prevent double-spending
+    // --- Atomic credit deduction ---
     let deduct_result = credits::deduct_credits(
         state.db.pool(),
         user_id,
         credit_cost,
-        Uuid::nil(), // temporary — will be replaced with actual job_id after insert
+        Uuid::nil(), 
     ).await;
 
     match deduct_result {
@@ -624,7 +663,7 @@ async fn upscale_handler(
             if msg.contains("Insufficient credits") {
                 return (StatusCode::PAYMENT_REQUIRED, Json(ErrorResponse {
                     success: false,
-                    error: format!("Insufficient credits. This upscale costs {} credits. Please purchase more.", credit_cost),
+                    error: format!("Insufficient credits. This upscale costs {} credits.", credit_cost),
                 })).into_response();
             }
             error!("Credit deduction failed for user {}: {}", user_id, e);
@@ -635,22 +674,18 @@ async fn upscale_handler(
     let original_id = Uuid::new_v4();
     let original_path = format!("{}/originals/{}.png", user_id, original_id);
 
-    // 1. Upload original to S3 synchronously to avoid race condition with the Queue Worker
     if let Err(e) = state.storage.upload_object(&original_path, data, "image/png").await {
         error!("Failed to save original image: {}", e);
-        // Refund credits on upload failure
         if let Err(refund_err) = credits::refund_credits(state.db.pool(), user_id, credit_cost, Uuid::nil()).await {
             error!("CRITICAL: Failed to refund {} credits to user {} after upload failure: {}", credit_cost, user_id, refund_err);
         }
         return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to upload image").into_response();
     }
 
-    // 2. Insert into queue as PENDING (with credits_charged for refund tracking)
-    let job_id = match state.db.insert_job(user_id, &original_path, style_str, temperature, &quality).await {
+    let job_id = match state.db.insert_job(user_id, &original_path, &style_str, temperature, &quality).await {
         Ok(id) => id,
         Err(e) => {
             error!("Failed to insert job into database: {}", e);
-            // Refund credits on queue insertion failure
             if let Err(refund_err) = credits::refund_credits(state.db.pool(), user_id, credit_cost, Uuid::nil()).await {
                 error!("CRITICAL: Failed to refund {} credits to user {} after DB failure: {}", credit_cost, user_id, refund_err);
             }
@@ -658,7 +693,6 @@ async fn upscale_handler(
         }
     };
 
-    // Update the job with credits_charged for refund tracking
     if let Err(e) = sqlx::query("UPDATE upscales SET credits_charged = $1 WHERE id = $2")
         .bind(credit_cost)
         .bind(job_id)
@@ -669,7 +703,12 @@ async fn upscale_handler(
 
     info!("Job {} enqueued for user {} (style={}, temp={}, quality={}, cost={})", job_id, user_id, style_str, temperature, quality, credit_cost);
 
-    (StatusCode::ACCEPTED, Json(SubmitResponse { success: true, job_id, final_style: style_str.to_string() })).into_response()
+    (StatusCode::ACCEPTED, Json(SubmitResponse { success: true, job_id, final_style: style_str })).into_response()
+}
+
+enum ProcessingOutcome {
+    Passed { style_str: String },
+    RejectedNSFW,
 }
 
 // --- Queue Worker ---
@@ -681,16 +720,16 @@ async fn queue_worker(state: Arc<AppState>) {
     let semaphore = Arc::new(tokio::sync::Semaphore::new(5));
 
     loop {
-        // Try to claim a pending job
+        // 1. Wait for an available slot before even checking the DB.
+        // This prevents "job hoarding" where we mark jobs as PROCESSING but can't act on them.
+        let permit = match semaphore.clone().acquire_owned().await {
+            Ok(p) => p,
+            Err(_) => break, // semaphore closed
+        };
+
         match state.db.claim_pending_job().await {
             Ok(Some(job)) => {
                 info!("Worker claimed job {}", job.id);
-                // Acquire permit to process
-                let permit = match semaphore.clone().acquire_owned().await {
-                    Ok(p) => p,
-                    Err(_) => break, // semaphore closed
-                };
-
                 let state_clone = state.clone();
 
                 tokio::spawn(async move {
@@ -714,15 +753,18 @@ async fn queue_worker(state: Arc<AppState>) {
                     } else {
                         info!("Job {} completed successfully.", job.id);
                     }
+                    // Permit is dropped here when the task finishes
                     drop(permit);
                 });
             }
             Ok(None) => {
-                // No PENDING jobs. Sleep and pole again
+                // No jobs. Drop the permit so it's available for the next iteration or other workers.
+                drop(permit);
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
             Err(e) => {
                 error!("Queue worker DB poll failed: {}", e);
+                drop(permit);
                 tokio::time::sleep(std::time::Duration::from_secs(5)).await;
             }
         }
@@ -816,4 +858,59 @@ async fn process_upscale_job(state: &Arc<AppState>, job: &upscaler::db::UpscaleR
     state.db.update_job_success(job.id, &processed_path).await?;
 
     Ok(())
+}
+
+// --- Janitor Service (Automatic 24-hour cleanup) ---
+
+async fn janitor_service(state: Arc<AppState>) {
+    info!("Janitor cleanup service started.");
+    
+    // Check for expired content every hour
+    let mut interval = tokio::time::interval(std::time::Duration::from_secs(3600));
+
+    loop {
+        interval.tick().await;
+        info!("Janitor: Starting cleanup cycle...");
+
+        // 1. Clean up physical files for expired upscale jobs
+        match state.db.get_expired_jobs().await {
+            Ok(jobs) => {
+                for (id, input_path, output_path) in jobs {
+                    info!("Janitor: Expiring job {}", id);
+                    
+                    // Delete original
+                    if !input_path.is_empty() {
+                        let _ = state.storage.delete_object(&input_path).await;
+                    }
+                    
+                    // Delete processed result if it exists
+                    if let Some(out) = output_path {
+                        let _ = state.storage.delete_object(&out).await;
+                    }
+
+                    // Update DB status to EXPIRED and wipe paths
+                    if let Err(e) = state.db.mark_job_expired(id).await {
+                        error!("Janitor: Failed to mark job {} as expired in DB: {}", id, e);
+                    }
+                }
+            }
+            Err(e) => error!("Janitor: Failed to fetch expired jobs: {}", e),
+        }
+
+        // 2. Clean up physical files for moderation rejections
+        match state.db.get_expired_moderation_logs().await {
+            Ok(logs) => {
+                for (id, path) in logs {
+                    info!("Janitor: Deleting expired moderation record {}", id);
+                    let _ = state.storage.delete_object(&path).await;
+                    if let Err(e) = state.db.delete_moderation_log(id).await {
+                        error!("Janitor: Failed to delete moderation log {} from DB: {}", id, e);
+                    }
+                }
+            }
+            Err(e) => error!("Janitor: Failed to fetch expired moderation logs: {}", e),
+        }
+
+        info!("Janitor: Cleanup cycle complete.");
+    }
 }

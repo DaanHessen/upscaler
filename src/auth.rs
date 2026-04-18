@@ -67,7 +67,7 @@ where
             (StatusCode::UNAUTHORIZED, format!("Malformed token header: {}", e))
         })?;
 
-        info!("JWT header: alg={:?}, kid={:?}", header.alg, header.kid);
+        debug!("JWT header: alg={:?}, kid={:?}", header.alg, header.kid);
 
         let app_state = Arc::<AppState>::from_ref(state);
 
@@ -76,7 +76,7 @@ where
             Algorithm::HS256 => {
                 // HS256: Use the Supabase JWT secret as raw bytes (it's a plain string, NOT base64)
                 let secret = &app_state.supabase_jwt_secret;
-                info!("Using HS256 with JWT secret ({} bytes)", secret.len());
+                trace!("Using HS256 with JWT secret ({} bytes)", secret.len());
                 DecodingKey::from_secret(secret.as_bytes())
             }
             Algorithm::ES256 => {
@@ -96,7 +96,7 @@ where
                 let mut jwk_clean = jwk.clone();
                 jwk_clean.common.key_algorithm = None;
 
-                info!("Using ES256 with JWKS key (kid={})", kid);
+                debug!("Using ES256 with JWKS key (kid={})", kid);
                 DecodingKey::from_jwk(&jwk_clean).map_err(|e| {
                     error!("Failed to create DecodingKey from JWK: {}", e);
                     (StatusCode::INTERNAL_SERVER_ERROR, "JWT key configuration error".to_string())
@@ -110,6 +110,12 @@ where
 
         // 4. Validate — only allow the exact algorithm from the token header
         let mut validation = Validation::new(header.alg);
+        
+        // NOTE: validate_aud is disabled because of past 'InvalidAlgorithm' issues during development.
+        // To re-enable securely in production:
+        // 1. Set validation.validate_aud = true;
+        // 2. Set validation.set_audience(&["authenticated"]); 
+        // 3. Ensure your SUPABASE_URL and other env vars are correctly set.
         validation.validate_aud = false;
 
         // 5. Decode and verify signature
@@ -119,7 +125,7 @@ where
                 (StatusCode::UNAUTHORIZED, format!("Token verification failed: {}", e))
             })?;
 
-        info!("JWT verified successfully for user: {}", token_data.claims.sub);
+        debug!("JWT verified successfully for user: {}", token_data.claims.sub);
 
         Ok(JwtAuth {
             user_id: token_data.claims.sub,
