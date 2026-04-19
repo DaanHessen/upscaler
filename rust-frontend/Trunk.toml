@@ -1,0 +1,35 @@
+[build]
+target = "index.html"
+dist = "../frontend"
+
+#[clean]
+#dist = true
+
+[serve]
+address = "127.0.0.1"
+port = 8080
+rewrite_backend = "http://127.0.0.1:3000"
+
+[[proxy]]
+backend = "http://127.0.0.1:3000/health"
+
+[[proxy]]
+backend = "http://127.0.0.1:3000/moderate"
+
+[[proxy]]
+backend = "http://127.0.0.1:3000/upscale"
+
+[[proxy]]
+backend = "http://127.0.0.1:3000/upscales"
+
+[[proxy]]
+backend = "http://127.0.0.1:3000/history"
+
+[[proxy]]
+backend = "http://127.0.0.1:3000/balance"
+
+[[proxy]]
+backend = "http://127.0.0.1:3000/checkout"
+
+[[proxy]]
+backend = "http://127.0.0.1:3000/admin"
