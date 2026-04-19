@@ -215,7 +215,20 @@ async fn admin_insights_handler(
     }
     
     match state.db.get_recent_moderation_logs().await {
-        Ok(logs) => (StatusCode::OK, Json(logs)).into_response(),
+        Ok(logs) => {
+            let mut enriched = Vec::new();
+            for mut log in logs {
+                if let Some(path) = log.get("path").and_then(|p| p.as_str()) {
+                    if let Ok(url) = state.storage.get_signed_url(path).await {
+                        if let Some(obj) = log.as_object_mut() {
+                            obj.insert("url".to_string(), serde_json::Value::String(url));
+                        }
+                    }
+                }
+                enriched.push(log);
+            }
+            (StatusCode::OK, Json(enriched)).into_response()
+        },
         Err(e) => {
             error!("Failed to fetch moderation logs: {}", e);
             err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response()
@@ -249,13 +262,20 @@ async fn moderate_handler(
     // Offload CPU-heavy image processing to a blocking thread to keep the runtime responsive
     let (is_explicit, style_str) = match tokio::task::spawn_blocking(move || {
         let img = image::load_from_memory(&data).map_err(|e| e.to_string())?;
+        
+        // 1. Moderate first to save compute on NSFW (Audit Request)
         let is_explicit = is_nsfw(&img).unwrap_or(false);
+        if is_explicit {
+             return Ok::<(bool, String), String>((true, "SKIPPED".to_string()));
+        }
+
+        // 2. Only analyze style if clean
         let detected_style = analyze_style(&img, Some(&data));
         let style_str = match detected_style {
             ImageStyle::Illustration => "ILLUSTRATION",
             ImageStyle::Photography => "PHOTOGRAPHY",
         };
-        Ok::<(bool, String), String>((is_explicit, style_str.to_string()))
+        Ok::<(bool, String), String>((false, style_str.to_string()))
     }).await {
         Ok(Ok(res)) => res,
         Ok(Err(e)) => {
