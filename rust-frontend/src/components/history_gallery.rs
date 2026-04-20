@@ -72,7 +72,8 @@ pub fn HistoryGallery() -> impl IntoView {
             </Suspense>
 
             <style>
-                ".history-header { margin-bottom: var(--s-16); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: flex-end; }
+                ".history-container { width: 100%; max-width: 1200px; margin: 0 auto; }
+                .history-header { margin-bottom: var(--s-16); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: flex-end; }
                 .vault-subtitle { font-size: 0.875rem; color: hsl(var(--text-dim)); font-weight: 500; }
                 
                 .history-grid {

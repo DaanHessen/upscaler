@@ -94,7 +94,7 @@ pub fn UploadZone() -> impl IntoView {
                             <label for="file-upload" class="dropzone-content">
                                 <div class="icon-circle">
                                     {move || if let Some(_) = error.get() {
-                                        view! { <AlertCircle size={24} style="color: var(--error);".to_string() /> }.into_any()
+                                        view! { <AlertCircle size={24} custom_style="color: var(--error);".to_string() /> }.into_any()
                                     } else {
                                         view! { <ImageIcon size={24} /> }.into_any()
                                     }}

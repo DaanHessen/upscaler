@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 
 #[component]
-pub fn ImageIcon(#[prop(default = 24)] size: u32, #[prop(optional)] style: String) -> impl IntoView {
+pub fn ImageIcon(#[prop(default = 24)] size: u32, #[prop(optional)] custom_style: String) -> impl IntoView {
     view! {
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -13,7 +13,7 @@ pub fn ImageIcon(#[prop(default = 24)] size: u32, #[prop(optional)] style: Strin
             stroke-width="2" 
             stroke-linecap="round" 
             stroke-linejoin="round"
-            style=style
+            style=custom_style
         >
             <rect width="18" height="18" x="3" y="3" rx="2" ry="2"/>
             <circle cx="9" cy="9" r="2"/>
@@ -88,7 +88,7 @@ pub fn RefreshCw(#[prop(default = 24)] size: u32) -> impl IntoView {
 }
 
 #[component]
-pub fn AlertCircle(#[prop(default = 24)] size: u32, #[prop(optional)] style: String) -> impl IntoView {
+pub fn AlertCircle(#[prop(default = 24)] size: u32, #[prop(optional)] custom_style: String) -> impl IntoView {
     view! {
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -100,7 +100,7 @@ pub fn AlertCircle(#[prop(default = 24)] size: u32, #[prop(optional)] style: Str
             stroke-width="2" 
             stroke-linecap="round" 
             stroke-linejoin="round"
-            style=style
+            style=custom_style
         >
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" x2="12" y1="8" y2="12"/>
@@ -129,7 +129,7 @@ pub fn Zap(#[prop(default = 24)] size: u32) -> impl IntoView {
 }
 
 #[component]
-pub fn ShieldCheck(#[prop(default = 24)] size: u32) -> impl IntoView {
+pub fn ShieldCheck(#[prop(default = 24)] size: u32, #[prop(optional)] custom_style: String) -> impl IntoView {
     view! {
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -141,6 +141,7 @@ pub fn ShieldCheck(#[prop(default = 24)] size: u32) -> impl IntoView {
             stroke-width="2" 
             stroke-linecap="round" 
             stroke-linejoin="round"
+            style=custom_style
         >
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
             <path d="m9 12 2 2 4-4"/>
@@ -288,6 +289,47 @@ pub fn LogOut(#[prop(default = 24)] size: u32) -> impl IntoView {
             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
             <polyline points="16 17 21 12 16 7"/>
             <line x1="21" x2="9" y1="12" y2="12"/>
+        </svg>
+    }
+}
+
+#[component]
+pub fn Mail(#[prop(default = 24)] size: u32, #[prop(optional)] custom_style: String) -> impl IntoView {
+    view! {
+        <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width=size 
+            height=size 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            stroke-width="2" 
+            stroke-linecap="round" 
+            stroke-linejoin="round"
+            style=custom_style
+        >
+            <rect width="20" height="16" x="2" y="4" rx="2"/>
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+        </svg>
+    }
+}
+
+#[component]
+pub fn MessageSquare(#[prop(default = 24)] size: u32, #[prop(optional)] custom_style: String) -> impl IntoView {
+    view! {
+        <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width=size 
+            height=size 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            stroke-width="2" 
+            stroke-linecap="round" 
+            stroke-linejoin="round"
+            style=custom_style
+        >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
     }
 }

@@ -6,3 +6,4 @@ pub mod auth;
 pub mod comparison_slider;
 pub mod configure;
 pub mod view_result;
+pub mod legal;

@@ -75,7 +75,7 @@ pub fn Credits() -> impl IntoView {
                             </div>
                             <div class="mini-stat-item">
                                 <span class="label">"ARCHITECTURE"</span>
-                                <span class="value">"V7.1 STABLE"</span>
+                                <span class="value">"V1.0 ALPHA"</span>
                             </div>
                         </div>
                     </div>
@@ -105,7 +105,7 @@ pub fn Credits() -> impl IntoView {
             </div>
 
             <style>
-                ".credits-container { width: 100%; max-width: 1000px; margin: 0 auto; }
+                ".credits-container { width: 100%; max-width: 1200px; margin: 0 auto; }
                 .credits-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: var(--s-8); margin-top: var(--s-12); align-items: stretch; }
                 
                 .balance-card .card-body { padding: var(--s-12); display: flex; flex-direction: column; height: 100%; gap: var(--s-8); background: radial-gradient(circle at top right, hsl(var(--accent) / 0.05), transparent); }

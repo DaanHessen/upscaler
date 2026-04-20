@@ -13,6 +13,7 @@ use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
 use crate::components::configure::Configure;
 use crate::components::view_result::ViewResult;
+use crate::components::legal::{Terms, Contact};
 
 #[derive(Copy, Clone)]
 pub struct GlobalState {
@@ -99,6 +100,8 @@ fn MainLayout() -> impl IntoView {
                     <Route path=path!("/view/:job_id") view=|| view! { <AuthGuard><ViewResult /></AuthGuard> } />
                     <Route path=path!("/history") view=|| view! { <AuthGuard><History /></AuthGuard> } />
                     <Route path=path!("/settings") view=|| view! { <AuthGuard><Credits /></AuthGuard> } />
+                    <Route path=path!("/terms") view=Terms />
+                    <Route path=path!("/contact") view=Contact />
                 </Routes>
             </main>
 
@@ -112,22 +115,44 @@ fn Footer() -> impl IntoView {
     view! {
         <footer>
             <div class="footer-content">
-                <div class="footer-logo">
-                    <Zap size={14} />
-                    "UPSYL STUDIO"
+                <div class="footer-left">
+                    <div class="footer-logo">
+                        <Zap size={14} />
+                        "UPSYL STUDIO"
+                    </div>
                 </div>
-                <div class="footer-links">
-                    <span>"© 2026 INFRASTRUCTURE"</span>
+                
+                <div class="footer-center">
+                    <span class="footer-meta">"© 2026 INFRA"</span>
                     <span class="divider">"|"</span>
-                    <span>"V7.1 STABLE"</span>
+                    <span class="footer-meta">"V1.0 ALPHA"</span>
+                </div>
+
+                <div class="footer-right">
+                    <a href="/terms" class="footer-link">"Terms"</a>
+                    <a href="/contact" class="footer-link">"Support"</a>
                 </div>
             </div>
             <style>
-                "footer { border-top: 1px solid hsl(var(--border-muted)); padding: var(--s-12) var(--s-12); margin-top: auto; }
-                .footer-content { display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto; width: 100%; }
-                .footer-logo { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); display: flex; align-items: center; gap: var(--s-2); letter-spacing: 0.1em; text-transform: uppercase; }
-                .footer-links { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 700; display: flex; gap: var(--s-6); align-items: center; text-transform: uppercase; letter-spacing: 0.05em; }
-                .divider { opacity: 0.2; }
+                "footer { border-top: 1px solid var(--glass-border); padding: var(--s-6) var(--s-12); margin-top: auto; background: hsl(var(--bg) / 0.8); backdrop-filter: blur(20px); }
+                .footer-content { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%; height: var(--s-12); }
+                
+                .footer-left { flex: 1; display: flex; align-items: center; }
+                .footer-logo { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text)); display: flex; align-items: center; gap: var(--s-2); letter-spacing: 0.2em; text-transform: uppercase; }
+                
+                .footer-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--s-4); }
+                .footer-meta { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
+                .divider { opacity: 0.1; color: hsl(var(--text-dim)); }
+
+                .footer-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--s-8); }
+                .footer-link { font-size: 0.6875rem; font-weight: 800; color: hsl(var(--text-dim)); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; transition: color 0.2s; }
+                .footer-link:hover { color: hsl(var(--accent)); }
+                
+                @media (max-width: 768px) {
+                    footer { padding: var(--s-8) var(--s-6); }
+                    .footer-content { flex-direction: column; height: auto; gap: var(--s-6); }
+                    .footer-left, .footer-center, .footer-right { flex: none; justify-content: center; }
+                }
                 "
             </style>
         </footer>
@@ -239,20 +264,17 @@ fn Home() -> impl IntoView {
         <div class="fade-in">
             <div class="hero-section">
                 <h1 class="text-gradient stagger-1">"Professional Super-Resolution"</h1>
-                <p class="muted stagger-2" style="max-width: 600px; margin: 0 auto 1.5rem; font-size: 1.25rem; font-weight: 600;">
-                    "Bespoke neural restoration for photography and illustration."
-                </p>
-                <p class="muted stagger-3" style="max-width: 640px; margin: 0 auto 4rem; font-size: 0.9375rem; opacity: 0.6; line-height: 1.6;">
-                    "Restore frequency details, eliminate compression, and reach target resolutions with UPSYL precision in a hardware-accelerated studio environment."
+                <p class="muted stagger-2" style="max-width: 680px; margin: 0 auto 4rem; font-size: 1.0625rem; font-weight: 600; line-height: 1.6; opacity: 0.8;">
+                    "Bespoke neural restoration for photography and illustration. Restore frequency details, eliminate compression, and reach target resolutions with UPSYL precision."
                 </p>
                 
                 <div class="hybrid-layout stagger-3">
                     <div class="hybrid-left">
                         <ComparisonSlider 
-                            before_url="/assets/hero_before.png".to_string() 
-                            after_url="/assets/hero_after.png".to_string() 
-                            before_label="Original (Compressed)"
-                            after_label="Upscaled (2K/4K)"
+                            before_url="assets/hero_before.svg".to_string() 
+                            after_url="assets/hero_after.svg".to_string() 
+                            before_label="BEFORE (ORIGINAL)"
+                            after_label="AFTER (UPSCALED)"
                         />
                     </div>
                     <div class="hybrid-right">
