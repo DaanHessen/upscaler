@@ -402,17 +402,21 @@ pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle 
 }
 
 pub fn preprocess_image(
-    data: Vec<u8>,
+    data: &[u8],
     mode: ResizeMode,
 ) -> Result<ProcessedImage, Box<dyn Error + Send + Sync>> {
-    // 1. Validate MIME with Magic Bytes
-    let info = infer::get(&data).ok_or("Unable to determine file format")?;
-    if !info.mime_type().starts_with("image/") {
-        return Err(format!("Invalid file type: {}. Only images are allowed.", info.mime_type()).into());
-    }
+    // 1. Validate MIME
+    let _info = infer::get(data).ok_or("Unable to determine file format")?;
+    
+    // 2. Load
+    let img = image::load_from_memory(data)?;
+    preprocess_image_internal(img, mode)
+}
 
-    // 2. Load image from memory
-    let img = image::load_from_memory(&data)?;
+pub fn preprocess_image_internal(
+    img: DynamicImage,
+    mode: ResizeMode,
+) -> Result<ProcessedImage, Box<dyn Error + Send + Sync>> {
     let (width, height) = img.dimensions();
     let current_ratio = width as f32 / height as f32;
     
@@ -444,7 +448,7 @@ pub fn preprocess_image(
         }
     };
 
-    // 5. Encode to Base64 (for Gemini request)
+    // 5. Encode to Base64
     let mut buffer = Cursor::new(Vec::new());
     let jpeg_encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 95);
     processed_img.write_with_encoder(jpeg_encoder)?;

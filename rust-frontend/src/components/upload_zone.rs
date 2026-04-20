@@ -37,6 +37,7 @@ pub fn UploadZone() -> impl IntoView {
                             let _ = crate::persistence::save_file(&f_idb).await;
                         });
                         g_state.set_temp_classification.set(Some(res.detected_style));
+                        g_state.set_preview_base64.set(res.preview_base64);
                         nav("/configure", Default::default());
                     }
                 }

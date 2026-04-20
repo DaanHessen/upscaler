@@ -6,8 +6,7 @@ use upscaler::db::DbService;
 use upscaler::models::{
     Content, GenerateContentRequest, GenerationConfig, ImageConfig, Part, InlineData
 };
-use upscaler::processor::{preprocess_image, ResizeMode, is_nsfw, init_nsfw, analyze_style, ImageStyle};
-use upscaler::prompts::{ILLUSTRATION_PROMPT, PHOTOGRAPHY_PROMPT};
+use upscaler::processor::{preprocess_image, preprocess_image_internal, ResizeMode, is_nsfw, init_nsfw, analyze_style, ImageStyle};
 use base64::{engine::general_purpose, Engine as _};
 use dotenvy::dotenv;
 use std::env;
@@ -44,33 +43,40 @@ struct SubmitResponse {
 struct ModerateResponse {
     nsfw: bool,
     detected_style: String,
+    preview_base64: Option<String>,
 }
 
 #[derive(Serialize)]
 struct PollResponse {
-    status: String,
+    pub status: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    image_url: Option<String>,
+    pub image_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    before_url: Option<String>,
+    pub before_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
+    pub error: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    queue_position: Option<i64>,
+    pub queue_position: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub prompt_settings: Option<upscaler::prompts::PromptSettings>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub usage_metadata: Option<serde_json::Value>,
 }
 
 #[derive(Serialize)]
 struct HistoryItem {
-    id: Uuid,
-    status: String,
-    created_at: chrono::DateTime<chrono::Utc>,
-    quality: String,
-    style: Option<String>,
-    temperature: f32,
+    pub id: Uuid,
+    pub status: String,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub quality: String,
+    pub style: Option<String>,
+    pub temperature: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    image_url: Option<String>,
+    pub image_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    error: Option<String>,
+    pub error: Option<String>,
+    pub prompt_settings: serde_json::Value,
+    pub usage_metadata: serde_json::Value,
 }
 
 #[derive(Serialize)]
@@ -263,13 +269,13 @@ async fn moderate_handler(
     };
 
     // Offload CPU-heavy image processing to a blocking thread to keep the runtime responsive
-    let (is_explicit, style_str) = match tokio::task::spawn_blocking(move || {
+    let (is_explicit, style_str, preview_b64) = match tokio::task::spawn_blocking(move || {
         let img = image::load_from_memory(&data).map_err(|e| e.to_string())?;
         
         // 1. Moderate first to save compute on NSFW (Audit Request)
         let is_explicit = is_nsfw(&img).unwrap_or(false);
         if is_explicit {
-             return Ok::<(bool, String), String>((true, "SKIPPED".to_string()));
+             return Ok::<(bool, String, Option<String>), String>((true, "SKIPPED".to_string(), None));
         }
 
         // 2. Only analyze style if clean
@@ -278,7 +284,11 @@ async fn moderate_handler(
             ImageStyle::Illustration => "ILLUSTRATION",
             ImageStyle::Photography => "PHOTOGRAPHY",
         };
-        Ok::<(bool, String), String>((false, style_str.to_string()))
+
+        // 3. NEW: Generate 1MP preview for deterministic frontend display
+        let preview = preprocess_image_internal(img, ResizeMode::Pad).map_err(|e| e.to_string())?;
+        
+        Ok::<(bool, String, Option<String>), String>((false, style_str.to_string(), Some(preview.base64_data)))
     }).await {
         Ok(Ok(res)) => res,
         Ok(Err(e)) => {
@@ -294,6 +304,7 @@ async fn moderate_handler(
     (StatusCode::OK, Json(ModerateResponse {
         nsfw: is_explicit,
         detected_style: style_str,
+        preview_base64: preview_b64,
     })).into_response()
 }
 
@@ -479,6 +490,8 @@ async fn history_handler(
             temperature: rec.temperature,
             image_url: None,
             error: rec.error_msg,
+            prompt_settings: rec.prompt_settings,
+            usage_metadata: rec.usage_metadata,
         };
 
         if item.status == "COMPLETED" {
@@ -523,6 +536,8 @@ async fn poll_upscale_handler(
         before_url: None,
         error: record.error_msg,
         queue_position: None,
+        prompt_settings: serde_json::from_value(record.prompt_settings).ok(),
+        usage_metadata: Some(record.usage_metadata),
     };
 
     // Always provide the 'before' image for comparison
@@ -571,6 +586,7 @@ async fn upscale_handler(
     let mut temperature_raw: Option<String> = None;
     let mut quality_raw: Option<String> = None;
     let mut style_override_raw: Option<String> = None;
+    let mut prompt_settings_raw: Option<String> = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
@@ -585,6 +601,9 @@ async fn upscale_handler(
             }
             Some("style") => {
                 style_override_raw = field.text().await.ok();
+            }
+            Some("prompt_settings") => {
+                prompt_settings_raw = field.text().await.ok();
             }
             _ => {} 
         }
@@ -702,6 +721,11 @@ async fn upscale_handler(
         }
     };
 
+    let prompt_settings: upscaler::prompts::PromptSettings = match prompt_settings_raw {
+        Some(json_str) => serde_json::from_str(&json_str).unwrap_or_default(),
+        None => upscaler::prompts::PromptSettings::default(),
+    };
+
     // --- Atomic credit deduction ---
     let deduct_result = credits::deduct_credits(
         state.db.pool(),
@@ -738,7 +762,15 @@ async fn upscale_handler(
         return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to upload image").into_response();
     }
 
-    let job_id = match state.db.insert_job(user_id, &original_path, &style_str, temperature, &quality).await {
+    let prompt_settings_json = match serde_json::to_value(&prompt_settings) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to serialize prompt settings: {}", e);
+            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Serialization error").into_response();
+        }
+    };
+
+    let job_id = match state.db.insert_job(user_id, &original_path, &style_str, temperature, &quality, &prompt_settings_json).await {
         Ok(id) => id,
         Err(e) => {
             error!("Failed to insert job into database: {}", e);
@@ -834,14 +866,11 @@ async fn process_upscale_job(state: &Arc<AppState>, job: &upscaler::db::UpscaleR
 
     // 2. Preprocess image
     let processed = tokio::task::spawn_blocking(move || {
-        preprocess_image(original_data, ResizeMode::Pad)
+        preprocess_image(&original_data, ResizeMode::Pad)
     }).await??;
 
-    let system_prompt = match job.style.as_deref() {
-        Some("ILLUSTRATION") => ILLUSTRATION_PROMPT,
-        Some("PHOTOGRAPHY") => PHOTOGRAPHY_PROMPT,
-        _ => "Perform super-resolution restore. Strictly maintain the content of the image without drifting.",
-    };
+    let prompt_settings: upscaler::prompts::PromptSettings = serde_json::from_value(job.prompt_settings.clone()).unwrap_or_default();
+    let system_prompt = upscaler::prompts::build_system_prompt(job.style.as_deref().unwrap_or("PHOTOGRAPHY"), &prompt_settings);
 
     // 3. Get GCP token
     let token_data: String = state.auth.get_token().await?.as_str().to_string();
@@ -878,6 +907,9 @@ async fn process_upscale_job(state: &Arc<AppState>, job: &upscaler::db::UpscaleR
                 image_size: job.quality.clone(),
             }),
             temperature: Some(job.temperature),
+            thinking_config: Some(upscaler::models::ThinkingConfig {
+                thinking_level: prompt_settings.thinking_level.clone(),
+            }),
         },
     };
 
@@ -911,7 +943,8 @@ async fn process_upscale_job(state: &Arc<AppState>, job: &upscaler::db::UpscaleR
     state.storage.upload_object(&processed_path, image_bytes, "image/png").await?;
 
     // 6. Update database with success
-    state.db.update_job_success(job.id, &processed_path).await?;
+    let usage_json = serde_json::to_value(&gemini_response.usage_metadata).unwrap_or(serde_json::json!({}));
+    state.db.update_job_success(job.id, &processed_path, &usage_json).await?;
 
     Ok(())
 }

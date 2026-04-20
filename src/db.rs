@@ -25,6 +25,7 @@ pub struct UpscaleRecord {
     pub quality: String,
     pub credits_charged: i32,
     pub prompt_settings: serde_json::Value,
+    pub usage_metadata: serde_json::Value,
 }
 
 impl DbService {
@@ -71,7 +72,7 @@ impl DbService {
         let rec = sqlx::query_as::<_, UpscaleRecord>(
             "UPDATE upscales SET status = 'PROCESSING' WHERE id = (
                 SELECT id FROM upscales WHERE status = 'PENDING' ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1
-            ) RETURNING id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings"
+            ) RETURNING id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata"
         )
         .fetch_optional(&self.pool)
         .await?;
@@ -82,11 +83,13 @@ impl DbService {
         &self,
         id: Uuid,
         output_path: &str,
+        usage_metadata: &serde_json::Value,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         sqlx::query(
-            "UPDATE upscales SET status = 'COMPLETED', output_path = $1 WHERE id = $2"
+            "UPDATE upscales SET status = 'COMPLETED', output_path = $1, usage_metadata = $2 WHERE id = $3"
         )
         .bind(output_path)
+        .bind(usage_metadata)
         .bind(id)
         .execute(&self.pool)
         .await?;
@@ -113,7 +116,7 @@ impl DbService {
         id: Uuid,
     ) -> Result<Option<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let rec = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings FROM upscales WHERE id = $1"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata FROM upscales WHERE id = $1"
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -126,7 +129,7 @@ impl DbService {
         user_id: Uuid,
     ) -> Result<Vec<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let records = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings FROM upscales WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata FROM upscales WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50"
         )
         .bind(user_id)
         .fetch_all(&self.pool)

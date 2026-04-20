@@ -37,6 +37,14 @@ pub struct GenerationConfig {
     #[serde(rename = "imageConfig", skip_serializing_if = "Option::is_none")]
     pub image_config: Option<ImageConfig>,
     pub temperature: Option<f32>,
+    #[serde(rename = "thinkingConfig", skip_serializing_if = "Option::is_none")]
+    pub thinking_config: Option<ThinkingConfig>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ThinkingConfig {
+    #[serde(rename = "thinkingLevel")]
+    pub thinking_level: String, // 'MINIMAL', 'LOW', 'MEDIUM', 'HIGH'
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -50,6 +58,18 @@ pub struct ImageConfig {
 #[derive(Debug, Deserialize)]
 pub struct GenerateContentResponse {
     pub candidates: Vec<Candidate>,
+    #[serde(rename = "usageMetadata", default)]
+    pub usage_metadata: UsageMetadata,
+}
+
+#[derive(Debug, Deserialize, Serialize, Default)]
+pub struct UsageMetadata {
+    #[serde(rename = "promptTokenCount", default)]
+    pub prompt_token_count: i32,
+    #[serde(rename = "candidatesTokenCount", default)]
+    pub candidates_token_count: i32,
+    #[serde(rename = "totalTokenCount", default)]
+    pub total_token_count: i32,
 }
 
 #[derive(Debug, Deserialize)]

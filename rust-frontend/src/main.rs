@@ -29,14 +29,31 @@ pub struct GlobalState {
     pub set_style: WriteSignal<String>,
     pub temperature: ReadSignal<f32>,
     pub set_temperature: WriteSignal<f32>,
+    pub keep_aspect_ratio: ReadSignal<bool>,
+    pub set_keep_aspect_ratio: WriteSignal<bool>,
+    pub keep_depth_of_field: ReadSignal<bool>,
+    pub set_keep_depth_of_field: WriteSignal<bool>,
+    pub lighting: ReadSignal<String>,
+    pub set_lighting: WriteSignal<String>,
+    pub preview_base64: ReadSignal<Option<String>>,
+    pub set_preview_base64: WriteSignal<Option<String>>,
+    pub thinking_level: ReadSignal<String>,
+    pub set_thinking_level: WriteSignal<String>,
 }
 
 pub fn provide_global_state() {
     let (temp_file, set_temp_file) = signal(None);
     let (temp_classification, set_temp_classification) = signal(None);
-    let (quality, set_quality) = signal("2K".to_string());
+    let initial_settings = crate::persistence::load_settings();
+    
+    let (quality, set_quality) = signal(initial_settings.as_ref().map(|s| s.quality.clone()).unwrap_or_else(|| "2K".to_string()));
     let (style, set_style) = signal("PHOTOGRAPHY".to_string());
-    let (temperature, set_temperature) = signal(0.5f32);
+    let (temperature, set_temperature) = signal(initial_settings.as_ref().map(|s| s.temperature).unwrap_or(0.0f32));
+    let (keep_aspect_ratio, set_keep_aspect_ratio) = signal(initial_settings.as_ref().map(|s| s.keep_aspect_ratio).unwrap_or(true));
+    let (keep_depth_of_field, set_keep_depth_of_field) = signal(initial_settings.as_ref().map(|s| s.keep_depth_of_field).unwrap_or(true));
+    let (lighting, set_lighting) = signal(initial_settings.as_ref().map(|s| s.lighting.clone()).unwrap_or_else(|| "Original".to_string()));
+    let (thinking_level, set_thinking_level) = signal(initial_settings.as_ref().map(|s| s.thinking_level.clone()).unwrap_or_else(|| "HIGH".to_string()));
+    let (preview_base64, set_preview_base64) = signal(None);
     
     provide_context(GlobalState { 
         temp_file, 
@@ -49,6 +66,16 @@ pub fn provide_global_state() {
         set_style,
         temperature,
         set_temperature,
+        keep_aspect_ratio,
+        set_keep_aspect_ratio,
+        keep_depth_of_field,
+        set_keep_depth_of_field,
+        lighting,
+        set_lighting,
+        preview_base64,
+        set_preview_base64,
+        thinking_level,
+        set_thinking_level,
     });
 }
 
@@ -74,7 +101,7 @@ fn AuthGuard(children: Children) -> impl IntoView {
 fn App() -> impl IntoView {
     provide_global_state();
 
-    let auth_ctx = use_context::<crate::auth::AuthContext>().unwrap_or_else(|| {
+    let _auth_ctx = use_context::<crate::auth::AuthContext>().unwrap_or_else(|| {
         // Fallback if needed, but AuthNav will handle it
         // ...
         unreachable!("AuthContext should be provided by AuthProvider wrap")
@@ -94,6 +121,10 @@ fn App() -> impl IntoView {
             quality: global_state.quality.get(),
             style: global_state.style.get(),
             temperature: global_state.temperature.get(),
+            keep_aspect_ratio: global_state.keep_aspect_ratio.get(),
+            keep_depth_of_field: global_state.keep_depth_of_field.get(),
+            lighting: global_state.lighting.get(),
+            thinking_level: global_state.thinking_level.get(),
         });
     });
 
@@ -111,6 +142,9 @@ fn App() -> impl IntoView {
             gs.set_quality.set(s.quality);
             gs.set_style.set(s.style);
             gs.set_temperature.set(s.temperature);
+            gs.set_keep_aspect_ratio.set(s.keep_aspect_ratio);
+            gs.set_keep_depth_of_field.set(s.keep_depth_of_field);
+            gs.set_lighting.set(s.lighting);
         }
 
         // Hydrate file (async)
@@ -277,6 +311,7 @@ fn AuthNav() -> impl IntoView {
                     <div style="display: flex; align-items: center; gap: var(--s-6);">
                         <Suspense>
                             {move || {
+                                let _history = auth.history;
                                 let res = auth.credits.get();
                                 match res {
                                     Some(credits) => view! { 

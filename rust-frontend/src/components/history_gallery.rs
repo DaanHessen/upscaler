@@ -1,7 +1,7 @@
 use leptos::prelude::*;
-use crate::components::icons::{ImageIcon, Download, Calendar, RefreshCw, AlertCircle, Zap};
+use crate::components::icons::{ImageIcon, Download, Calendar, RefreshCw, Zap};
 use crate::auth::use_auth;
-use crate::api::{ApiClient, HistoryItem};
+use crate::api::HistoryItem;
 
 #[component]
 pub fn HistoryGallery() -> impl IntoView {
@@ -11,7 +11,7 @@ pub fn HistoryGallery() -> impl IntoView {
         auth.sync_telemetry(false);
     });
 
-    let history = auth.history;
+    let _history = auth.history;
 
     view! {
         <div class="history-container fade-in">

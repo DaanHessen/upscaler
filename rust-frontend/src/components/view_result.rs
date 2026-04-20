@@ -91,7 +91,7 @@ where F: Fn(()) + 'static + Copy {
                     ("IN QUEUE", format!("Position #{} in queue", pos), "Waiting for an available compute node...")
                 },
                 "PROCESSING" => {
-                    ("RECONSTRUCTING", "Engine Engaged...".to_string(), "Gemini Vision is enhancing your asset...")
+                    ("RECONSTRUCTING", "Studio Engine Engaged...".to_string(), "Gemini Vision is enhancing your asset...")
                 },
                 _ => ("FINALIZING", "Synchronizing Store...".to_string(), "Finalizing and storing your high-res asset...")
             }
@@ -112,10 +112,10 @@ where F: Fn(()) + 'static + Copy {
                     </div>
 
                     <div class="studio-processing-view">
-                        <div class="pulse-visual">
-                            <div class="pulse-ring"></div>
-                            <div class="pulse-ring delay-1"></div>
-                            <div class="pulse-core">
+                        <div class="scanner-visual">
+                            <div class="scanner-frame">
+                                <div class="scanner-line"></div>
+                                <div class="scanner-glow"></div>
                                 <RefreshCw size={32} />
                             </div>
                         </div>
@@ -146,16 +146,51 @@ where F: Fn(()) + 'static + Copy {
                 
                 .studio-processing-view { display: flex; flex-direction: column; align-items: center; gap: var(--s-10); padding: var(--s-10) 0; }
                 
-                .pulse-visual { position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; }
-                .pulse-core { color: hsl(var(--accent)); animation: spin 4s linear infinite; z-index: 2; background: hsl(var(--bg)); border-radius: 50%; padding: var(--s-4); border: 1px solid var(--glass-border); }
+                .scanner-visual { position: relative; width: 100%; display: flex; justify-content: center; }
+                .scanner-frame { 
+                    width: 140px; 
+                    height: 140px; 
+                    border: 1px solid var(--glass-border); 
+                    border-radius: var(--radius-md); 
+                    background: #000; 
+                    position: relative; 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    overflow: hidden;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+                }
+                .scanner-frame svg { color: hsl(var(--accent)); animation: spin 4s linear infinite; z-index: 10; opacity: 0.5; }
                 
-                .pulse-ring { position: absolute; width: 100%; height: 100%; border: 1px solid hsl(var(--accent)); border-radius: 50%; animation: pulse-out 3s ease-out infinite; opacity: 0; }
-                .pulse-ring.delay-1 { animation-delay: 1.5s; }
+                .scanner-line { 
+                    position: absolute; 
+                    top: 0; 
+                    left: 0; 
+                    width: 100%; 
+                    height: 2px; 
+                    background: hsl(var(--accent)); 
+                    box-shadow: 0 0 15px hsl(var(--accent)); 
+                    animation: scan-move 2.5s ease-in-out infinite; 
+                    z-index: 5;
+                }
+                .scanner-glow {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 30px;
+                    background: linear-gradient(to bottom, hsl(var(--accent) / 0.2), transparent);
+                    animation: scan-glow-move 2.5s ease-in-out infinite;
+                    z-index: 4;
+                }
 
-                @keyframes pulse-out {
-                    0% { transform: scale(0.6); opacity: 0; }
-                    50% { opacity: 0.3; }
-                    100% { transform: scale(1.4); opacity: 0; }
+                @keyframes scan-move {
+                    0%, 100% { top: 0; }
+                    50% { top: 100%; }
+                }
+                @keyframes scan-glow-move {
+                    0%, 100% { top: 0; transform: scaleY(1); }
+                    50% { top: calc(100% - 30px); transform: scaleY(-1); }
                 }
 
                 .processing-meta { text-align: center; display: flex; flex-direction: column; gap: var(--s-2); }
@@ -178,6 +213,7 @@ where F: Fn(()) + 'static + Copy {
 #[component]
 fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
     let navigate = use_navigate();
+    let (show_debug, set_show_debug) = signal(false);
     
     view! {
         <div class="result-container fade-in">
@@ -226,6 +262,38 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                                     <span class="s-value">"V2.0 STABLE"</span>
                                 </div>
                             </div>
+                            
+                            <div class="card-divider" style="margin: var(--s-8) 0;"></div>
+                            
+                            <button 
+                                class="btn btn-secondary btn-xs btn-block" 
+                                on:click=move |_| set_show_debug.update(|v| *v = !*v)
+                            >
+                                {move || if show_debug.get() { "HIDE SYSTEM LOGS" } else { "SHOW SYSTEM LOGS" }}
+                            </button>
+
+                            {move || show_debug.get().then(|| {
+                                let settings = data.prompt_settings.clone().unwrap_or_default();
+                                let usage = data.usage_metadata.clone().unwrap_or_default();
+                                let prompt_tokens = usage["prompt_token_count"].as_i64().unwrap_or(0);
+                                let candidate_tokens = usage["candidates_token_count"].as_i64().unwrap_or(0);
+                                
+                                view! {
+                                    <div class="debug-panel fade-in">
+                                        <div class="debug-section">
+                                            <span class="d-hdr">"PROMPT BUILDER"</span>
+                                            <div class="d-row"><span>"Lighting"</span><span>{settings.lighting}</span></div>
+                                            <div class="d-row"><span>"Aspect Lock"</span><span>{settings.keep_aspect_ratio.to_string()}</span></div>
+                                            <div class="d-row"><span>"Focus Lock"</span><span>{settings.keep_depth_of_field.to_string()}</span></div>
+                                        </div>
+                                        <div class="debug-section">
+                                            <span class="d-hdr">"LLM USAGE (VERTEX)"</span>
+                                            <div class="d-row"><span>"Prompt Tokens"</span><span>{prompt_tokens}</span></div>
+                                            <div class="d-row"><span>"Response Tokens"</span><span>{candidate_tokens}</span></div>
+                                        </div>
+                                    </div>
+                                }
+                            })}
                         </div>
                     </div>
                 </div>
@@ -252,6 +320,17 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                     .header-actions { width: 100%; }
                     .header-actions .btn { flex: 1; }
                 }
+
+                .card-divider { height: 1px; background: var(--glass-border); opacity: 0.5; }
+                .btn-xs { font-size: 0.6rem; padding: var(--s-3); }
+
+                /* Debug Panel */
+                .debug-panel { margin-top: var(--s-6); display: flex; flex-direction: column; gap: var(--s-6); background: rgba(0,0,0,0.3); padding: var(--s-4); border-radius: var(--radius-sm); border: 1px solid var(--glass-border); }
+                .debug-section { display: flex; flex-direction: column; gap: 4px; }
+                .d-hdr { font-size: 0.5rem; font-weight: 900; color: hsl(var(--accent)); letter-spacing: 0.1em; margin-bottom: 2px; }
+                .d-row { display: flex; justify-content: space-between; font-size: 0.625rem; font-family: var(--font-mono); }
+                .d-row span:first-child { color: hsl(var(--text-dim)); }
+                .d-row span:last-child { color: hsl(var(--text)); font-weight: 600; }
                 "
             </style>
         </div>

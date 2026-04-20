@@ -1,8 +1,8 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use crate::{use_global_state, use_auth};
-use crate::api::ApiClient;
-use crate::components::icons::{Zap, ImageIcon, Settings};
+use crate::api::{ApiClient, PromptSettings};
+use crate::components::icons::{Zap, ImageIcon, Settings, Maximize, Target, Sun};
 
 #[component]
 pub fn Configure() -> impl IntoView {
@@ -23,7 +23,7 @@ pub fn Configure() -> impl IntoView {
     let handle_upscale = move |_| {
         let navigate = navigate.clone();
         if let Some(file) = global_state.temp_file.get() {
-            let q_val = global_state.quality.get();
+            let q_val: String = global_state.quality.get();
             let cost = if q_val == "4K" { 4 } else { 2 };
             
             // Check credits
@@ -36,19 +36,23 @@ pub fn Configure() -> impl IntoView {
 
             set_loading.set(true);
             let token = auth.session.get().map(|s| s.access_token);
-            let s_val = global_state.style.get();
-            let t_val = global_state.temperature.get();
+            let s_val: String = global_state.style.get();
+            let t_val: f32 = global_state.temperature.get();
             let auth_ctx = auth;
             
+            let p_settings = PromptSettings {
+                keep_aspect_ratio: global_state.keep_aspect_ratio.get(),
+                keep_depth_of_field: global_state.keep_depth_of_field.get(),
+                lighting: global_state.lighting.get(),
+                thinking_level: global_state.thinking_level.get(),
+            };
+            
             leptos::task::spawn_local(async move {
-                match ApiClient::submit_upscale(&file, &q_val, &s_val, t_val, token.as_deref()).await {
+                match ApiClient::submit_upscale(&file, &q_val, &s_val, t_val, &p_settings, token.as_deref()).await {
                     Ok(resp) => {
                         // Optimistic update
                         auth_ctx.set_credits.update(|c| if let Some(cv) = c { *cv -= cost; });
-                        
-                        // Force refresh telemetry in background
                         auth_ctx.sync_telemetry(true);
-                        
                         navigate(&format!("/view/{}", resp.job_id), Default::default());
                     },
                     Err(e) => {
@@ -60,8 +64,14 @@ pub fn Configure() -> impl IntoView {
         }
     };
 
-    let preview_url = move || {
-        global_state.temp_file.get().map(|f| web_sys::Url::create_object_url_with_blob(&f).unwrap()).unwrap_or_default()
+    let preview_src = move || {
+        if let Some(b64) = global_state.preview_base64.get() {
+            format!("data:image/jpeg;base64,{}", b64)
+        } else {
+            global_state.temp_file.get()
+                .map(|f| web_sys::Url::create_object_url_with_blob(&f).unwrap())
+                .unwrap_or_default()
+        }
     };
 
     view! {
@@ -82,11 +92,18 @@ pub fn Configure() -> impl IntoView {
                                 <span>"SOURCE ASSET"</span>
                             </div>
                             <div class="preview-visual">
-                                {move || if global_state.temp_file.get().is_some() {
-                                    view! { <img src=preview_url /> }.into_any()
-                                } else {
-                                    view! { <div class="empty-preview">"No image selected"</div> }.into_any()
+                                {move || {
+                                    let has_file = global_state.temp_file.get().is_some();
+                                    if has_file {
+                                        view! { <img src=preview_src() /> }.into_any()
+                                    } else {
+                                        view! { <div class="empty-preview">"No image selected"</div> }.into_any()
+                                    }
                                 }}
+                                <div class="resolution-badge">
+                                    <span>"1.0 MP"</span>
+                                    <span>"PRE-PROCESSOR FEED"</span>
+                                </div>
                             </div>
                             <div class="meta-stats" style="margin-top: auto; border: none; padding-top: var(--s-4);">
                                 <div class="stat-box">
@@ -95,7 +112,10 @@ pub fn Configure() -> impl IntoView {
                                         <div class="scanning-icon">
                                             <Zap size={10} />
                                         </div>
-                                        <span class="stat-value highlight">{move || global_state.temp_classification.get().unwrap_or("PENDING...".to_string())}</span>
+                                        <span class="stat-value highlight">{move || {
+                                            let cls: String = global_state.temp_classification.get().unwrap_or_else(|| "PENDING...".to_string());
+                                            cls
+                                        }}</span>
                                     </div>
                                 </div>
                             </div>
@@ -155,7 +175,7 @@ pub fn Configure() -> impl IntoView {
                                 </div>
 
                                 <div class="param-group">
-                                    <label>"Creativity: " {move || format!("{:.1}", global_state.temperature.get())}</label>
+                                    <label>"Engine Creativity"</label>
                                     <div class="slider-wrapper">
                                         <input 
                                             type="range" 
@@ -165,10 +185,63 @@ pub fn Configure() -> impl IntoView {
                                             prop:value=move || global_state.temperature.get().to_string()
                                             on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
                                         />
-                                        <div class="range-labels">
-                                            <span>"Faithful"</span>
-                                            <span>"Artistic"</span>
+                                    </div>
+                                </div>
+
+                                <div class="card-divider"></div>
+
+                                <div class="param-group">
+                                    <label>"Advanced Reconstruction"</label>
+                                    <div class="checkbox-grid">
+                                        <div 
+                                            class=move || if global_state.keep_aspect_ratio.get() { "check-item active" } else { "check-item" }
+                                            on:click=move |_| global_state.set_keep_aspect_ratio.update(|v| *v = !*v)
+                                        >
+                                            <Maximize size={14} />
+                                            <span>"Keep Aspect Ratio"</span>
                                         </div>
+                                        <div 
+                                            class=move || if global_state.keep_depth_of_field.get() { "check-item active" } else { "check-item" }
+                                            on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
+                                        >
+                                            <Target size={14} />
+                                            <span>"Precision Focus"</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="param-group">
+                                    <label>"Lighting Style"</label>
+                                    <div class="select-wrapper">
+                                        <select 
+                                            on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
+                                            prop:value=move || global_state.lighting.get()
+                                        >
+                                            <option value="Original">"Maintain Original (UPSYL DEFAULT)"</option>
+                                            <option value="Studio">"Studio High-Key"</option>
+                                            <option value="Cinematic">"Cinematic Drama"</option>
+                                            <option value="Vivid">"Vivid Contrast"</option>
+                                            <option value="Natural">"Natural Overcast"</option>
+                                        </select>
+                                        <Sun size={14} custom_style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: 0.5;".to_string() />
+                                    </div>
+                                </div>
+
+                                <div class="param-group">
+                                    <label>"Engine Intelligence"</label>
+                                    <div class="segmented-control">
+                                        <button 
+                                            class=move || if global_state.thinking_level.get() == "MINIMAL" { "segment active" } else { "segment" }
+                                            on:click=move |_| global_state.set_thinking_level.set("MINIMAL".to_string())
+                                        >
+                                            "MINIMAL (FAST)"
+                                        </button>
+                                        <button 
+                                            class=move || if global_state.thinking_level.get() == "HIGH" { "segment active" } else { "segment" }
+                                            on:click=move |_| global_state.set_thinking_level.set("HIGH".to_string())
+                                        >
+                                            "HIGH (STUDIO)"
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -250,7 +323,64 @@ pub fn Configure() -> impl IntoView {
                 .range-labels { display: flex; justify-content: space-between; margin-top: 0.25rem; font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.5; }
                 
                 .card-actions-row { margin-top: var(--s-16); }
-                .btn-block { width: 100%; border-radius: var(--radius-md); font-weight: 850; letter-spacing: 0.1em; padding: var(--s-5); }
+                .btn-block { width: 100%; border-radius: var(--radius-md); font-weight: 850; letter-spacing: 0.1em; padding: var(--s-5); border: none; cursor: pointer; transition: all 0.2s; }
+                .btn-block:disabled { opacity: 0.5; cursor: not-allowed; }
+                
+                .card-divider { height: 1px; background: var(--glass-border); margin: var(--s-2) 0; opacity: 0.5; }
+
+                /* Settings Extras */
+                .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+                .check-item { 
+                    padding: var(--s-4); 
+                    border: 1px solid var(--glass-border); 
+                    border-radius: var(--radius-md); 
+                    font-size: 0.6875rem; 
+                    font-weight: 700; 
+                    color: hsl(var(--text-muted)); 
+                    cursor: pointer; 
+                    display: flex; 
+                    align-items: center; 
+                    gap: var(--s-2);
+                    transition: all 0.2s;
+                    user-select: none;
+                }
+                .check-item:hover { border-color: hsl(var(--accent) / 0.4); background: hsl(var(--surface-raised) / 0.3); }
+                .check-item.active { border-color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08); color: hsl(var(--text)); }
+
+                .select-wrapper { position: relative; width: 100%; }
+                select { 
+                    width: 100%; 
+                    background: hsl(var(--surface-raised) / 0.5); 
+                    border: 1px solid var(--glass-border); 
+                    border-radius: var(--radius-md); 
+                    padding: 12px 36px 12px 12px; 
+                    color: hsl(var(--text)); 
+                    font-size: 0.75rem; 
+                    font-weight: 600; 
+                    appearance: none; 
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                select:hover { border-color: hsl(var(--accent) / 0.4); }
+                select:focus { outline: none; border-color: hsl(var(--accent)); box-shadow: 0 0 0 2px hsl(var(--accent) / 0.1); }
+                
+                .resolution-badge {
+                    position: absolute;
+                    bottom: 12px;
+                    right: 12px;
+                    background: hsl(var(--bg) / 0.8);
+                    backdrop-filter: blur(10px);
+                    padding: 6px 12px;
+                    border-radius: 4px;
+                    border: 1px solid var(--glass-border);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
+                    gap: 2px;
+                    pointer-events: none;
+                }
+                .resolution-badge span:first-child { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 900; color: hsl(var(--accent)); }
+                .resolution-badge span:last-child { font-size: 0.5rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05em; }
 
                 /* Classification Animation */
                 .classification-active { display: flex; align-items: center; justify-content: center; gap: var(--s-3); }
