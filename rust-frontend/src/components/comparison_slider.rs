@@ -39,17 +39,16 @@ pub fn ComparisonSlider(
             on:mousemove=on_move
             on:touchmove=on_touch
         >
-            <div class="image-after" style:background-image=move || format!("url({})", after_url)>
-                <span class="label after-label">{after_label}</span>
-            </div>
+            <div class="image-after" style:background-image=move || format!("url({})", after_url)></div>
             
             <div 
                 class="image-before" 
                 style:background-image=move || format!("url({})", before_url)
                 style:width=move || format!("{}%", position.get())
-            >
-                <span class="label before-label">{before_label}</span>
-            </div>
+            ></div>
+
+            <span class="label before-label">{before_label}</span>
+            <span class="label after-label">{after_label}</span>
 
             <div class="slider-handle" style:left=move || format!("{}%", position.get())>
                 <div class="handle-circle">

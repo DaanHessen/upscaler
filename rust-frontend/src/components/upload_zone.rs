@@ -124,7 +124,7 @@ pub fn UploadZone() -> impl IntoView {
                 </div>
                 <div class="limit-box">
                     <span class="limit-label">"ARCHITECTURE"</span>
-                    <span class="limit-value">"V7.1 STABLE"</span>
+                    <span class="limit-value">"V1.0 ALPHA"</span>
                 </div>
             </div>
 
@@ -143,40 +143,34 @@ pub fn UploadZone() -> impl IntoView {
                     border: 1px solid var(--glass-border); 
                     border-radius: var(--radius-lg);
                     background: hsl(var(--surface));
-                    box-shadow: inset 0 0 40px rgba(0,0,0,0.4);
+                    box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
                     overflow: hidden;
                 }
                 
-                .upload-dropzone::before {
+                .upload-dropzone::after {
                     content: '';
                     position: absolute;
-                    inset: -2px;
-                    background: conic-gradient(from 0deg, transparent, hsl(var(--accent)), transparent 25%);
-                    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-                    mask-composite: exclude;
-                    padding: 2px;
-                    border-radius: inherit;
+                    inset: 0;
+                    background: radial-gradient(circle at center, hsl(var(--accent) / 0.05), transparent 70%);
                     opacity: 0;
-                    transition: opacity 0.3s;
-                    animation: rotate 4s linear infinite;
+                    transition: opacity 0.4s;
                     pointer-events: none;
                 }
-                
-                @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
                 .upload-dropzone:hover { 
-                    border-color: transparent;
-                    background: hsl(var(--accent) / 0.04); 
+                    border-color: hsl(var(--accent) / 0.4);
+                    background: hsl(var(--surface-raised) / 0.5); 
                     transform: translateY(-2px);
-                    box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.4);
+                    box-shadow: 0 20px 40px -10px rgba(0,0,0,0.5);
                 }
-                .upload-dropzone:hover::before { opacity: 0.6; }
+                .upload-dropzone:hover::after { opacity: 1; }
                 
                 .upload-dropzone.drag-over { 
-                    background: hsl(var(--accent) / 0.1); 
-                    transform: scale(0.98);
+                    background: hsl(var(--accent) / 0.05); 
+                    border-color: hsl(var(--accent));
+                    box-shadow: 0 0 0 4px hsl(var(--accent) / 0.1);
+                    transform: scale(0.99);
                 }
-                .upload-dropzone.drag-over::before { opacity: 1; animation-duration: 2s; }
                 
                 .dropzone-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--s-4); width: 100%; height: 100%; justify-content: center; padding: var(--s-8); cursor: pointer; z-index: 2; }
                 .icon-circle { 
