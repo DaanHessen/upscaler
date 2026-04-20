@@ -231,8 +231,6 @@ pub fn Register() -> impl IntoView {
         </div>
     }
 }
-    }
-}
 
 #[component]
 pub fn ForgotPassword() -> impl IntoView {
