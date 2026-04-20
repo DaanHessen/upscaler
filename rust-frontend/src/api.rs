@@ -13,7 +13,9 @@ pub struct SubmitResponse {
 pub struct PollResponse {
     pub status: String,
     pub image_url: Option<String>,
+    pub before_url: Option<String>,
     pub error: Option<String>,
+    pub queue_position: Option<i64>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

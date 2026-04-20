@@ -1,32 +1,14 @@
 use leptos::prelude::*;
 use crate::components::icons::{Zap, CreditCard};
 use crate::auth::use_auth;
-use crate::api::ApiClient;
 
 #[component]
 pub fn Credits() -> impl IntoView {
     let auth = use_auth();
     
-    // Fetch balance if not already present in global signal
+    // Trigger throttled telemetry sync on mount
     Effect::new(move |_| {
-        if auth.credits.get().is_none() {
-            let token = auth.session.get().map(|s| s.access_token);
-            let auth_ctx = auth.clone();
-            leptos::task::spawn_local(async move {
-                match ApiClient::get_balance(token.as_deref()).await {
-                    Ok(bal) => auth_ctx.set_credits.set(Some(bal)),
-                    Err(e) if e == "AUTH_EXPIRED" => auth_ctx.logout(),
-                    Err(_) => {}
-                }
-            });
-        }
-    });
-
-    let history_data = LocalResource::new(move || {
-        let token = auth.session.get().map(|s| s.access_token);
-        async move {
-            ApiClient::get_history(token.as_deref()).await
-        }
+        auth.sync_telemetry(false);
     });
 
     let (selected_pack, set_selected_pack) = signal(10); // Default to 10 euro pack
@@ -115,9 +97,7 @@ pub fn Credits() -> impl IntoView {
                     </div>
                     <div class="telemetry-badge">
                         <span class="badge-label">"LOGGED ENTRIES:"</span>
-                        <Suspense fallback=|| view! { <span class="badge-value">"0"</span> }>
-                            <span class="badge-value">{move || history_data.get().and_then(|res| (*res).as_ref().ok().map(|v| v.len().to_string())).unwrap_or_else(|| "0".to_string())}</span>
-                        </Suspense>
+                        <span class="badge-value">{move || auth.history.get().map(|v| v.len().to_string()).unwrap_or_else(|| "0".to_string())}</span>
                     </div>
                 </div>
                 
@@ -136,9 +116,10 @@ pub fn Credits() -> impl IntoView {
                             </thead>
                             <tbody>
                                 <Suspense fallback=|| view! { <tr><td colspan="6" style="padding: 6rem; text-align: center; opacity: 0.3;">"Synchronizing telemetry stream..."</td></tr> }>
-                                    {move || history_data.get().map(|res| -> AnyView {
-                                        match (*res).clone() {
-                                            Ok(items) => items.into_iter().map(|item| {
+                                    {move || {
+                                        let h = auth.history.get();
+                                        match h {
+                                            Some(items) => items.into_iter().map(|item| {
                                                 let id_short = item.id.to_string()[..8].to_string();
                                                 let status_label = if item.status == "COMPLETED" { "VERIFIED".to_string() } else { item.status.clone() };
                                                 let item_url = item.image_url;
@@ -163,9 +144,9 @@ pub fn Credits() -> impl IntoView {
                                                     </tr>
                                                 }
                                             }).collect_view().into_any(),
-                                            Err(_) => view! { <tr><td colspan="6" class="error" style="text-align: center; padding: 4rem;">"Telemetry pipe severed."</td></tr> }.into_any()
+                                            None => view! { <tr><td colspan="6" style="padding: 6rem; text-align: center; opacity: 0.3;">"Acquiring telemetry data..."</td></tr> }.into_any()
                                         }
-                                    })}
+                                    }}
                                 </Suspense>
                             </tbody>
                         </table>

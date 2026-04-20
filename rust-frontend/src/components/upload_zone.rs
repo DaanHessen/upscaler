@@ -31,7 +31,11 @@ pub fn UploadZone() -> impl IntoView {
                         set_error.set(Some("Content violates safety guidelines (NSFW).".to_string()));
                         set_loading.set(false);
                     } else {
-                        g_state.set_temp_file.set(Some(f_clone));
+                        g_state.set_temp_file.set(Some(f_clone.clone()));
+                        let f_idb = f_clone.clone();
+                        leptos::task::spawn_local(async move {
+                            let _ = crate::persistence::save_file(&f_idb).await;
+                        });
                         g_state.set_temp_classification.set(Some(res.detected_style));
                         nav("/configure", Default::default());
                     }
@@ -60,7 +64,7 @@ pub fn UploadZone() -> impl IntoView {
     };
 
     let on_input = move |ev: web_sys::Event| {
-        let input: web_sys::HtmlInputElement = event_target(&ev);
+        let input: web_sys::HtmlInputElement = leptos::prelude::event_target(&ev);
         if let Some(files) = input.files() {
             if let Some(f) = files.get(0) {
                 on_file_stored.with_value(|func| func(f));

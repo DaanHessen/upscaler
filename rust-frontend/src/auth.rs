@@ -36,8 +36,21 @@ pub fn AuthProvider(children: Children) -> impl IntoView {
     let (user, set_user) = signal(initial_user);
     let (session, set_session) = signal(initial_session);
     let (credits, set_credits) = signal(Option::<i32>::None);
+    let (history, set_history) = signal(Option::<Vec<crate::api::HistoryItem>>::None);
+    let (last_fetch, set_last_fetch) = signal(Option::<f64>::None);
     
-    provide_context(AuthContext { user, session, set_user, set_session, credits, set_credits });
+    provide_context(AuthContext { 
+        user, 
+        session, 
+        set_user, 
+        set_session, 
+        credits, 
+        set_credits,
+        history,
+        set_history,
+        last_fetch,
+        set_last_fetch
+    });
     
     children()
 }
@@ -82,9 +95,13 @@ pub struct AuthContext {
     pub user: ReadSignal<Option<User>>,
     pub session: ReadSignal<Option<Session>>,
     pub credits: ReadSignal<Option<i32>>,
+    pub history: ReadSignal<Option<Vec<crate::api::HistoryItem>>>,
+    pub last_fetch: ReadSignal<Option<f64>>,
     pub set_user: WriteSignal<Option<User>>,
     pub set_session: WriteSignal<Option<Session>>,
     pub set_credits: WriteSignal<Option<i32>>,
+    pub set_history: WriteSignal<Option<Vec<crate::api::HistoryItem>>>,
+    pub set_last_fetch: WriteSignal<Option<f64>>,
 }
 
 pub fn use_auth() -> AuthContext {
@@ -156,6 +173,38 @@ impl AuthContext {
         self.set_user.set(None);
         self.set_session.set(None);
         self.set_credits.set(None);
+        self.set_history.set(None);
+        self.set_last_fetch.set(None);
         LocalStorage::delete("sb_session");
+    }
+
+    pub fn sync_telemetry(&self, force: bool) {
+        let token = self.session.get().map(|s| s.access_token);
+        if token.is_none() { return; }
+
+        let now = js_sys::Date::now();
+        let last = self.last_fetch.get();
+        
+        // 5 minute cache (300,000 ms)
+        if !force && last.is_some() && (now - last.unwrap() < 300_000.0) && self.credits.get().is_some() {
+            return;
+        }
+
+        let ctx = *self;
+        let t_str = token.unwrap();
+        
+        leptos::task::spawn_local(async move {
+            // Fetch credits
+            if let Ok(c) = crate::api::ApiClient::get_balance(Some(&t_str)).await {
+                ctx.set_credits.set(Some(c));
+            }
+            
+            // Fetch history
+            if let Ok(h) = crate::api::ApiClient::get_history(Some(&t_str)).await {
+                ctx.set_history.set(Some(h));
+            }
+            
+            ctx.set_last_fetch.set(Some(js_sys::Date::now()));
+        });
     }
 }

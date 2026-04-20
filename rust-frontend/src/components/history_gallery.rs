@@ -6,19 +6,12 @@ use crate::api::{ApiClient, HistoryItem};
 #[component]
 pub fn HistoryGallery() -> impl IntoView {
     let auth = use_auth();
-    let history = LocalResource::new(
-        move || { 
-            let session = auth.session.get();
-            async move {
-                if let Some(s) = session {
-                    ApiClient::get_history(Some(&s.access_token)).await
-                } else {
-                    // During hydration, we wait for the session effect to populate auth.session
-                    std::future::pending::<Result<Vec<HistoryItem>, String>>().await
-                }
-            }
-        }
-    );
+    // Trigger throttled telemetry sync on mount
+    Effect::new(move |_| {
+        auth.sync_telemetry(false);
+    });
+
+    let history = auth.history;
 
     view! {
         <div class="history-container fade-in">
@@ -27,7 +20,7 @@ pub fn HistoryGallery() -> impl IntoView {
                     <h1>"UPSYL Vault"</h1>
                     <p class="muted">"Secure vault of previously reconstructed assets."</p>
                 </div>
-                <button class="btn btn-secondary btn-sm" on:click=move |_| history.refetch()>
+                <button class="btn btn-secondary btn-sm" on:click=move |_| auth.sync_telemetry(true)>
                     <RefreshCw size={14} />
                     "Refresh Vault"
                 </button>
@@ -38,9 +31,10 @@ pub fn HistoryGallery() -> impl IntoView {
                     {(0..6).map(|_| view! { <div class="skeleton-card"></div> }).collect_view()}
                 </div> 
             }>
-                {move || Suspend::new(async move {
-                    match history.await {
-                        Ok(items) => {
+                {move || {
+                    let h = auth.history.get();
+                    match h {
+                        Some(items) => {
                             let filtered_items: Vec<_> = items.into_iter().filter(|item| item.status != "EXPIRED").collect();
                             if filtered_items.is_empty() {
                                 view! {
@@ -58,27 +52,13 @@ pub fn HistoryGallery() -> impl IntoView {
                                 }.into_any()
                             }
                         }
-                        Err(e) if e == "AUTH_EXPIRED" => {
-                            auth.logout();
-                            view! {
-                                <div class="error-panel">
-                                    <AlertCircle size={24} />
-                                    <p>"Session expired. Please log in again."</p>
-                                    <a href="/login" class="btn btn-primary btn-sm" style="margin-top: 1rem; text-decoration: none;">"LOG IN"</a>
-                                </div>
-                            }.into_any()
-                        }
-                        Err(msg) => {
-                            view! {
-                                <div class="error-panel">
-                                    <AlertCircle size={24} />
-                                    <p>{msg}</p>
-                                    <button class="btn btn-secondary btn-sm" on:click=move |_| history.refetch()>"RETRY"</button>
-                                </div>
-                            }.into_any()
-                        }
+                        None => view! {
+                            <div class="loading-grid">
+                                {(0..6).map(|_| view! { <div class="skeleton-card"></div> }).collect_view()}
+                            </div> 
+                        }.into_any()
                     }
-                })}
+                }}
             </Suspense>
 
             <style>

@@ -1,6 +1,7 @@
 mod api;
 mod auth;
 mod components;
+mod persistence;
 
 use leptos::prelude::*;
 use leptos::either::Either;
@@ -21,16 +22,33 @@ pub struct GlobalState {
     pub set_temp_file: WriteSignal<Option<web_sys::File>>,
     pub temp_classification: ReadSignal<Option<String>>,
     pub set_temp_classification: WriteSignal<Option<String>>,
+    // Persistent settings
+    pub quality: ReadSignal<String>,
+    pub set_quality: WriteSignal<String>,
+    pub style: ReadSignal<String>,
+    pub set_style: WriteSignal<String>,
+    pub temperature: ReadSignal<f32>,
+    pub set_temperature: WriteSignal<f32>,
 }
 
 pub fn provide_global_state() {
     let (temp_file, set_temp_file) = signal(None);
     let (temp_classification, set_temp_classification) = signal(None);
+    let (quality, set_quality) = signal("2K".to_string());
+    let (style, set_style) = signal("PHOTOGRAPHY".to_string());
+    let (temperature, set_temperature) = signal(0.5f32);
+    
     provide_context(GlobalState { 
         temp_file, 
         set_temp_file, 
         temp_classification, 
-        set_temp_classification 
+        set_temp_classification,
+        quality,
+        set_quality,
+        style,
+        set_style,
+        temperature,
+        set_temperature,
     });
 }
 
@@ -56,11 +74,64 @@ fn AuthGuard(children: Children) -> impl IntoView {
 fn App() -> impl IntoView {
     provide_global_state();
 
+    let auth_ctx = use_context::<crate::auth::AuthContext>().unwrap_or_else(|| {
+        // Fallback if needed, but AuthNav will handle it
+        // ...
+        unreachable!("AuthContext should be provided by AuthProvider wrap")
+    });
+
+    // 1. Hydroate Global State from Storage
+    let global_state = use_global_state();
+    
+    // Sync classification changes to storage
+    Effect::new(move |_| {
+        persistence::save_classification(global_state.temp_classification.get());
+    });
+
+    // Sync settings changes to storage
+    Effect::new(move |_| {
+        persistence::save_settings(persistence::SettingsState {
+            quality: global_state.quality.get(),
+            style: global_state.style.get(),
+            temperature: global_state.temperature.get(),
+        });
+    });
+
+    // Hydrate everything on start
+    Effect::new(move |_| {
+        let gs = global_state;
+        
+        // Hydrate classification (sync)
+        if let Some(c) = persistence::load_classification() {
+            gs.set_temp_classification.set(Some(c));
+        }
+
+        // Hydrate settings (sync)
+        if let Some(s) = persistence::load_settings() {
+            gs.set_quality.set(s.quality);
+            gs.set_style.set(s.style);
+            gs.set_temperature.set(s.temperature);
+        }
+
+        // Hydrate file (async)
+        leptos::task::spawn_local(async move {
+            if let Some(f) = persistence::load_file().await {
+                gs.set_temp_file.set(Some(f));
+            }
+        });
+    });
+
+    view! {
+        <Router>
+            <MainLayout />
+        </Router>
+    }
+}
+
+pub fn Root() -> impl IntoView {
     view! {
         <AuthProvider>
-            <Router>
-                <MainLayout />
-            </Router>
+            <App />
         </AuthProvider>
     }
 }
@@ -191,19 +262,13 @@ fn Footer() -> impl IntoView {
 fn AuthNav() -> impl IntoView {
     let auth = use_auth();
     
-    let balance = LocalResource::new(
-        move || {
-            let session = auth.session.get();
-            async move {
-                if let Some(s) = session {
-                    ApiClient::get_balance(Some(&s.access_token)).await
-                } else {
-                    std::future::pending::<Result<i32, String>>().await
-                }
-            }
+    // Trigger throttled telemetry sync on mount
+    Effect::new(move |_| {
+        if auth.user.get().is_some() {
+            auth.sync_telemetry(false);
         }
-    );
-    
+    });
+
     let (show_dropdown, set_show_dropdown) = signal(false);
     
     view! {
@@ -211,22 +276,19 @@ fn AuthNav() -> impl IntoView {
             Some(user) => Either::Left(view! {
                     <div style="display: flex; align-items: center; gap: var(--s-6);">
                         <Suspense>
-                            {move || Suspend::new(async move {
-                                let res = balance.get();
+                            {move || {
+                                let res = auth.credits.get();
                                 match res {
-                                    Some(wrapper) => match &*wrapper {
-                                        Ok(credits) => view! { 
-                                            <div class="balance-pill">
-                                                <Zap size={12} />
-                                                <strong>{*credits}</strong>
-                                                <span>"UNITS"</span>
-                                            </div>
-                                        }.into_any(),
-                                        _ => ().into_any(),
-                                    },
+                                    Some(credits) => view! { 
+                                        <div class="balance-pill">
+                                            <Zap size={12} />
+                                            <strong>{credits}</strong>
+                                            <span>"UNITS"</span>
+                                        </div>
+                                    }.into_any(),
                                     _ => ().into_any(),
                                 }
-                            })}
+                            }}
                         </Suspense>
                         
                         <div class="dropdown-container">
@@ -377,5 +439,5 @@ fn NotFound() -> impl IntoView {
 fn main() {
     console_error_panic_hook::set_once();
     tracing_wasm::set_as_global_default();
-    mount_to_body(App);
+    mount_to_body(Root);
 }

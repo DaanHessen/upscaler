@@ -52,7 +52,11 @@ struct PollResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     image_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    before_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    queue_position: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -516,8 +520,21 @@ async fn poll_upscale_handler(
     let mut response = PollResponse {
         status: record.status.clone(),
         image_url: None,
+        before_url: None,
         error: record.error_msg,
+        queue_position: None,
     };
+
+    // Always provide the 'before' image for comparison
+    if let Ok(url) = state.storage.get_signed_url(&record.input_path).await {
+        response.before_url = Some(url);
+    }
+
+    if record.status == "PENDING" {
+        if let Ok(pos) = state.db.get_queue_position(record.created_at).await {
+            response.queue_position = Some(pos + 1);
+        }
+    }
 
     if record.status == "COMPLETED" {
         if let Some(path) = record.output_path {
