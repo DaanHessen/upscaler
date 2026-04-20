@@ -29,8 +29,8 @@ pub fn Credits() -> impl IntoView {
     view! {
         <div class="credits-container fade_in">
             <div class="page-header">
-                <h1 class="text-gradient">"Infrastructure & Usage"</h1>
-                <p class="muted">"Manage your upscaling throughput and review operational telemetry."</p>
+                <h1 class="text-gradient">"Credits & Usage"</h1>
+                <p class="muted">"Manage your upscaling credits and view your activity history."</p>
             </div>
 
             <div class="credits-grid">
@@ -50,7 +50,7 @@ pub fn Credits() -> impl IntoView {
                         <div class="balance-actions">
                             <button class="btn btn-primary btn-lg" style="width: 100%;" on:click=move |_| {
                                 leptos::logging::log!("Stripe checkout would open here");
-                            }>"ACQUIRE CREDITS"</button>
+                            }>"BUY CREDITS"</button>
                         </div>
                     </div>
                 </div>
@@ -96,8 +96,8 @@ pub fn Credits() -> impl IntoView {
 
             <div class="usage-section">
                 <div class="section-header">
-                    <h2 class="text-gradient">"Operational Log"</h2>
-                    <p class="muted">"Telemetry for recent neural restoration operations."</p>
+                    <h2 class="text-gradient">"Upscale History"</h2>
+                    <p class="muted">"Review your recent upscaling activity."</p>
                 </div>
                 
                 <div class="card usage-card">
@@ -105,12 +105,12 @@ pub fn Credits() -> impl IntoView {
                         <table class="usage-table">
                             <thead>
                                 <tr>
-                                    <th>"UPLINK"</th>
-                                    <th>"TIMESTAMP"</th>
-                                    <th>"PROTOCOL"</th>
+                                    <th>"RESULT"</th>
+                                    <th>"DATE"</th>
+                                    <th>"RESOLUTION"</th>
                                     <th>"STYLE"</th>
                                     <th>"STATUS"</th>
-                                    <th>"LATENCY"</th>
+                                    <th>"TIME"</th>
                                 </tr>
                             </thead>
                             <tbody>

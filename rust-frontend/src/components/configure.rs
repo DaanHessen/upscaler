@@ -57,8 +57,8 @@ pub fn Configure() -> impl IntoView {
     view! {
         <div class="configure-page fade-in">
             <div class="page-header">
-                <h1>"Refinement Params"</h1>
-                <p class="muted">"Configure the neural reconstruction engine for your asset."</p>
+                <h1>"Upscale Settings"</h1>
+                <p class="muted">"Customize how you want to restore and enlarge your image."</p>
             </div>
 
             <div class="config-layout">
@@ -66,7 +66,7 @@ pub fn Configure() -> impl IntoView {
                     <div class="card preview-card">
                         <div class="card-header">
                             <ImageIcon size={18} />
-                            <span>"Source Asset"</span>
+                            <span>"Source Image"</span>
                         </div>
                         <div class="preview-visual">
                             {move || if global_state.temp_file.get().is_some() {
@@ -86,7 +86,7 @@ pub fn Configure() -> impl IntoView {
                     <div class="card params-card">
                         <div class="card-header">
                             <Settings size={18} />
-                            <span>"Parameters"</span>
+                            <span>"Settings"</span>
                         </div>
                         
                         <div class="params-body">
@@ -111,7 +111,7 @@ pub fn Configure() -> impl IntoView {
                             </div>
 
                             <div class="param-group" title="Choose the model that best fits your image type.">
-                                <label>"Model Reconstruction"</label>
+                                <label>"Upscale Model"</label>
                                 <select on:change=move |ev| set_style.set(event_target_value(&ev)) prop:value=style>
                                     <option value="PHOTOGRAPHY">"Photography (Natural details)"</option>
                                     <option value="ILLUSTRATION">"Illustration (Sharp lines)"</option>
@@ -141,10 +141,10 @@ pub fn Configure() -> impl IntoView {
                                 disabled=move || loading.get() || global_state.temp_file.get().is_none()
                                 on:click=handle_upscale
                             >
-                                {move || if loading.get() { "Enqueuing..." } else { "Begin Reconstruction" }}
+                                {move || if loading.get() { "Starting..." } else { "Start Upscaling" }}
                             </button>
                             <p class="cost-summary muted">
-                                "Estimated Pipeline Time: ~15 seconds"
+                                "Estimated Processing Time: ~15 seconds"
                             </p>
                         </div>
                     </div>

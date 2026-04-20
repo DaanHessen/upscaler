@@ -61,15 +61,15 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
         <div class="result-container fade-in">
             <div class="page-header">
                 <div class="header-main">
-                    <h1>"Reconstruction Verified"</h1>
-                    <p class="muted">"Neural pipeline has successfully converged at target resolution."</p>
+                    <h1>"Upscale Complete"</h1>
+                    <p class="muted">"Your image has been successfully restored and enlarged."</p>
                 </div>
                 <div class="header-actions">
                     <button class="btn btn-secondary" on:click=move |_| navigate("/", Default::default())>"TRY AGAIN"</button>
                     <button class="btn btn-secondary" disabled=true title="Coming soon">"REQUEST REFUND"</button>
                     <a href=data.image_url.clone().unwrap_or_default() target="_blank" class="btn btn-primary" style="text-decoration: none;">
                         <Download size={16} />
-                        "DOWNLOAD ASSET"
+                        "DOWNLOAD IMAGE"
                     </a>
                 </div>
             </div>
@@ -79,8 +79,8 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                     <ComparisonSlider 
                         before_url="/assets/hero_before.png".to_string() 
                         after_url=data.image_url.unwrap_or_default()
-                        before_label="Original Signal"
-                        after_label="Upscaled Reconstruction"
+                        before_label="Original"
+                        after_label="Upscaled"
                     />
                 </div>
 
@@ -88,11 +88,11 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                     <div class="card settings-card">
                         <div class="card-header">
                             <Settings size={18} />
-                            <span>"Pipeline Specs"</span>
+                            <span>"Image Details"</span>
                         </div>
                         <div class="settings-list">
                             <div class="s-item">
-                                <span class="s-label">"JOB IDENTIFIER"</span>
+                                <span class="s-label">"UPSCALER ID"</span>
                                 <span class="s-value font-mono">{job_id}</span>
                             </div>
                             <div class="s-item">
@@ -100,8 +100,8 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                                 <span class="s-value success">"VERIFIED"</span>
                             </div>
                             <div class="s-item">
-                                <span class="s-label">"ENGINE"</span>
-                                <span class="s-value">"V7.1 STABLE"</span>
+                                <span class="s-label">"SYSTEM"</span>
+                                <span class="s-value">"V1.0 ALPHA"</span>
                             </div>
                         </div>
                     </div>
@@ -137,7 +137,7 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
 fn PollingView<F>(job_id: String, on_complete: F) -> impl IntoView 
 where F: Fn(()) + 'static + Copy {
     let auth = use_auth();
-    let (status_text, set_status_text) = signal("Initializing Pipeline...".to_string());
+    let (status_text, set_status_text) = signal("Starting upscale...".to_string());
     
     leptos::task::spawn_local(async move {
         let token = auth.session.get().map(|s| s.access_token);
@@ -151,8 +151,8 @@ where F: Fn(()) + 'static + Copy {
                             break;
                         }
                         set_status_text.set(match res.status.as_str() {
-                            "PENDING" => "Waiting for Pipeline Slot...".to_string(),
-                            "PROCESSING" => "Refining high-frequency details...".to_string(),
+                            "PENDING" => "Waiting in queue...".to_string(),
+                            "PROCESSING" => "Restoring details...".to_string(),
                             _ => "Processing...".to_string(),
                         });
                     }
@@ -172,7 +172,7 @@ where F: Fn(()) + 'static + Copy {
                 <div class="inner-icon"><RefreshCw size={48} /></div>
             </div>
             <h2>{move || status_text.get()}</h2>
-            <p class="muted">"Executing neural inference at target resolution. 10GB/s I/O in progress."</p>
+            <p class="muted">"Enhancing image quality and enlarging resolution..."</p>
             
             <style>
                 ".polling-container { text-align: center; padding: 10rem 0; display: flex; flex-direction: column; align-items: center; gap: 2rem; }
@@ -193,7 +193,7 @@ fn ErrorView(message: String) -> impl IntoView {
     view! {
         <div class="error-container fade-in">
             <AlertCircle size={64} />
-            <h2>"Pipeline Error"</h2>
+            <h2>"Upscale Error"</h2>
             <p class="muted">{message}</p>
             <button class="btn btn-primary" on:click=move |_| navigate("/", Default::default())>"RETURN HOME"</button>
             <style>

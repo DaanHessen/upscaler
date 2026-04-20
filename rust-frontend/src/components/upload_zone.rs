@@ -78,7 +78,7 @@ pub fn UploadZone() -> impl IntoView {
                         <div class="upload-loading">
                             <div class="scan-line"></div>
                             <RefreshCw size={32} />
-                            <span class="loading-text">"ANALYZING SIGNAL..."</span>
+                            <span class="loading-text">"SCANNING IMAGE..."</span>
                         </div>
                     }.into_any()
                 } else {
@@ -119,11 +119,11 @@ pub fn UploadZone() -> impl IntoView {
 
             <div class="upload-footer">
                 <div class="limit-box">
-                    <span class="limit-label">"MAX PAYLOAD"</span>
+                    <span class="limit-label">"MAX SIZE"</span>
                     <span class="limit-value">"25MB"</span>
                 </div>
                 <div class="limit-box">
-                    <span class="limit-label">"ARCHITECTURE"</span>
+                    <span class="limit-label">"SYSTEM"</span>
                     <span class="limit-value">"V1.0 ALPHA"</span>
                 </div>
             </div>

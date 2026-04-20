@@ -123,14 +123,16 @@ fn Footer() -> impl IntoView {
                 </div>
                 
                 <div class="footer-center">
-                    <span class="footer-meta">"© 2026 INFRA"</span>
+                    <span class="footer-meta">"© 2026 UPSYL"</span>
                     <span class="divider">"|"</span>
-                    <span class="footer-meta">"V1.0 ALPHA"</span>
+                    <a href="/terms" class="footer-link">"Terms"</a>
+                    <span class="divider">"|"</span>
+                    <a href="/contact" class="footer-link">"Support"</a>
                 </div>
 
                 <div class="footer-right">
-                    <a href="/terms" class="footer-link">"Terms"</a>
-                    <a href="/contact" class="footer-link">"Support"</a>
+                    <span class="footer-meta">"SYSTEM:"</span>
+                    <span class="footer-status">"STABLE"</span>
                 </div>
             </div>
             <style>
@@ -140,13 +142,15 @@ fn Footer() -> impl IntoView {
                 .footer-left { flex: 1; display: flex; align-items: center; }
                 .footer-logo { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text)); display: flex; align-items: center; gap: var(--s-2); letter-spacing: 0.2em; text-transform: uppercase; }
                 
+                .hero-content { max-width: 800px; margin: 0 auto 4rem; text-align: center; }
+                .hero-subtitle { font-size: 1.25rem; font-weight: 800; color: hsl(var(--text)); margin-bottom: var(--s-4); letter-spacing: -0.02em; }
+                .hero-description { font-size: 1.0625rem; font-weight: 500; color: hsl(var(--text-muted)); line-height: 1.6; }
+
                 .footer-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--s-4); }
                 .footer-meta { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
-                .divider { opacity: 0.1; color: hsl(var(--text-dim)); }
-
-                .footer-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--s-8); }
-                .footer-link { font-size: 0.6875rem; font-weight: 800; color: hsl(var(--text-dim)); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; transition: color 0.2s; }
+                .footer-link { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; transition: color 0.2s; }
                 .footer-link:hover { color: hsl(var(--accent)); }
+                .divider { opacity: 0.1; color: hsl(var(--text-dim)); }
                 
                 @media (max-width: 768px) {
                     footer { padding: var(--s-8) var(--s-6); }
@@ -264,9 +268,10 @@ fn Home() -> impl IntoView {
         <div class="fade-in">
             <div class="hero-section">
                 <h1 class="text-gradient stagger-1">"Professional Super-Resolution"</h1>
-                <p class="muted stagger-2" style="max-width: 680px; margin: 0 auto 4rem; font-size: 1.0625rem; font-weight: 600; line-height: 1.6; opacity: 0.8;">
-                    "Bespoke neural restoration for photography and illustration. Restore frequency details, eliminate compression, and reach target resolutions with UPSYL precision."
-                </p>
+                <div class="hero-content stagger-2">
+                    <h2 class="hero-subtitle">"Professional AI upscaling for photographers and creators."</h2>
+                    <p class="hero-description">"Sharpen details, remove artifacts, and upscale to 4K with surgical precision."</p>
+                </div>
                 
                 <div class="hybrid-layout stagger-3">
                     <div class="hybrid-left">
