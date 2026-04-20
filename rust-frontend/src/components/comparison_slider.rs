@@ -52,9 +52,8 @@ pub fn ComparisonSlider(
             </div>
 
             <div class="slider-handle" style:left=move || format!("{}%", position.get())>
-                <div class="handle-line"></div>
                 <div class="handle-circle">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="4">
                         <path d="M11 5l-7 7 7 7M13 5l7 7-7 7" />
                     </svg>
                 </div>
@@ -64,15 +63,16 @@ pub fn ComparisonSlider(
                 ".comparison-slider {
                     position: relative;
                     width: 100%;
-                    max-width: 1000px;
-                    aspect-ratio: 16/9;
+                    max-width: 1040px;
+                    aspect-ratio: 16/10;
                     margin: 0 auto;
                     overflow: hidden;
-                    border-radius: 12px;
-                    border: 1px solid var(--border-color);
-                    box-shadow: var(--shadow);
+                    border-radius: var(--radius-lg);
+                    border: 1px solid hsl(var(--border));
+                    box-shadow: var(--shadow-md);
                     cursor: ew-resize;
                     user-select: none;
+                    background: hsl(var(--surface));
                 }
 
                 .image-before, .image-after {
@@ -83,30 +83,28 @@ pub fn ComparisonSlider(
                     height: 100%;
                     background-size: cover;
                     background-position: center;
-                }
-
-                .image-before {
-                    border-right: 1px solid rgba(255,255,255,0.2);
+                    background-repeat: no-repeat;
                 }
 
                 .label {
                     position: absolute;
-                    bottom: 1.5rem;
-                    padding: 0.4rem 0.8rem;
-                    background: rgba(0, 0, 0, 0.6);
-                    backdrop-filter: blur(4px);
-                    color: white;
-                    font-size: 0.7rem;
-                    font-weight: 700;
+                    bottom: var(--s-6);
+                    padding: var(--s-2) var(--s-4);
+                    background: hsl(var(--bg) / 0.6);
+                    backdrop-filter: blur(12px);
+                    color: hsl(var(--text));
+                    font-size: 0.625rem;
+                    font-weight: 800;
                     text-transform: uppercase;
                     letter-spacing: 0.1em;
-                    border-radius: 4px;
-                    border: 1px solid rgba(255,255,255,0.1);
+                    border-radius: var(--radius-sm);
+                    border: 1px solid hsl(var(--text) / 0.1);
                     pointer-events: none;
+                    box-shadow: var(--shadow-sm);
                 }
 
-                .before-label { left: 1.5rem; }
-                .after-label { right: 1.5rem; }
+                .before-label { left: var(--s-6); }
+                .after-label { right: var(--s-6); }
 
                 .slider-handle {
                     position: absolute;
@@ -115,13 +113,8 @@ pub fn ComparisonSlider(
                     width: 2px;
                     z-index: 10;
                     pointer-events: none;
-                }
-
-                .handle-line {
-                    height: 100%;
-                    width: 2px;
-                    background: white;
-                    box-shadow: 0 0 10px rgba(0,0,0,0.5);
+                    background: hsl(var(--text));
+                    box-shadow: 0 0 20px hsl(0 0% 0% / 0.5);
                 }
 
                 .handle-circle {
@@ -129,15 +122,16 @@ pub fn ComparisonSlider(
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
-                    width: 40px;
-                    height: 40px;
-                    background: white;
+                    width: 32px;
+                    height: 32px;
+                    background: hsl(var(--text));
+                    border: 4px solid hsl(var(--bg));
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    color: black;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+                    color: hsl(var(--bg));
+                    box-shadow: var(--shadow-md);
                 }
                 "
             </style>

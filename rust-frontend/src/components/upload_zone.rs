@@ -130,27 +130,77 @@ pub fn UploadZone() -> impl IntoView {
 
             <style>
                 ".upload-zone-wrapper { height: 100%; display: flex; flex-direction: column; }
-                .upload-dropzone { flex: 1; min-height: 250px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; cursor: pointer; transition: all 0.2s; border: 1px dashed var(--border-color); border-radius: 8px; }
-                .upload-dropzone:hover { border-color: var(--accent); background: rgba(88, 166, 255, 0.02); }
-                .upload-dropzone.drag-over { background: rgba(88, 166, 255, 0.05); border-color: var(--accent); }
+                .upload-dropzone { 
+                    flex: 1; 
+                    min-height: 280px; 
+                    display: flex; 
+                    flex-direction: column; 
+                    align-items: center; 
+                    justify-content: center; 
+                    position: relative; 
+                    cursor: pointer; 
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
+                    border: 1px solid hsl(var(--border)); 
+                    border-radius: var(--radius-lg);
+                    background: hsl(var(--surface));
+                    box-shadow: inset 0 0 20px hsl(0 0% 0% / 0.2);
+                }
+                .upload-dropzone:hover { 
+                    border-color: hsl(var(--accent) / 0.5); 
+                    background: hsl(var(--accent) / 0.02); 
+                    box-shadow: 0 0 30px hsl(var(--accent) / 0.1), inset 0 0 20px hsl(0 0% 0% / 0.2);
+                }
+                .upload-dropzone.drag-over { 
+                    background: hsl(var(--accent) / 0.05); 
+                    border-color: hsl(var(--accent)); 
+                    transform: scale(0.99);
+                }
                 
-                .dropzone-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: 1rem; width: 100%; height: 100%; justify-content: center; padding: 2rem; cursor: pointer; }
-                .icon-circle { width: 48px; height: 48px; border-radius: 50%; background: var(--surface-color); display: flex; align-items: center; justify-content: center; color: var(--text-muted); border: 1px solid var(--border-color); }
+                .dropzone-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--s-4); width: 100%; height: 100%; justify-content: center; padding: var(--s-8); cursor: pointer; }
+                .icon-circle { 
+                    width: 56px; 
+                    height: 56px; 
+                    border-radius: 50%; 
+                    background: hsl(var(--surface-raised)); 
+                    display: flex; 
+                    align-items: center; 
+                    justify-content: center; 
+                    color: hsl(var(--text-muted)); 
+                    border: 1px solid hsl(var(--border)); 
+                    transition: all 0.3s;
+                }
+                .upload-dropzone:hover .icon-circle {
+                    background: hsl(var(--accent) / 0.1);
+                    color: hsl(var(--accent));
+                    border-color: hsl(var(--accent) / 0.3);
+                }
                 
-                .text-content h3 { font-size: 0.9rem; font-weight: 700; margin-bottom: 0.25rem; }
-                .text-content p { font-size: 0.75rem; color: var(--text-muted); font-weight: 600; }
-                .text-content h3.error { color: var(--error); }
+                .text-content h3 { font-family: var(--font-heading); font-size: 0.9375rem; font-weight: 700; margin-bottom: var(--s-1); text-transform: uppercase; letter-spacing: 0.02em; }
+                .text-content p { font-size: 0.75rem; color: hsl(var(--text-dim)); font-weight: 600; }
+                .text-content h3.error { color: hsl(var(--error)); }
 
-                .upload-loading { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5rem; position: relative; overflow: hidden; background: rgba(88, 166, 255, 0.02); border-radius: 8px; border: 1px solid var(--border-color); }
-                .loading-text { font-size: 0.75rem; font-weight: 800; color: var(--accent); letter-spacing: 0.1em; font-family: var(--font-mono); }
+                .upload-loading { 
+                    flex: 1; 
+                    display: flex; 
+                    flex-direction: column; 
+                    align-items: center; 
+                    justify-content: center; 
+                    gap: var(--s-6); 
+                    position: relative; 
+                    overflow: hidden; 
+                    background: hsl(var(--surface)); 
+                    border-radius: var(--radius-lg); 
+                    border: 1px solid hsl(var(--accent) / 0.3); 
+                }
+                .loading-text { font-size: 0.75rem; font-weight: 800; color: hsl(var(--accent)); letter-spacing: 0.2rem; font-family: var(--font-mono); }
                 
-                .scan-line { position: absolute; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), transparent); top: 0; animation: scan 2s linear infinite; }
+                .scan-line { position: absolute; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, hsl(var(--accent)), transparent); top: 0; animation: scan 2s linear infinite; box-shadow: 0 0 15px hsl(var(--accent)); }
                 @keyframes scan { from { top: 0; } to { top: 100%; } }
 
-                .upload-footer { margin-top: 1.5rem; display: flex; justify-content: space-between; border-top: 1px solid var(--border-color); padding-top: 1.5rem; }
-                .limit-box { display: flex; flex-direction: column; gap: 0.25rem; }
-                .limit-label { font-size: 0.6rem; font-weight: 800; color: var(--text-muted); letter-spacing: 0.05em; }
-                .limit-value { font-size: 0.75rem; font-weight: 700; color: var(--text-color); font-family: var(--font-mono); }
+                .upload-footer { margin-top: var(--s-6); display: flex; justify-content: space-between; border-top: 1px solid hsl(var(--border-muted)); padding-top: var(--s-6); }
+                .limit-box { display: flex; flex-direction: column; gap: var(--s-1); }
+                .limit-label { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); letter-spacing: 0.1em; text-transform: uppercase; }
+                .limit-value { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
                 "
             </style>
         </div>

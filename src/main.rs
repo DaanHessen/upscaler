@@ -98,7 +98,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let location = env::var("LOCATION").unwrap_or_else(|_| "us-central1".to_string());
     let port: u16 = env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse().unwrap_or(3000);
 
-    info!("--- Gemini Upscaler API v2 ---");
+    info!("--- UPSYL API v2 ---");
     info!("Project: {}", project_id);
     info!("Location: {}", location);
     

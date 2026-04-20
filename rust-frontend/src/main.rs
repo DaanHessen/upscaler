@@ -73,11 +73,11 @@ fn MainLayout() -> impl IntoView {
             <header class="glass">
                 <div class="logo">
                     <div class="logo-icon"><Zap size={18} /></div>
-                    "PRECISION" 
-                    <span style="opacity: 0.5;">"UPSCALE"</span>
+                    "UPSYL" 
+                    <span>"STUDIO"</span>
                 </div>
                 <nav>
-                    <a href="/">"UPSCALE"</a>
+                    <a href="/">"STUDIO"</a>
                     {move || auth.user.get().is_some().then(|| view! {
                         <a href="/history">"HISTORY"</a>
                         <a href="/settings">"CREDITS"</a>
@@ -112,7 +112,7 @@ fn Footer() -> impl IntoView {
             <div class="footer-content">
                 <div class="footer-logo">
                     <Zap size={14} />
-                    "PRECISION UPSCALE"
+                    "UPSYL STUDIO"
                 </div>
                 <div class="footer-links">
                     <span>"© 2026 INFRASTRUCTURE"</span>
@@ -121,10 +121,10 @@ fn Footer() -> impl IntoView {
                 </div>
             </div>
             <style>
-                "footer { border-top: 1px solid var(--border-color); padding: 2rem 4rem; margin-top: auto; background: var(--bg-color); }
-                .footer-content { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%; }
-                .footer-logo { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; letter-spacing: 0.05em; }
-                .footer-links { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; display: flex; gap: 1rem; align-items: center; }
+                "footer { border-top: 1px solid hsl(var(--border-muted)); padding: var(--s-12) var(--s-12); margin-top: auto; }
+                .footer-content { display: flex; justify-content: space-between; align-items: center; max-width: 1400px; margin: 0 auto; width: 100%; }
+                .footer-logo { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); display: flex; align-items: center; gap: var(--s-2); letter-spacing: 0.1em; text-transform: uppercase; }
+                .footer-links { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 700; display: flex; gap: var(--s-6); align-items: center; text-transform: uppercase; letter-spacing: 0.05em; }
                 .divider { opacity: 0.2; }
                 "
             </style>
@@ -138,9 +138,13 @@ fn AuthNav() -> impl IntoView {
     
     let balance = LocalResource::new(
         move || {
-            let token = auth.session.get().map(|s| s.access_token);
+            let session = auth.session.get();
             async move {
-                ApiClient::get_balance(token.as_deref()).await
+                if let Some(s) = session {
+                    ApiClient::get_balance(Some(&s.access_token)).await
+                } else {
+                    std::future::pending::<Result<i32, String>>().await
+                }
             }
         }
     );
@@ -150,32 +154,35 @@ fn AuthNav() -> impl IntoView {
     view! {
         {move || match auth.user.get() {
             Some(user) => Either::Left(view! {
-                <div style="display: flex; align-items: center; gap: 1.25rem;">
-                    <Suspense>
-                        {move || Suspend::new(async move {
-                            let res = balance.await;
-                            match res {
-                                Ok(credits) => view! { 
-                                    <div class="balance-pill">
-                                        <Zap size={12} />
-                                        <strong>{credits}</strong>
-                                        <span>"CREDITS"</span>
-                                    </div>
-                                }.into_any(),
-                                _ => ().into_any(),
-                            }
-                        })}
-                    </Suspense>
-                    
-                    <div class="dropdown-container">
-                        <div 
-                            class="avatar-btn"
-                            on:mouseenter=move |_| set_show_dropdown.set(true)
-                            on:click=move |ev| {
-                                ev.stop_propagation();
-                                set_show_dropdown.update(|v| *v = !*v);
-                            }
-                        >
+                    <div style="display: flex; align-items: center; gap: var(--s-6);">
+                        <Suspense>
+                            {move || Suspend::new(async move {
+                                let res = balance.get();
+                                match res {
+                                    Some(wrapper) => match &*wrapper {
+                                        Ok(credits) => view! { 
+                                            <div class="balance-pill">
+                                                <Zap size={12} />
+                                                <strong>{*credits}</strong>
+                                                <span>"UNITS"</span>
+                                            </div>
+                                        }.into_any(),
+                                        _ => ().into_any(),
+                                    },
+                                    _ => ().into_any(),
+                                }
+                            })}
+                        </Suspense>
+                        
+                        <div class="dropdown-container">
+                            <div 
+                                class="avatar-btn"
+                                on:mouseenter=move |_| set_show_dropdown.set(true)
+                                on:click=move |ev| {
+                                    ev.stop_propagation();
+                                    set_show_dropdown.update(|v| *v = !*v);
+                                }
+                            >
                             {user.email.clone().unwrap_or_default().chars().next().unwrap_or('?').to_uppercase().to_string()}
                         </div>
                         <div 
@@ -231,10 +238,10 @@ fn Home() -> impl IntoView {
             <div class="hero-section">
                 <h1 class="text-gradient">"Professional Super-Resolution"</h1>
                 <p class="muted" style="max-width: 600px; margin: 0 auto 1rem; font-size: 1.125rem;">
-                    "Bespoke neural upscaling for photography and illustration."
+                    "Bespoke neural restoration for photography and illustration."
                 </p>
                 <p class="muted" style="max-width: 600px; margin: 0 auto 3rem; font-size: 0.875rem; opacity: 0.7;">
-                    "Restore frequency details, eliminate compression, and reach target resolutions with surgical precision."
+                    "Restore frequency details, eliminate compression, and reach target resolutions with UPSYL precision."
                 </p>
                 
                 <div class="hybrid-layout">
@@ -250,50 +257,47 @@ fn Home() -> impl IntoView {
                         <div class="card hybrid-card">
                             <crate::components::upload_zone::UploadZone />
                         </div>
-                        
-                        <div class="hybrid-stats">
-                            <div class="h-stat">
-                                <span class="h-label">"Model"</span>
-                                <span class="h-value">"V7.1 STABLE"</span>
-                            </div>
-                            <div class="h-stat">
-                                <span class="h-label">"Inference"</span>
-                                <span class="h-value">"PRECISION"</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
-                <style>
-                    ".hero-section { padding: 6rem 0 10rem; }
+            <style>
+                ".hero-section { padding: var(--s-10) 0 var(--s-20); }
+                .hybrid-layout { 
+                    display: grid; 
+                    grid-template-columns: 1.4fr 1fr; 
+                    gap: var(--s-10); 
+                    margin-top: var(--s-12); 
+                    text-align: left;
+                    align-items: stretch;
+                    max-width: 1200px;
+                    margin-left: auto;
+                    margin-right: auto;
+                }
+                .hybrid-card { padding: var(--s-6); height: 100%; display: flex; flex-direction: column; }
+                .hybrid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-top: var(--s-4); }
+                .h-stat { 
+                    background: hsl(var(--surface-raised)); 
+                    border: 1px solid hsl(var(--border)); 
+                    padding: var(--s-4) var(--s-6); 
+                    border-radius: var(--radius-md); 
+                    transition: border-color 0.2s;
+                }
+                .h-stat:hover { border-color: hsl(var(--accent) / 0.3); }
+                .h-label { display: block; font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: var(--s-1); }
+                .h-value { font-size: 0.8125rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
+                
+                @media (max-width: 1050px) {
+                    .hero-section { padding: var(--s-6) 0 var(--s-12); }
                     .hybrid-layout { 
-                        display: grid; 
-                        grid-template-columns: 1.4fr 1fr; 
-                        gap: 2.5rem; 
-                        margin-top: 4rem; 
-                        text-align: left;
-                        align-items: stretch;
-                        max-width: 1100px;
-                        margin-left: auto;
-                        margin-right: auto;
+                        grid-template-columns: 1fr; 
+                        max-width: 600px; 
+                        gap: var(--s-8);
                     }
-                    .hybrid-card { padding: 1.5rem; height: 100%; display: flex; flex-direction: column; background: var(--surface-color); border: 1px solid var(--border-color); }
-                    .hybrid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
-                    .h-stat { background: var(--bg-color); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 8px; }
-                    .h-label { display: block; font-size: 0.6rem; color: var(--text-muted); font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.25rem; }
-                    .h-value { font-size: 0.85rem; font-weight: 700; color: var(--text-color); font-family: var(--font-mono); }
-                    
-                    @media (max-width: 1050px) {
-                        .hybrid-layout { 
-                            grid-template-columns: 1fr; 
-                            max-width: 600px; 
-                            gap: 1.5rem;
-                        }
-                        .hybrid-left { order: 2; }
-                        .hybrid-right { order: 1; }
-                    }
-                    "
-                </style>
+                    .hybrid-left { order: 2; }
+                    .hybrid-right { order: 1; }
+                }
+                "
+            </style>
             </div>
         </div>
     }

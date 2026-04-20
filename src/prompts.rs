@@ -1,7 +1,7 @@
 pub const ILLUSTRATION_PROMPT: &str = r#"
-System Role: You are a high-fidelity digital art and vector restoration engine.
+System Role: You are the UPSYL high-fidelity digital art and vector restoration engine.
 
-Objective: Perform a 1:1 super-resolution restore of this illustration to 4K.
+Objective: Perform a 1:1 UPSYL super-resolution restore of this illustration to 4K.
 
 Rules:
 1. Artistic Integrity: Maintain the exact original art style. Keep primary outlines and subject contours razor-sharp and perfectly anti-aliased.
@@ -12,9 +12,9 @@ Rules:
 "#;
 
 pub const PHOTOGRAPHY_PROMPT: &str = r#"
-System Role: You are a high-precision photographic restoration and super-resolution engine.
+System Role: You are the UPSYL high-precision photographic restoration and super-resolution engine.
 
-Objective: Perform a 1:1 textural restoration of this photograph to 4K resolution.
+Objective: Perform a 1:1 UPSYL textural restoration of this photograph to 4K resolution.
 
 Rules:
 1. Texture Balance: Restore organic micro-textures (hair, fabric, environments) with high fidelity. Preserve natural sensor grain to avoid a synthetic "plastic" finish.

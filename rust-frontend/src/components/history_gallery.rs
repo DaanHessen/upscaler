@@ -8,9 +8,14 @@ pub fn HistoryGallery() -> impl IntoView {
     let auth = use_auth();
     let history = LocalResource::new(
         move || { 
-            let token = auth.session.get().map(|s| s.access_token);
+            let session = auth.session.get();
             async move {
-                ApiClient::get_history(token.as_deref()).await
+                if let Some(s) = session {
+                    ApiClient::get_history(Some(&s.access_token)).await
+                } else {
+                    // During hydration, we wait for the session effect to populate auth.session
+                    std::future::pending::<Result<Vec<HistoryItem>, String>>().await
+                }
             }
         }
     );
@@ -19,7 +24,7 @@ pub fn HistoryGallery() -> impl IntoView {
         <div class="history-container fade-in">
             <div class="history-header">
                 <div class="header-main">
-                    <h1>"Upscaling History"</h1>
+                    <h1>"UPSYL Vault"</h1>
                     <p class="muted">"Secure vault of previously reconstructed assets."</p>
                 </div>
                 <button class="btn btn-secondary btn-sm" on:click=move |_| history.refetch()>
@@ -67,20 +72,38 @@ pub fn HistoryGallery() -> impl IntoView {
             </Suspense>
 
             <style>
-                ".history-container { width: 100%; max-width: 900px; margin: 0 auto; }
-                .history-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 3.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 2rem; }
-                .header-main h1 { font-size: 2.25rem; font-weight: 800; letter-spacing: -0.04em; margin-bottom: 0.25rem; }
-                .header-main p { font-size: 0.9rem; }
-
-                .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.5rem; }
+                ".history-header { margin-bottom: var(--s-16); border-bottom: 1px solid hsl(var(--border-muted)); padding-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: flex-end; }
+                .vault-subtitle { font-size: 0.875rem; color: hsl(var(--text-dim)); font-weight: 500; }
                 
-                .loading-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1.5rem; }
-                .skeleton-card { height: 280px; background: var(--surface-color); border: 1px solid var(--border-color); border-radius: 8px; position: relative; overflow: hidden; }
-                .skeleton-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent); animation: shimmer 1.5s infinite; }
+                .history-grid {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+                    gap: var(--s-8);
+                }
+                
+                .empty-vault {
+                    grid-column: 1 / -1;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 8rem 2rem;
+                    text-align: center;
+                    background: hsl(var(--surface));
+                    border: 1px solid hsl(var(--border));
+                    border-radius: var(--radius-lg);
+                    color: hsl(var(--text-dim));
+                }
+                .empty-vault h3 { font-family: var(--font-heading); color: hsl(var(--text)); margin-top: var(--s-4); font-size: 1.1rem; }
+                .empty-vault p { font-size: 0.875rem; max-width: 320px; margin-top: var(--s-2); }
+
+                .loading-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s-8); }
+                .skeleton-card { height: 320px; background: hsl(var(--surface)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); position: relative; overflow: hidden; }
+                .skeleton-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, hsl(var(--text) / 0.03), transparent); animation: shimmer 1.5s infinite; }
                 @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
                 @media (max-width: 900px) {
-                    .history-header { margin-bottom: 2.5rem; }
+                    .history-header { margin-bottom: var(--s-10); }
                     .header-main h1 { font-size: 1.75rem; }
                     .history-grid, .loading-grid { grid-template-columns: 1fr; }
                 }
@@ -156,29 +179,29 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
             </div>
 
             <style>
-                ".history-card { display: flex; flex-direction: column; transition: transform 0.2s ease, border-color 0.2s ease; }
-                .history-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+                ".history-card { display: flex; flex-direction: column; transition: transform 0.2s ease, border-color 0.2s ease; background: hsl(var(--surface)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); overflow: hidden; }
+                .history-card:hover { border-color: hsl(var(--accent)); transform: translateY(-4px); box-shadow: var(--shadow-md); }
 
-                .card-visual { height: 180px; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--border-color); }
+                .card-visual { height: 200px; background: hsl(var(--surface-raised)); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid hsl(var(--border)); }
                 .card-visual img { width: 100%; height: 100%; object-fit: cover; }
-                .visual-placeholder { color: var(--border-color); }
+                .visual-placeholder { color: hsl(var(--border)); }
                 
                 .badge-overlay { position: absolute; bottom: 0.75rem; right: 0.75rem; }
-                .quality-badge { font-size: 0.6rem; font-weight: 800; background: rgba(0,0,0,0.8); color: #fff; padding: 0.2rem 0.4rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.15); font-family: var(--font-mono); }
+                .quality-badge { font-size: 0.6rem; font-weight: 800; background: hsl(var(--bg) / 0.8); color: hsl(var(--text)); padding: 0.2rem 0.4rem; border-radius: 4px; border: 1px solid hsl(var(--border)); font-family: var(--font-mono); backdrop-filter: blur(4px); }
 
-                .card-details { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; flex: 1; }
+                .card-details { padding: var(--s-5); display: flex; flex-direction: column; gap: var(--s-4); flex: 1; }
                 .details-top { display: flex; justify-content: space-between; align-items: center; }
                 
-                .status-pill { font-size: 0.6rem; font-weight: 800; padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid currentColor; letter-spacing: 0.05em; }
-                .status-pill.success { color: var(--success); background: rgba(63, 185, 80, 0.1); }
-                .status-pill.error { color: var(--error); background: rgba(248, 81, 73, 0.1); }
-                .status-pill.active { color: var(--accent); background: rgba(88, 166, 255, 0.1); }
-                .status-pill.muted { color: var(--text-muted); background: var(--surface-lighter); }
+                .status-pill { font-size: 0.625rem; font-weight: 800; padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid currentColor; letter-spacing: 0.05em; }
+                .status-pill.success { color: hsl(var(--success)); background: hsl(var(--success) / 0.1); }
+                .status-pill.error { color: hsl(var(--error)); background: hsl(var(--error) / 0.1); }
+                .status-pill.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.1); }
+                .status-pill.muted { color: hsl(var(--text-dim)); background: hsl(var(--surface-raised)); }
 
-                .meta-date { display: flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; color: var(--text-muted); font-weight: 500; }
+                .meta-date { display: flex; align-items: center; gap: var(--s-2); font-size: 0.75rem; color: hsl(var(--text-dim)); font-weight: 500; }
                 
                 .details-main { display: flex; gap: 0.5rem; }
-                .style-tag { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: var(--text-color); font-weight: 600; background: var(--surface-lighter); padding: 0.25rem 0.5rem; border-radius: 4px; text-transform: uppercase; }
+                .style-tag { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: hsl(var(--text)); font-weight: 700; background: hsl(var(--surface-raised)); padding: 0.25rem 0.6rem; border-radius: 4px; text-transform: uppercase; border: 1px solid hsl(var(--border)); }
 
                 .card-actions { margin-top: auto; display: flex; gap: 0.5rem; }
                 "

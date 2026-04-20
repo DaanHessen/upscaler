@@ -99,24 +99,6 @@ pub fn Login() -> impl IntoView {
                 </p>
             </div>
 
-            <style>
-                ".auth-container { padding: 8rem 0; }
-                .divider { position: relative; text-align: center; margin: 1.5rem 0 2rem; }
-                .divider::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--border-color); }
-                .divider span { position: relative; background: var(--surface-color); padding: 0 1rem; color: var(--text-muted); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-                
-                .auth-footer { margin-top: 2.5rem; text-align: center; font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
-                .text-link { color: var(--accent); text-decoration: none; font-weight: 700; }
-                .text-link:hover { text-decoration: underline; }
-                
-                .input-group label { display: block; margin-bottom: 0.6rem; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
-                .input-group input { width: 100%; padding: 0.75rem 1rem; background: var(--bg-color) !important; color: var(--text-color); border: 1px solid var(--border-color); }
-                .input-group input:focus { border-color: var(--accent); }
-                
-                .google-btn { background: white; color: #1f2328; gap: 0.75rem; border: 1px solid #d0d7de; padding: 0.75rem !important; font-size: 0.9rem; }
-                .google-btn:hover { background: #f6f8fa; border-color: #d0d7de; }
-                "
-            </style>
         </div>
     }
 }
@@ -189,7 +171,7 @@ pub fn Register() -> impl IntoView {
                             required
                         />
                     </div>
-                    <div class="input-group" style="margin-top: 1.25rem;">
+                    <div class="input-group">
                         <label>"Password"</label>
                         <input 
                             type="password" 
@@ -199,7 +181,7 @@ pub fn Register() -> impl IntoView {
                             required
                         />
                     </div>
-                    <div class="input-group" style="margin-top: 1.25rem;">
+                    <div class="input-group">
                         <label>"Confirm Password"</label>
                         <input 
                             type="password" 
@@ -212,23 +194,23 @@ pub fn Register() -> impl IntoView {
                     
                     {move || match error_msg.get() {
                         Some(msg) => Either::Left(view! {
-                            <p class="error-text" style="margin-top: 1rem;">{msg}</p>
+                            <p class="error-text">{msg}</p>
                         }.into_view()),
                         None => Either::Right(())
                     }}
 
                     {move || match success_msg.get() {
                         Some(msg) => Either::Left(view! {
-                            <div class="success-panel" style="margin-top: 1.5rem;">
+                            <div class="success-panel" style="margin-top: var(--s-6);">
                                 <p>{msg}</p>
-                                <a href="/login" class="btn btn-primary" style="margin-top: 1rem; width: 100%;">"Return to Login"</a>
+                                <a href="/login" class="btn btn-primary" style="margin-top: var(--s-4); width: 100%;">"Return to Login"</a>
                             </div>
                         }.into_view()),
                         None => Either::Right(view! {
                             <button 
                                 type="submit" 
                                 class="btn btn-primary" 
-                                style="margin-top: 2rem; width: 100%;"
+                                style="margin-top: var(--s-8); width: 100%;"
                                 disabled=loading
                             >
                                 {move || if loading.get() { "Creating Account..." } else { "Create Account" }}
@@ -242,12 +224,6 @@ pub fn Register() -> impl IntoView {
                     <a href="/login" class="text-link">"Sign in"</a>
                 </p>
             </div>
-            
-            <style>
-                ".success-panel { padding: 1.5rem; background: rgba(63, 185, 80, 0.05); border: 1px solid rgba(63, 185, 80, 0.2); border-radius: 8px; text-align: center; }
-                .success-panel p { font-size: 0.85rem; color: var(--success); font-weight: 600; line-height: 1.4; }
-                "
-            </style>
         </div>
     }
 }
