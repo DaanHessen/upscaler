@@ -132,7 +132,6 @@ pub fn UploadZone() -> impl IntoView {
                 ".upload-zone-wrapper { height: 100%; display: flex; flex-direction: column; }
                 .upload-dropzone { 
                     flex: 1; 
-                    min-height: 300px; 
                     display: flex; 
                     flex-direction: column; 
                     align-items: center; 
@@ -145,6 +144,7 @@ pub fn UploadZone() -> impl IntoView {
                     background: hsl(var(--surface));
                     box-shadow: inset 0 0 20px rgba(0,0,0,0.2);
                     overflow: hidden;
+                    width: 100%;
                 }
                 
                 .upload-dropzone::after {
@@ -172,7 +172,7 @@ pub fn UploadZone() -> impl IntoView {
                     transform: scale(0.99);
                 }
                 
-                .dropzone-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--s-4); width: 100%; height: 100%; justify-content: center; padding: var(--s-8); cursor: pointer; z-index: 2; }
+                .dropzone-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--s-8); width: 100%; height: 100%; justify-content: center; padding: var(--s-12); cursor: pointer; z-index: 2; }
                 .icon-circle { 
                     width: 64px; 
                     height: 64px; 

@@ -11,9 +11,12 @@ pub fn Credits() -> impl IntoView {
     Effect::new(move |_| {
         if auth.credits.get().is_none() {
             let token = auth.session.get().map(|s| s.access_token);
+            let auth_ctx = auth.clone();
             leptos::task::spawn_local(async move {
-                if let Ok(bal) = ApiClient::get_balance(token.as_deref()).await {
-                    auth.set_credits.set(Some(bal));
+                match ApiClient::get_balance(token.as_deref()).await {
+                    Ok(bal) => auth_ctx.set_credits.set(Some(bal)),
+                    Err(e) if e == "AUTH_EXPIRED" => auth_ctx.logout(),
+                    Err(_) => {}
                 }
             });
         }
@@ -56,38 +59,26 @@ pub fn Credits() -> impl IntoView {
                 </div>
 
                 <div class="stats-sidebar">
-                    <div class="card stat-mini-card">
-                        <div class="mini-stat-header">
-                            <HistoryIcon size={14} />
-                            <span>"PIPELINE METRICS"</span>
-                        </div>
-                        <div class="stat-mini-body">
-                            <div class="mini-stat-item">
-                                <span class="label">"TOTAL PROJECTS"</span>
-                                <Suspense fallback=|| view! { <span class="value">"---"</span> }>
-                                    <span class="value">{move || history_data.get().and_then(|res| (*res).as_ref().ok().map(|v| v.len().to_string())).unwrap_or_else(|| "0".to_string())}</span>
-                                </Suspense>
-                            </div>
-                            <div class="mini-stat-item">
-                                <span class="label">"ARCHITECTURE"</span>
-                                <span class="value">"V1.0 ALPHA"</span>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="card pricing-mini-card">
                         <div class="mini-stat-header">
-                            <Info size={14} />
-                            <span>"UNIT PROTOCOL"</span>
+                            <Zap size={14} />
+                            <span>"CHOOSE YOUR PACK"</span>
                         </div>
-                        <div class="pricing-list">
-                            <div class="pricing-row">
-                                <span class="label">"2K RECON"</span>
-                                <span class="value">"2 UNITS"</span>
+                        <div class="pricing-grid">
+                            <div class="pricing-card">
+                                <span class="p-name">"STARTER"</span>
+                                <span class="p-units">"10 UNITS"</span>
+                                <button class="btn btn-primary btn-sm">"$5"</button>
                             </div>
-                            <div class="pricing-row">
-                                <span class="label">"4K RECON"</span>
-                                <span class="value">"4 UNITS"</span>
+                            <div class="pricing-card featured">
+                                <span class="p-name">"STUDIO"</span>
+                                <span class="p-units">"50 UNITS"</span>
+                                <button class="btn btn-primary btn-sm">"$20"</button>
+                            </div>
+                            <div class="pricing-card">
+                                <span class="p-name">"ENTERPRISE"</span>
+                                <span class="p-units">"250 UNITS"</span>
+                                <button class="btn btn-primary btn-sm">"$75"</button>
                             </div>
                         </div>
                     </div>
@@ -116,13 +107,14 @@ pub fn Credits() -> impl IntoView {
                             <tbody>
                                 <Suspense fallback=|| view! { <tr><td colspan="6" class="placeholder">"Fetching telemetry..."</td></tr> }>
                                     {move || history_data.get().map(|res| {
+                                        let auth_ctx = auth.clone();
                                         match (*res).clone() {
                                             Ok(items) => items.into_iter().map(|item| {
                                                 let id_short = item.id.to_string()[..8].to_string();
                                                 let status_label = if item.status == "COMPLETED" { "VERIFIED".to_string() } else { item.status.clone() };
                                                 let item_url = item.image_url;
                                                 let item_created = item.created_at;
-                                                let item_quality = item.quality;
+                                                let item_quality = item.quality.replace(" RECON", "");
                                                 let item_style = item.style.unwrap_or_else(|| "AUTO".to_string());
                                                 let item_status_lower = item.status.to_lowercase();
                                                 
@@ -142,6 +134,10 @@ pub fn Credits() -> impl IntoView {
                                                     </tr>
                                                 }
                                             }).collect_view().into_any(),
+                                            Err(e) if e == "AUTH_EXPIRED" => {
+                                                auth_ctx.logout();
+                                                view! { <tr><td colspan="6" class="error">"Session expired. Logging out..."</td></tr> }.into_any()
+                                            },
                                             Err(_) => view! { <tr><td colspan="6" class="error">"Telemetry unavailable"</td></tr> }.into_any()
                                         }
                                     })}
@@ -166,10 +162,10 @@ pub fn Credits() -> impl IntoView {
                 .balance-main { padding-bottom: var(--s-8); border-bottom: 1px solid var(--glass-border); display: flex; align-items: baseline; gap: var(--s-4); position: relative; }
                 
                 .credits-count { 
-                    font-size: clamp(4rem, 10vw, 6.5rem); 
+                    font-size: clamp(3rem, 12vw, 5.5rem); 
                     font-weight: 800; 
-                    line-height: 0.85; 
-                    letter-spacing: -0.06em; 
+                    line-height: 1; 
+                    letter-spacing: -0.04em; 
                     font-family: var(--font-mono); 
                     color: hsl(var(--text));
                     background: linear-gradient(90deg, hsl(var(--text)) 0%, hsl(var(--text-muted)) 50%, hsl(var(--text)) 100%);
@@ -179,10 +175,17 @@ pub fn Credits() -> impl IntoView {
                     animation: shimmer 5s linear infinite;
                 }
                 
-                .balance-actions { display: flex; flex-direction: column; gap: var(--s-3); margin-top: auto; }
+                .balance-actions { display: flex; flex-direction: column; gap: var(--s-3); margin-top: auto; padding-top: var(--s-4); }
                 
                 .stats-sidebar { display: flex; flex-direction: column; gap: var(--s-6); }
-                .stat-mini-card, .pricing-mini-card { background: hsl(var(--surface-raised) / 0.5); }
+                .stat-mini-card, .pricing-mini-card { background: hsl(var(--surface-raised) / 0.5); overflow: hidden; }
+                
+                .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--s-4); padding: var(--s-6); }
+                .pricing-card { background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: var(--s-4); display: flex; flex-direction: column; align-items: center; gap: var(--s-2); transition: all 0.2s; }
+                .pricing-card:hover { border-color: hsl(var(--accent) / 0.4); transform: translateY(-2px); }
+                .pricing-card.featured { border-color: hsl(var(--accent)); background: hsl(var(--accent) / 0.05); }
+                .p-name { font-size: 0.5rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.1em; }
+                .p-units { font-size: 0.75rem; font-weight: 900; color: hsl(var(--text)); font-family: var(--font-mono); }
                 
                 .mini-stat-header { padding: var(--s-4) var(--s-6); border-bottom: 1px solid var(--glass-border); display: flex; align-items: center; gap: var(--s-3); font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-muted)); letter-spacing: 0.15em; text-transform: uppercase; }
                 .stat-mini-body { padding: var(--s-6); display: flex; flex-direction: column; gap: var(--s-6); }

@@ -20,18 +20,13 @@ pub struct Session {
 
 #[component]
 pub fn AuthProvider(children: Children) -> impl IntoView {
-    let (user, set_user) = signal(Option::<User>::None);
-    let (session, set_session) = signal(Option::<Session>::None);
+    let initial_session = LocalStorage::get::<Session>("sb_session").ok();
+    let initial_user = initial_session.as_ref().map(|s| s.user.clone());
+    
+    let (user, set_user) = signal(initial_user);
+    let (session, set_session) = signal(initial_session);
     let (credits, set_credits) = signal(Option::<i32>::None);
     
-    // Load existing session from LocalStorage on mount
-    Effect::new(move |_| {
-        if let Ok(stored_session) = LocalStorage::get::<Session>("sb_session") {
-            set_user.set(Some(stored_session.user.clone()));
-            set_session.set(Some(stored_session));
-        }
-    });
-
     provide_context(AuthContext { user, session, set_user, set_session, credits, set_credits });
     
     children()

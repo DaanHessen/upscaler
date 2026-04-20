@@ -72,11 +72,11 @@ fn MainLayout() -> impl IntoView {
     view! {
         <div class="app-wrapper">
             <header class="glass stagger-1">
-                <div class="logo">
+                <a href="/" class="logo" style="text-decoration: none; display: flex; align-items: center; gap: var(--s-3); color: inherit;">
                     <div class="logo-icon"><Zap size={18} /></div>
                     "UPSYL" 
                     <span>"STUDIO"</span>
-                </div>
+                </a>
                 <nav>
                     <a href="/">"STUDIO"</a>
                     {move || auth.user.get().is_some().then(|| view! {
@@ -112,6 +112,10 @@ fn MainLayout() -> impl IntoView {
 
 #[component]
 fn Footer() -> impl IntoView {
+    let health = LocalResource::new(move || async move {
+        ApiClient::get_health().await.unwrap_or(false)
+    });
+
     view! {
         <footer>
             <div class="footer-content">
@@ -132,7 +136,12 @@ fn Footer() -> impl IntoView {
 
                 <div class="footer-right">
                     <span class="footer-meta">"SYSTEM:"</span>
-                    <span class="footer-status">"STABLE"</span>
+                    <Suspense fallback=|| view! { <span class="footer-status-tag">"CHECKING..."</span> }>
+                        {move || match health.get() {
+                            Some(h) if *h => view! { <span class="status-indicator online"></span><span class="footer-status-tag online">"ONLINE"</span> }.into_any(),
+                            _ => view! { <span class="status-indicator offline"></span><span class="footer-status-tag offline">"OFFLINE"</span> }.into_any(),
+                        }}
+                    </Suspense>
                 </div>
             </div>
             <style>
@@ -151,6 +160,21 @@ fn Footer() -> impl IntoView {
                 .footer-link { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; transition: color 0.2s; }
                 .footer-link:hover { color: hsl(var(--accent)); }
                 .divider { opacity: 0.1; color: hsl(var(--text-dim)); }
+
+                .footer-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--s-3); }
+                .footer-status-tag { font-size: 0.625rem; font-weight: 850; letter-spacing: 0.1em; }
+                .footer-status-tag.online { color: hsl(var(--success)); }
+                .footer-status-tag.offline { color: hsl(var(--error)); }
+
+                .status-indicator { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+                .status-indicator.online { background: hsl(var(--success)); box-shadow: 0 0 8px hsl(var(--success) / 0.8); animation: pulse 2s infinite; }
+                .status-indicator.offline { background: hsl(var(--error)); }
+
+                @keyframes pulse {
+                    0% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--success) / 0.7); }
+                    70% { transform: scale(1); box-shadow: 0 0 0 6px hsl(var(--success) / 0); }
+                    100% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--success) / 0); }
+                }
                 
                 @media (max-width: 768px) {
                     footer { padding: var(--s-8) var(--s-6); }
@@ -274,7 +298,7 @@ fn Home() -> impl IntoView {
                 </div>
                 
                 <div class="hybrid-layout stagger-3">
-                    <div class="hybrid-left">
+                    <div class="studio-card hybrid-left">
                         <ComparisonSlider 
                             before_url="assets/hero_before.svg".to_string() 
                             after_url="assets/hero_after.svg".to_string() 
@@ -282,36 +306,35 @@ fn Home() -> impl IntoView {
                             after_label="AFTER (UPSCALED)"
                         />
                     </div>
-                    <div class="hybrid-right">
-                        <div class="card hybrid-card">
-                            <crate::components::upload_zone::UploadZone />
-                        </div>
+                    <div class="studio-card hybrid-right">
+                        <crate::components::upload_zone::UploadZone />
                     </div>
                 </div>
 
             <style>
-                ".hero-section { padding: var(--s-10) 0 var(--s-20); }
-                .hybrid-layout { 
+                ".hero-section { padding: var(--s-10) 0 var(--s-20); }                .hybrid-layout { 
                     display: grid; 
-                    grid-template-columns: 1.4fr 1fr; 
-                    gap: var(--s-10); 
-                    margin-top: var(--s-12); 
+                    grid-template-columns: 1fr 1fr; 
+                    gap: var(--s-16); 
+                    margin-top: var(--s-16); 
                     text-align: left;
                     align-items: stretch;
-                    max-width: 1200px;
+                    max-width: 1300px;
                     margin-left: auto;
                     margin-right: auto;
                 }
-                .hybrid-card { padding: var(--s-6); height: 100%; display: flex; flex-direction: column; }
-                .hybrid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-top: var(--s-4); }
-                .h-stat { 
-                    background: hsl(var(--surface-raised)); 
-                    border: 1px solid hsl(var(--border)); 
-                    padding: var(--s-4) var(--s-6); 
-                    border-radius: var(--radius-md); 
-                    transition: border-color 0.2s;
+                
+                .studio-card { 
+                    background: hsl(var(--surface));
+                    border: 1px solid hsl(var(--accent) / 0.1);
+                    border-radius: var(--radius-lg);
+                    box-shadow: 0 40px 100px -30px rgba(0,0,0,0.8);
+                    overflow: hidden;
+                    position: relative;
                 }
-                .h-stat:hover { border-color: hsl(var(--accent) / 0.3); }
+
+                .hybrid-right { padding: var(--s-10); display: flex; flex-direction: column; justify-content: center; }
+              .h-stat:hover { border-color: hsl(var(--accent) / 0.3); }
                 .h-label { display: block; font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: var(--s-1); }
                 .h-value { font-size: 0.8125rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
                 

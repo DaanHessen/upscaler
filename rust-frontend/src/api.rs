@@ -65,6 +65,8 @@ impl ApiClient {
         if resp.ok() {
             let data: BalanceResponse = resp.json().await.map_err(|e| e.to_string())?;
             Ok(data.credits)
+        } else if resp.status() == 401 {
+            Err("AUTH_EXPIRED".to_string())
         } else {
             Err(format!("Error fetching balance: {}", resp.status()))
         }
@@ -79,6 +81,8 @@ impl ApiClient {
         if resp.ok() {
             let data: Vec<HistoryItem> = resp.json().await.map_err(|e| e.to_string())?;
             Ok(data)
+        } else if resp.status() == 401 {
+            Err("AUTH_EXPIRED".to_string())
         } else {
             Err(format!("Error fetching history: {}", resp.status()))
         }
@@ -163,5 +167,14 @@ impl ApiClient {
             let msg = err_body["error"].as_str().unwrap_or("Submission failed");
             Err(msg.to_string())
         }
+    }
+
+    pub async fn get_health() -> Result<bool, String> {
+        let resp = Request::get("/health")
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        
+        Ok(resp.ok())
     }
 }

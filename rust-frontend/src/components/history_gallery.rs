@@ -58,6 +58,16 @@ pub fn HistoryGallery() -> impl IntoView {
                                 }.into_any()
                             }
                         }
+                        Err(e) if e == "AUTH_EXPIRED" => {
+                            auth.logout();
+                            view! {
+                                <div class="error-panel">
+                                    <AlertCircle size={24} />
+                                    <p>"Session expired. Please log in again."</p>
+                                    <a href="/login" class="btn btn-primary btn-sm" style="margin-top: 1rem; text-decoration: none;">"LOG IN"</a>
+                                </div>
+                            }.into_any()
+                        }
                         Err(msg) => {
                             view! {
                                 <div class="error-panel">
@@ -140,7 +150,7 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                     }
                 }
                 <div class="badge-overlay">
-                    <span class="quality-badge">{item.quality}</span>
+                    <span class="quality-badge">{item.quality.replace(" RECON", "")}</span>
                 </div>
             </div>
             

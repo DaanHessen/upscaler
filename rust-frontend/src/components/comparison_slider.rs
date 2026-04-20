@@ -67,16 +67,10 @@ pub fn ComparisonSlider(
                     aspect-ratio: 16/10;
                     margin: 0 auto;
                     overflow: hidden;
-                    border-radius: var(--radius-lg);
-                    border: 1px solid var(--glass-border);
-                    box-shadow: var(--shadow-xl);
                     cursor: ew-resize;
                     user-select: none;
                     background: hsl(var(--surface));
-                    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s;
-                }
-                .comparison-slider:hover {
-                    box-shadow: 0 40px 80px -20px rgba(0,0,0,0.9);
+                    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
                 }
 
                 .image-before, .image-after {
@@ -88,17 +82,18 @@ pub fn ComparisonSlider(
                     background-size: cover;
                     background-position: center;
                     background-repeat: no-repeat;
+                    box-shadow: inset 0 0 100px rgba(0,0,0,0.2);
                 }
 
                 .label {
                     position: absolute;
                     bottom: var(--s-6);
                     padding: var(--s-2) var(--s-4);
-                    background: rgba(10, 10, 12, 0.4);
+                    background: rgba(10, 10, 12, 0.6);
                     backdrop-filter: blur(20px) saturate(180%);
                     color: hsl(var(--text));
                     font-size: 0.625rem;
-                    font-weight: 800;
+                    font-weight: 850;
                     text-transform: uppercase;
                     letter-spacing: 0.15em;
                     border-radius: var(--radius-sm);
