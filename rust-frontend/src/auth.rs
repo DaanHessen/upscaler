@@ -22,6 +22,7 @@ pub struct Session {
 pub fn AuthProvider(children: Children) -> impl IntoView {
     let (user, set_user) = signal(Option::<User>::None);
     let (session, set_session) = signal(Option::<Session>::None);
+    let (credits, set_credits) = signal(Option::<i32>::None);
     
     // Load existing session from LocalStorage on mount
     Effect::new(move |_| {
@@ -31,7 +32,7 @@ pub fn AuthProvider(children: Children) -> impl IntoView {
         }
     });
 
-    provide_context(AuthContext { user, session, set_user, set_session });
+    provide_context(AuthContext { user, session, set_user, set_session, credits, set_credits });
     
     children()
 }
@@ -40,8 +41,10 @@ pub fn AuthProvider(children: Children) -> impl IntoView {
 pub struct AuthContext {
     pub user: ReadSignal<Option<User>>,
     pub session: ReadSignal<Option<Session>>,
+    pub credits: ReadSignal<Option<i32>>,
     pub set_user: WriteSignal<Option<User>>,
     pub set_session: WriteSignal<Option<Session>>,
+    pub set_credits: WriteSignal<Option<i32>>,
 }
 
 pub fn use_auth() -> AuthContext {
@@ -112,6 +115,7 @@ impl AuthContext {
     pub fn logout(&self) {
         self.set_user.set(None);
         self.set_session.set(None);
+        self.set_credits.set(None);
         LocalStorage::delete("sb_session");
     }
 }

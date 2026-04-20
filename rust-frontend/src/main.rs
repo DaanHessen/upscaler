@@ -11,9 +11,50 @@ use crate::api::ApiClient;
 use crate::components::icons::{Zap, HistoryIcon, LogOut, CreditCard};
 use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
+use crate::components::configure::Configure;
+use crate::components::view_result::ViewResult;
+
+#[derive(Copy, Clone)]
+pub struct GlobalState {
+    pub temp_file: ReadSignal<Option<web_sys::File>>,
+    pub set_temp_file: WriteSignal<Option<web_sys::File>>,
+    pub temp_classification: ReadSignal<Option<String>>,
+    pub set_temp_classification: WriteSignal<Option<String>>,
+}
+
+pub fn provide_global_state() {
+    let (temp_file, set_temp_file) = signal(None);
+    let (temp_classification, set_temp_classification) = signal(None);
+    provide_context(GlobalState { 
+        temp_file, 
+        set_temp_file, 
+        temp_classification, 
+        set_temp_classification 
+    });
+}
+
+pub fn use_global_state() -> GlobalState {
+    use_context::<GlobalState>().expect("GlobalState must be provided")
+}
+
+#[component]
+fn AuthGuard(children: Children) -> impl IntoView {
+    let auth = use_auth();
+    let navigate = leptos_router::hooks::use_navigate();
+    
+    Effect::new(move |_| {
+        if auth.user.get().is_none() {
+            navigate("/", Default::default());
+        }
+    });
+
+    children()
+}
 
 #[component]
 fn App() -> impl IntoView {
+    provide_global_state();
+
     view! {
         <AuthProvider>
             <Router>
@@ -38,13 +79,45 @@ fn App() -> impl IntoView {
                             <Route path=path!("/login") view=Login />
                             <Route path=path!("/register") view=Register />
                             <Route path=path!("/forgot-password") view=ForgotPassword />
-                            <Route path=path!("/history") view=History />
-                            <Route path=path!("/settings") view=Credits />
+                            
+                            <Route path=path!("/configure") view=|| view! { <AuthGuard><Configure /></AuthGuard> } />
+                            <Route path=path!("/view/:job_id") view=|| view! { <AuthGuard><ViewResult /></AuthGuard> } />
+                            <Route path=path!("/history") view=|| view! { <AuthGuard><History /></AuthGuard> } />
+                            <Route path=path!("/settings") view=|| view! { <AuthGuard><Credits /></AuthGuard> } />
                         </Routes>
                     </main>
+
+                    <Footer />
                 </div>
             </Router>
         </AuthProvider>
+    }
+}
+
+#[component]
+fn Footer() -> impl IntoView {
+    view! {
+        <footer>
+            <div class="footer-content">
+                <div class="footer-logo">
+                    <Zap size={14} />
+                    "PRECISION UPSCALE"
+                </div>
+                <div class="footer-links">
+                    <span>"© 2026 INFRASTRUCTURE"</span>
+                    <span class="divider">"|"</span>
+                    <span>"V7.1 STABLE"</span>
+                </div>
+            </div>
+            <style>
+                "footer { border-top: 1px solid var(--border-color); padding: 2rem 4rem; margin-top: auto; background: var(--bg-color); }
+                .footer-content { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%; }
+                .footer-logo { font-size: 0.75rem; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; letter-spacing: 0.05em; }
+                .footer-links { font-size: 0.7rem; color: var(--text-muted); font-weight: 600; display: flex; gap: 1rem; align-items: center; }
+                .divider { opacity: 0.2; }
+                "
+            </style>
+        </footer>
     }
 }
 
@@ -86,6 +159,7 @@ fn AuthNav() -> impl IntoView {
                     <div class="dropdown-container">
                         <div 
                             class="avatar-btn"
+                            on:mouseenter=move |_| set_show_dropdown.set(true)
                             on:click=move |ev| {
                                 ev.stop_propagation();
                                 set_show_dropdown.update(|v| *v = !*v);
@@ -96,7 +170,11 @@ fn AuthNav() -> impl IntoView {
                         <div 
                             class="dropdown-menu"
                             class:show=show_dropdown
-                            on:click=move |_| set_show_dropdown.set(false)
+                            on:mouseleave=move |_| set_show_dropdown.set(false)
+                            on:click=move |ev| {
+                                ev.stop_propagation();
+                                set_show_dropdown.set(false);
+                            }
                         >
                             <div class="dropdown-header">
                                 <span class="user-email">{user.email.clone().unwrap_or_default()}</span>
@@ -137,50 +215,65 @@ fn Credits() -> impl IntoView {
 
 #[component]
 fn Home() -> impl IntoView {
-    let auth = use_auth();
-
     view! {
         <div class="fade-in">
-            {move || match auth.user.get() {
-                Some(_) => Either::Left(view! {
-                    <crate::components::upload_zone::Dashboard />
-                }),
-                None => Either::Right(view! {
-                    <div class="hero-section">
-                        <h1 class="text-gradient">"Professional Super-Resolution"</h1>
-                        <p class="muted" style="max-width: 600px; margin: 0 auto 3rem; font-size: 1.125rem;">
-                            "Bespoke neural upscaling for photography and illustration. 
-                            Restore frequency details, eliminate compression, and reach target resolutions with surgical precision."
-                        </p>
-                        
+            <div class="hero-section">
+                <h1 class="text-gradient">"Professional Super-Resolution"</h1>
+                <p class="muted" style="max-width: 600px; margin: 0 auto 1rem; font-size: 1.125rem;">
+                    "Bespoke neural upscaling for photography and illustration."
+                </p>
+                <p class="muted" style="max-width: 600px; margin: 0 auto 3rem; font-size: 0.875rem; opacity: 0.7;">
+                    "Restore frequency details, eliminate compression, and reach target resolutions with surgical precision."
+                </p>
+                
+                <div class="hybrid-layout">
+                    <div class="hybrid-left">
                         <ComparisonSlider 
                             before_url="/assets/hero_before.png".to_string() 
                             after_url="/assets/hero_after.png".to_string() 
                             before_label="Original (Compressed)"
                             after_label="Upscaled (2K/4K)"
                         />
+                    </div>
+                    <div class="hybrid-right">
+                        <div class="card hybrid-card">
+                            <crate::components::upload_zone::UploadZone />
+                        </div>
+                        
+                        <div class="hybrid-stats">
+                            <div class="h-stat">
+                                <span class="h-label">"Model"</span>
+                                <span class="h-value">"V7.1 STABLE"</span>
+                            </div>
+                            <div class="h-stat">
+                                <span class="h-label">"Max Output"</span>
+                                <span class="h-value">"4K UHD"</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                        <div class="hero-actions" style="margin-top: 4rem;">
-                            <a href="/login" class="btn btn-primary" style="padding: 1rem 3rem;">"Enter Studio"</a>
-                        </div>
-                    </div>
+                <style>
+                    ".hybrid-layout { 
+                        display: grid; 
+                        grid-template-columns: 1.2fr 1fr; 
+                        gap: 2rem; 
+                        margin-top: 2rem; 
+                        text-align: left;
+                        align-items: flex-start;
+                    }
+                    .hybrid-card { padding: 1rem; height: 100%; display: flex; flex-direction: column; }
+                    .hybrid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+                    .h-stat { background: var(--bg-color); border: 1px solid var(--border-color); padding: 1rem; border-radius: 8px; }
+                    .h-label { display: block; font-size: 0.6rem; color: var(--text-muted); font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.25rem; }
+                    .h-value { font-size: 0.9rem; font-weight: 700; color: var(--text-color); font-family: var(--font-mono); }
                     
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <span class="stat-label">"Pipeline"</span>
-                            <span class="stat-value">"V7.1"</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-label">"Target"</span>
-                            <span class="stat-value">"8K UHD"</span>
-                        </div>
-                        <div class="stat-card">
-                            <span class="stat-label">"Infrastructure"</span>
-                            <span class="stat-value">"STUDIO"</span>
-                        </div>
-                    </div>
-                })
-            }}
+                    @media (max-width: 1000px) {
+                        .hybrid-layout { grid-template-columns: 1fr; }
+                    }
+                    "
+                </style>
+            </div>
         </div>
     }
 }

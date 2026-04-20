@@ -88,7 +88,7 @@ pub fn RefreshCw(#[prop(default = 24)] size: u32) -> impl IntoView {
 }
 
 #[component]
-pub fn AlertCircle(#[prop(default = 24)] size: u32) -> impl IntoView {
+pub fn AlertCircle(#[prop(default = 24)] size: u32, #[prop(optional)] style: String) -> impl IntoView {
     view! {
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -100,6 +100,7 @@ pub fn AlertCircle(#[prop(default = 24)] size: u32) -> impl IntoView {
             stroke-width="2" 
             stroke-linecap="round" 
             stroke-linejoin="round"
+            style=style
         >
             <circle cx="12" cy="12" r="10"/>
             <line x1="12" x2="12" y1="8" y2="12"/>

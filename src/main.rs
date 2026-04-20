@@ -151,12 +151,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         janitor_service(janitor_state).await;
     });
 
-    // Rate Limiting: 5 requests per minute per IP, burst of 5
-    // .per_second(12) means replenish 1 token every 12s (60/12 = 5 per min)
+    // Rate Limiting: 60 requests per minute per IP, burst of 10
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
-            .per_second(12)
-            .burst_size(5)
+            .per_second(1)
+            .burst_size(10)
             .finish()
             .unwrap(),
     );
