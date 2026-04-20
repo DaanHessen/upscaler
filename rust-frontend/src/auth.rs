@@ -80,6 +80,35 @@ impl AuthContext {
         }
     }
 
+    pub async fn signup(&self, email: &str, password: &str) -> Result<(), String> {
+        let url = format!("{}/auth/v1/signup", SUPABASE_URL);
+        
+        let body = serde_json::json!({
+            "email": email,
+            "password": password,
+        });
+
+        let resp = Request::post(&url)
+            .header("apikey", SUPABASE_ANON_KEY)
+            .json(&body)
+            .map_err(|e| e.to_string())?
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if resp.ok() {
+            // Supabase usually requires email confirmation, so we don't necessarily get a session back.
+            // But we can confirm success.
+            Ok(())
+        } else {
+            let err_body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+            let msg = err_body["msg"].as_str()
+                .or(err_body["error_description"].as_str())
+                .unwrap_or("Signup failed");
+            Err(msg.to_string())
+        }
+    }
+
     pub fn logout(&self) {
         self.set_user.set(None);
         self.set_session.set(None);

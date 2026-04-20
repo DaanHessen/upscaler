@@ -28,6 +28,12 @@ pub struct HistoryItem {
     pub error: Option<String>,
 }
 
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
+pub struct ModerateResponse {
+    pub nsfw: bool,
+    pub detected_style: String,
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BalanceResponse {
     pub credits: i32,
@@ -90,6 +96,36 @@ impl ApiClient {
             Ok(data)
         } else {
             Err(format!("Error polling job: {}", resp.status()))
+        }
+    }
+
+    pub async fn moderate(
+        file: &web_sys::File,
+        token: Option<&str>
+    ) -> Result<ModerateResponse, String> {
+        let form_data = web_sys::FormData::new().map_err(|e| format!("{:?}", e))?;
+        form_data.append_with_blob("image", file).map_err(|e| format!("{:?}", e))?;
+
+        let url = "/moderate";
+        let mut req = Request::post(url);
+        
+        if let Some(t) = token {
+            req = req.header("Authorization", &format!("Bearer {}", t));
+        }
+
+        let resp = req.body(form_data)
+            .map_err(|e| e.to_string())?
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if resp.ok() {
+            let data: ModerateResponse = resp.json().await.map_err(|e| e.to_string())?;
+            Ok(data)
+        } else {
+            let err_body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+            let msg = err_body["error"].as_str().unwrap_or("Moderation failed");
+            Err(msg.to_string())
         }
     }
 
