@@ -50,3 +50,11 @@ path = "test/single_nsfw_test.rs"
 [[bin]]
 name = "image-tester"
 path = "test/classifier_summary.rs"
+
+[[bin]]
+name = "integrated-flow"
+path = "test/integrated_flow.rs"
+
+[[bin]]
+name = "load-test"
+path = "test/load_test.rs"

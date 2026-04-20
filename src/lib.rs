@@ -7,15 +7,17 @@ pub mod storage;
 pub mod stripe;
 pub mod db;
 pub mod prompts;
+pub mod worker;
 
-use crate::client::VertexClient;
+use crate::client::VertexProvider;
 use crate::auth::AuthProvider;
 use crate::storage::StorageService;
 use crate::db::DbService;
 use jsonwebtoken::jwk::JwkSet;
+use std::sync::Arc;
 
 pub struct AppState {
-    pub client: VertexClient,
+    pub client: Arc<dyn VertexProvider>,
     pub auth: AuthProvider,
     pub storage: StorageService,
     pub db: DbService,

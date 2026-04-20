@@ -57,3 +57,53 @@ pub fn build_system_prompt(style: &str, settings: &PromptSettings) -> String {
 
     prompt
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_photography_lighting_vivid() {
+        let settings = PromptSettings {
+            keep_aspect_ratio: true,
+            keep_depth_of_field: true,
+            lighting: "VIVID".to_string(),
+            thinking_level: "HIGH".to_string(),
+        };
+        let prompt = build_system_prompt("PHOTOGRAPHY", &settings);
+        
+        assert!(prompt.contains("UPSYL high-fidelity reconstruction"));
+        assert!(prompt.contains("Restore organic micro-textures"));
+        assert!(prompt.contains("Strictly maintain the original focal planes"));
+        assert!(prompt.contains("Amplify color vibrancy"));
+    }
+
+    #[test]
+    fn test_illustration_original_lighting() {
+        let settings = PromptSettings {
+            keep_aspect_ratio: false,
+            keep_depth_of_field: false,
+            lighting: "Original".to_string(),
+            thinking_level: "MINIMAL".to_string(),
+        };
+        let prompt = build_system_prompt("ILLUSTRATION", &settings);
+        
+        assert!(prompt.contains("Maintain exact original art style"));
+        assert!(prompt.contains("Completely remove all JPEG compression artifacts"));
+        assert!(prompt.contains("Compositional Optimization"));
+        assert!(prompt.contains("Strictly maintain the exact structural identity"));
+    }
+
+    #[test]
+    fn test_photography_shallow_focus() {
+        let settings = PromptSettings {
+            keep_aspect_ratio: true,
+            keep_depth_of_field: false,
+            lighting: "STUDIO".to_string(),
+            thinking_level: "HIGH".to_string(),
+        };
+        let prompt = build_system_prompt("PHOTOGRAPHY", &settings);
+        assert!(prompt.contains("Enhance clarity across all planes"));
+        assert!(prompt.contains("professional studio high-key lighting"));
+    }
+}
