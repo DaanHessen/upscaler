@@ -110,27 +110,42 @@ pub fn Configure() -> impl IntoView {
                                 </div>
                             </div>
 
-                            <div class="param-group" title="Choose the model that best fits your image type.">
+                            <div class="param-group">
                                 <label>"Upscale Model"</label>
-                                <select on:change=move |ev| set_style.set(event_target_value(&ev)) prop:value=style>
-                                    <option value="PHOTOGRAPHY">"Photography (Natural details)"</option>
-                                    <option value="ILLUSTRATION">"Illustration (Sharp lines)"</option>
-                                </select>
+                                <div class="segmented-control">
+                                    <button 
+                                        class=move || if style.get() == "PHOTOGRAPHY" { "segment active" } else { "segment" }
+                                        on:click=move |_| set_style.set("PHOTOGRAPHY".to_string())
+                                    >
+                                        "PHOTOGRAPHY"
+                                    </button>
+                                    <button 
+                                        class=move || if style.get() == "ILLUSTRATION" { "segment active" } else { "segment" }
+                                        on:click=move |_| set_style.set("ILLUSTRATION".to_string())
+                                    >
+                                        "ILLUSTRATION"
+                                    </button>
+                                </div>
+                                <p class="param-desc">
+                                    {move || if style.get() == "PHOTOGRAPHY" { "Optimized for natural textures, gradients, and skin tones." } else { "Preserves sharp lines, flat colors, and graphic details." }}
+                                </p>
                             </div>
 
-                            <div class="param-group" title="Temperature controls model variability. Lower is more faithful.">
-                                <label>"Temperature: " {move || format!("{:.1}", temperature.get())}</label>
-                                <input 
-                                    type="range" 
-                                    min="0.0" 
-                                    max="2.0" 
-                                    step="0.1" 
-                                    prop:value=move || temperature.get().to_string()
-                                    on:input=move |ev| set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0))
-                                />
-                                <div class="range-labels">
-                                    <span>"Faithful"</span>
-                                    <span>"Creative"</span>
+                            <div class="param-group">
+                                <label>"Creativity: " {move || format!("{:.1}", temperature.get())}</label>
+                                <div class="slider-wrapper">
+                                    <input 
+                                        type="range" 
+                                        min="0.0" 
+                                        max="2.0" 
+                                        step="0.1" 
+                                        prop:value=move || temperature.get().to_string()
+                                        on:input=move |ev| set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0))
+                                    />
+                                    <div class="range-labels">
+                                        <span>"Faithful"</span>
+                                        <span>"Artistic"</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -141,11 +156,8 @@ pub fn Configure() -> impl IntoView {
                                 disabled=move || loading.get() || global_state.temp_file.get().is_none()
                                 on:click=handle_upscale
                             >
-                                {move || if loading.get() { "Starting..." } else { "Start Upscaling" }}
+                                {move || if loading.get() { "Starting Reconstruction..." } else { "RECONSTRUCT" }}
                             </button>
-                            <p class="cost-summary muted">
-                                "Estimated Processing Time: ~15 seconds"
-                            </p>
                         </div>
                     </div>
                 </div>
@@ -171,11 +183,21 @@ pub fn Configure() -> impl IntoView {
                 .radio-item.active { border-color: var(--accent); background: rgba(88, 166, 255, 0.1); color: var(--accent); }
                 .radio-item .cost { font-size: 0.6rem; opacity: 0.6; font-weight: 800; font-family: var(--font-mono); }
 
-                .range-labels { display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.65rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+                .segmented-control { display: grid; grid-template-columns: 1fr 1fr; background: hsl(var(--surface-raised) / 0.5); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 4px; gap: 4px; }
+                .segment { background: transparent; border: none; padding: 10px; border-radius: 4px; color: hsl(var(--text-dim)); font-size: 0.65rem; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
+                .segment:hover { color: hsl(var(--text)); background: hsl(var(--surface-raised)); }
+                .segment.active { background: hsl(var(--accent)); color: hsl(var(--bg)); box-shadow: 0 4px 12px hsl(var(--accent) / 0.2); }
+                .param-desc { font-size: 0.65rem; color: hsl(var(--text-dim)); line-height: 1.4; margin-top: 0.75rem; font-style: italic; opacity: 0.8; }
+                
+                .slider-wrapper { display: flex; flex-direction: column; gap: 0.5rem; }
+                input[type='range'] { -webkit-appearance: none; width: 100%; background: transparent; }
+                input[type='range']::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: hsl(var(--surface-raised)); border-radius: 3px; border: 1px solid var(--glass-border); }
+                input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; border: 2px solid hsl(var(--accent)); height: 18px; width: 18px; border-radius: 50%; background: hsl(var(--bg)); cursor: pointer; margin-top: -7px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+                
+                .range-labels { display: flex; justify-content: space-between; margin-top: 0.25rem; font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; }
                 
                 .btn-block { width: 100%; }
                 .card-footer { padding: 1.5rem 2rem 2rem; border-top: 1px solid var(--border-color); text-align: center; }
-                .cost-summary { font-size: 0.7rem; margin-top: 1rem; }
                 
                 @media (max-width: 900px) {
                     .config-layout { grid-template-columns: 1fr; gap: 1rem; }

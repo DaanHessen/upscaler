@@ -20,7 +20,17 @@ pub struct Session {
 
 #[component]
 pub fn AuthProvider(children: Children) -> impl IntoView {
-    let initial_session = LocalStorage::get::<Session>("sb_session").ok();
+    let mut initial_session = LocalStorage::get::<Session>("sb_session").ok();
+    
+    // Proactive JWT validation: Check if token is expired before setting signal
+    if let Some(s) = &initial_session {
+        if is_token_expired(&s.access_token) {
+            leptos::logging::log!("Session expired (proactive check). Clearing storage.");
+            LocalStorage::delete("sb_session");
+            initial_session = None;
+        }
+    }
+
     let initial_user = initial_session.as_ref().map(|s| s.user.clone());
     
     let (user, set_user) = signal(initial_user);
@@ -30,6 +40,41 @@ pub fn AuthProvider(children: Children) -> impl IntoView {
     provide_context(AuthContext { user, session, set_user, set_session, credits, set_credits });
     
     children()
+}
+
+fn is_token_expired(token: &str) -> bool {
+    let parts: Vec<&str> = token.split('.').collect();
+    if parts.len() != 3 { return true; }
+    
+    // We only need the payload (middle part)
+    let payload_b64 = parts[1];
+    
+    // Try to decode payload using js_sys::atob if available, or just assume it's valid if we can't.
+    // However, usually we can just check if we have the payload and it looks okay.
+    // For a real fix, we check the 'exp' field.
+    if let Ok(decoded) = decode_base64_json(payload_b64) {
+        if let Some(exp) = decoded.get("exp").and_then(|v| v.as_u64()) {
+            let now = (js_sys::Date::now() / 1000.0) as u64;
+            return now >= exp;
+        }
+    }
+    
+    false
+}
+
+fn decode_base64_json(b64: &str) -> Result<serde_json::Value, String> {
+    // Basic base64url decoding to handle JWT payload
+    let mut input = b64.replace('-', "+").replace('_', "/");
+    while input.len() % 4 != 0 {
+        input.push('=');
+    }
+    
+    // Use base64-js if possible, or just a simple decode
+    // Since we don't have a base64 crate, we can use window.atob via wasm-bindgen
+    let window = web_sys::window().ok_or("No window")?;
+    let decoded_str = window.atob(&input).map_err(|_| "Base64 decode failed".to_string())?;
+    
+    serde_json::from_str(&decoded_str).map_err(|e| e.to_string())
 }
 
 #[derive(Copy, Clone)]

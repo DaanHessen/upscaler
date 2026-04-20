@@ -208,26 +208,35 @@ pub fn UploadZone() -> impl IntoView {
                     overflow: hidden; 
                     background: hsl(var(--surface)); 
                     border-radius: var(--radius-lg); 
-                    border: 1px solid hsl(var(--accent) / 0.3); 
+                    border: 1px solid hsl(var(--accent) / 0.2); 
                     box-shadow: 0 0 40px hsl(var(--accent) / 0.1);
+                    animation: container-pulse 4s ease-in-out infinite;
                 }
-                .loading-text { font-size: 0.75rem; font-weight: 800; color: hsl(var(--accent)); letter-spacing: 0.3rem; font-family: var(--font-mono); text-shadow: 0 0 10px hsl(var(--accent) / 0.5); }
+                .loading-text { font-size: 0.7rem; font-weight: 800; color: hsl(var(--accent)); letter-spacing: 0.4rem; font-family: var(--font-mono); text-shadow: 0 0 10px hsl(var(--accent) / 0.3); opacity: 0.8; }
                 
                 .scan-line { 
                     position: absolute; 
                     width: 100%; 
-                    height: 100px; 
-                    background: linear-gradient(to bottom, transparent, hsl(var(--accent) / 0.2), transparent); 
-                    top: -100px; 
-                    animation: scan 2.5s ease-in-out infinite; 
-                    border-bottom: 1px solid hsl(var(--accent) / 0.5);
-                    box-shadow: 0 20px 40px -10px hsl(var(--accent) / 0.2); 
+                    height: 180px; 
+                    background: linear-gradient(to bottom, 
+                        transparent, 
+                        hsl(var(--accent) / 0.08), 
+                        hsl(var(--accent) / 0.15), 
+                        hsl(var(--accent) / 0.08), 
+                        transparent
+                    ); 
+                    top: -200px; 
+                    animation: scan 3.5s ease-in-out infinite; 
+                    border-bottom: 2px solid hsl(var(--accent) / 0.3);
+                    filter: blur(10px);
                 }
                 @keyframes scan { 
-                    0% { top: -100px; opacity: 0; } 
-                    20% { opacity: 1; }
-                    80% { opacity: 1; }
-                    100% { top: 100%; opacity: 0; } 
+                    0% { top: -200px; } 
+                    100% { top: 100%; } 
+                }
+                @keyframes container-pulse {
+                    0%, 100% { background: hsl(var(--surface)); }
+                    50% { background: hsl(var(--surface-raised) / 0.4); }
                 }
 
                 .upload-footer { margin-top: var(--s-6); display: flex; justify-content: space-between; border-top: 1px solid var(--glass-border); padding-top: var(--s-6); }
