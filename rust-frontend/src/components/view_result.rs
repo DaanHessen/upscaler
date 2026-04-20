@@ -123,7 +123,9 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                 
                 @media (max-width: 1000px) {
                     .result-main { grid-template-columns: 1fr; }
-                    .page-header { flex-direction: column; align-items: flex-start; gap: 2rem; }
+                    .page-header { flex-direction: column; align-items: flex-start; gap: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem; }
+                    .header-actions { width: 100%; flex-direction: column; }
+                    .header-actions .btn { width: 100%; }
                 }
                 "
             </style>

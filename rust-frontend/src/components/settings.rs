@@ -29,30 +29,29 @@ pub fn Credits() -> impl IntoView {
     view! {
         <div class="credits-container fade-in">
             <div class="page-header">
-                <h1>"Capacity & Statistics"</h1>
-                <p class="muted">"Manage your upscaling throughput and resource balance."</p>
+                <h1 class="text-gradient">"Infrastructure Capacity"</h1>
+                <p class="muted">"Manage your upscaling throughput and resource allocation."</p>
             </div>
 
             <div class="credits-grid">
                 <div class="card balance-card">
                     <div class="card-body">
                         <div class="balance-meta">
-                            <Zap size={20} />
-                            <span>"Available Capacity"</span>
+                            <Zap size={14} />
+                            <span>"AVAILABLE UNITS"</span>
                         </div>
                         
                         <div class="balance-main">
                             <span class="credits-count">
                                 {move || auth.credits.get().map(|c| c.to_string()).unwrap_or_else(|| "---".to_string())}
                             </span>
-                            <span class="credits-unit">"UNITS"</span>
                         </div>
 
                         <div class="balance-actions">
-                            <button class="btn btn-primary btn-lg" style="flex: 1;" on:click=move |_| {
+                            <button class="btn btn-primary btn-lg" style="width: 100%;" on:click=move |_| {
                                 leptos::logging::log!("Stripe checkout would open here");
-                            }>"RECHARGE PIPELINE"</button>
-                            <button class="btn btn-secondary">"LOGS"</button>
+                            }>"BUY CREDITS"</button>
+                            <button class="btn btn-secondary btn-block">"VIEW USAGE LOGS"</button>
                         </div>
                     </div>
                 </div>
@@ -61,7 +60,7 @@ pub fn Credits() -> impl IntoView {
                     <div class="card stat-mini-card">
                         <div class="card-header">
                             <HistoryIcon size={16} />
-                            <span>"Activity"</span>
+                            <span>"PIPELINE METRICS"</span>
                         </div>
                         <div class="stat-mini-body">
                             <div class="mini-stat-item">
@@ -71,66 +70,66 @@ pub fn Credits() -> impl IntoView {
                                 </Suspense>
                             </div>
                             <div class="mini-stat-item">
-                                <span class="label">"PIPELINE VERSION"</span>
+                                <span class="label">"AVG LATENCY"</span>
+                                <span class="value">"~15S"</span>
+                            </div>
+                            <div class="mini-stat-item">
+                                <span class="label">"ARCHITECTURE"</span>
                                 <span class="value">"V7.1 STABLE"</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="card pricing-card">
+                    <div class="card pricing-mini-card" style="margin-top: 1.5rem;">
                         <div class="card-header">
                             <Info size={16} />
-                            <span>"Protocol Costs"</span>
+                            <span>"UNIT PROTOCOL"</span>
                         </div>
-                        <div class="pricing-list">
-                            <div class="price-item">
-                                <span class="p-label">"2K RECONSTRUCTION"</span>
-                                <span class="p-value">"2 CREDITS"</span>
+                        <div class="pricing-list" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 0.75rem;">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 600;">
+                                <span class="muted">"2K RECON"</span>
+                                <span class="accent">"2 UNITS"</span>
                             </div>
-                            <div class="price-item">
-                                <span class="p-label">"4K RECONSTRUCTION"</span>
-                                <span class="p-value">"4 CREDITS"</span>
+                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 600;">
+                                <span class="muted">"4K RECON"</span>
+                                <span class="accent">"4 UNITS"</span>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="security-alert">
-                <ShieldCheck size={18} />
-                <span>"Transactions are verified via encrypted Stripe infrastructure protocol."</span>
+            <div class="security-note">
+                <ShieldCheck size={16} />
+                <span>"TRANSACTIONS ARE VERIFIED VIA STRIPE INFRASTRUCTURE PROTOCOLS."</span>
             </div>
 
             <style>
-                ".credits-container { max-width: 1000px; margin: 0 auto; }
-                .page-header { margin-bottom: 3rem; }
-                .page-header h1 { font-size: 2.25rem; font-weight: 800; letter-spacing: -0.04em; }
-
-                .credits-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 2rem; align-items: flex-start; }
+                ".credits-container { max-width: 900px; margin: 0 auto; text-align: left; }
+                .credits-grid { display: grid; grid-template-columns: 1.3fr 1fr; gap: 2rem; align-items: stretch; margin-top: 3rem; }
                 
-                .balance-card .card-body { padding: 3rem; display: flex; flex-direction: column; gap: 2rem; }
-                .balance-meta { display: flex; align-items: center; gap: 0.75rem; color: var(--accent); font-weight: 800; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; }
-                .balance-main { display: flex; align-items: baseline; gap: 1rem; padding: 1rem 0; border-bottom: 1px solid var(--border-color); }
-                .credits-count { font-size: 5rem; font-weight: 800; line-height: 1; letter-spacing: -0.05em; font-family: var(--font-mono); }
-                .credits-unit { font-size: 0.8rem; font-weight: 800; color: var(--text-muted); letter-spacing: 0.1em; }
+                .balance-card .card-body { padding: 3rem 2.5rem; display: flex; flex-direction: column; height: 100%; background: var(--surface-color); }
+                .balance-meta { display: flex; align-items: center; gap: 0.6rem; color: var(--accent); font-weight: 800; font-size: 0.6rem; letter-spacing: 0.1em; margin-bottom: 1rem; }
+                .balance-main { margin-bottom: 3rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); }
+                .credits-count { font-size: 5.5rem; font-weight: 800; line-height: 1; letter-spacing: -0.04em; font-family: var(--font-mono); color: var(--text-color); }
                 
-                .balance-actions { display: flex; gap: 1rem; margin-top: 1rem; }
+                .balance-actions { display: flex; flex-direction: column; gap: 1rem; margin-top: auto; }
+                .btn-block { width: 100%; border-color: var(--border-color); }
                 
-                .stats-sidebar { display: flex; flex-direction: column; gap: 1.5rem; }
                 .stat-mini-body { padding: 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
                 .mini-stat-item { display: flex; justify-content: space-between; align-items: center; }
                 .mini-stat-item .label { font-size: 0.6rem; font-weight: 800; color: var(--text-muted); letter-spacing: 0.05em; }
-                .mini-stat-item .value { font-size: 1.25rem; font-weight: 700; font-family: var(--font-mono); }
+                .mini-stat-item .value { font-size: 1rem; font-weight: 700; font-family: var(--font-mono); color: var(--text-color); }
                 
-                .pricing-list { padding: 1.5rem; display: flex; flex-direction: column; gap: 1rem; }
-                .price-item { display: flex; justify-content: space-between; align-items: center; }
-                .p-label { font-size: 0.65rem; font-weight: 700; color: var(--text-muted); }
-                .p-value { font-size: 0.75rem; font-weight: 700; font-family: var(--font-mono); color: var(--accent); }
+                .accent { color: var(--accent); }
                 
-                .security-alert { margin-top: 3rem; padding: 1.5rem; border-radius: 8px; border: 1px solid var(--border-color); display: flex; align-items: center; gap: 1rem; font-size: 0.7rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; }
+                .security-note { margin-top: 3rem; color: var(--text-muted); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; display: flex; align-items: center; gap: 0.75rem; justify-content: center; opacity: 0.6; }
                 
                 @media (max-width: 850px) {
-                    .credits-grid { grid-template-columns: 1fr; }
+                    .credits-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+                    .credits-count { font-size: 4rem; }
+                    .balance-card .card-body { padding: 2.5rem 1.5rem; }
+                    .page-header h1 { font-size: 1.75rem; }
                 }
                 "
             </style>

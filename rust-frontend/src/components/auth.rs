@@ -100,18 +100,20 @@ pub fn Login() -> impl IntoView {
             </div>
 
             <style>
-                ".divider { position: relative; text-align: center; margin: 1.5rem 0; }
+                ".auth-container { padding: 8rem 0; }
+                .divider { position: relative; text-align: center; margin: 1.5rem 0 2rem; }
                 .divider::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: var(--border-color); }
-                .divider span { position: relative; background: var(--surface-color); padding: 0 0.75rem; color: var(--text-muted); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.05em; }
+                .divider span { position: relative; background: var(--surface-color); padding: 0 1rem; color: var(--text-muted); font-size: 0.65rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
                 
-                .auth-footer { margin-top: 2rem; text-align: center; font-size: 0.875rem; color: var(--text-muted); }
-                .text-link { color: var(--accent); text-decoration: none; font-weight: 600; }
+                .auth-footer { margin-top: 2.5rem; text-align: center; font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+                .text-link { color: var(--accent); text-decoration: none; font-weight: 700; }
                 .text-link:hover { text-decoration: underline; }
                 
-                .input-group label { display: block; margin-bottom: 0.5rem; font-size: 0.75rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.02em; }
-                .input-group input { width: 100%; }
+                .input-group label { display: block; margin-bottom: 0.6rem; font-size: 0.65rem; font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+                .input-group input { width: 100%; padding: 0.75rem 1rem; background: var(--bg-color) !important; color: var(--text-color); border: 1px solid var(--border-color); }
+                .input-group input:focus { border-color: var(--accent); }
                 
-                .google-btn { background: white; color: #1f2328; gap: 0.75rem; border: 1px solid #d0d7de; }
+                .google-btn { background: white; color: #1f2328; gap: 0.75rem; border: 1px solid #d0d7de; padding: 0.75rem !important; font-size: 0.9rem; }
                 .google-btn:hover { background: #f6f8fa; border-color: #d0d7de; }
                 "
             </style>
@@ -240,6 +242,12 @@ pub fn Register() -> impl IntoView {
                     <a href="/login" class="text-link">"Sign in"</a>
                 </p>
             </div>
+            
+            <style>
+                ".success-panel { padding: 1.5rem; background: rgba(63, 185, 80, 0.05); border: 1px solid rgba(63, 185, 80, 0.2); border-radius: 8px; text-align: center; }
+                .success-panel p { font-size: 0.85rem; color: var(--success); font-weight: 600; line-height: 1.4; }
+                "
+            </style>
         </div>
     }
 }

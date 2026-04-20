@@ -43,7 +43,6 @@ pub fn HistoryGallery() -> impl IntoView {
                                         <ImageIcon size={48} />
                                         <h3>"Empty Vault"</h3>
                                         <p>"Successfully processed images will appear here for 24 hours."</p>
-                                        <a href="/" class="btn btn-primary btn-sm" style="margin-top: 1.5rem; text-decoration: none;">"RETURN TO UPSCALE STUDIO"</a>
                                     </div>
                                 }.into_any()
                             } else {
@@ -80,10 +79,11 @@ pub fn HistoryGallery() -> impl IntoView {
                 .skeleton-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.03), transparent); animation: shimmer 1.5s infinite; }
                 @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
-                .empty-state { padding: 8rem 2rem; text-align: center; border: 1px dashed var(--border-color); border-radius: 8px; display: flex; flex-direction: column; align-items: center; gap: 0.75rem; color: var(--text-muted); }
-                .empty-state h3 { color: var(--text-color); font-size: 1rem; font-weight: 700; }
-                
-                .error-panel { padding: 3rem; text-align: center; color: var(--error); border: 1px solid rgba(248, 81, 73, 0.2); border-radius: 8px; background: rgba(248, 81, 73, 0.05); display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+                @media (max-width: 900px) {
+                    .history-header { margin-bottom: 2.5rem; }
+                    .header-main h1 { font-size: 1.75rem; }
+                    .history-grid, .loading-grid { grid-template-columns: 1fr; }
+                }
                 "
             </style>
         </div>

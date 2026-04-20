@@ -58,39 +58,50 @@ fn App() -> impl IntoView {
     view! {
         <AuthProvider>
             <Router>
-                <div class="app-wrapper">
-                    <header class="glass">
-                        <div class="logo">
-                            <div class="logo-icon"><Zap size={18} /></div>
-                            "PRECISION" 
-                            <span style="opacity: 0.5;">"UPSCALE"</span>
-                        </div>
-                        <nav>
-                            <a href="/">"UPSCALE"</a>
-                            <a href="/history">"HISTORY"</a>
-                            <a href="/settings">"CREDITS"</a>
-                            <AuthNav />
-                        </nav>
-                    </header>
-
-                    <main>
-                        <Routes fallback=|| view! { <NotFound /> }>
-                            <Route path=path!("/") view=Home />
-                            <Route path=path!("/login") view=Login />
-                            <Route path=path!("/register") view=Register />
-                            <Route path=path!("/forgot-password") view=ForgotPassword />
-                            
-                            <Route path=path!("/configure") view=|| view! { <AuthGuard><Configure /></AuthGuard> } />
-                            <Route path=path!("/view/:job_id") view=|| view! { <AuthGuard><ViewResult /></AuthGuard> } />
-                            <Route path=path!("/history") view=|| view! { <AuthGuard><History /></AuthGuard> } />
-                            <Route path=path!("/settings") view=|| view! { <AuthGuard><Credits /></AuthGuard> } />
-                        </Routes>
-                    </main>
-
-                    <Footer />
-                </div>
+                <MainLayout />
             </Router>
         </AuthProvider>
+    }
+}
+
+#[component]
+fn MainLayout() -> impl IntoView {
+    let auth = use_auth();
+    
+    view! {
+        <div class="app-wrapper">
+            <header class="glass">
+                <div class="logo">
+                    <div class="logo-icon"><Zap size={18} /></div>
+                    "PRECISION" 
+                    <span style="opacity: 0.5;">"UPSCALE"</span>
+                </div>
+                <nav>
+                    <a href="/">"UPSCALE"</a>
+                    {move || auth.user.get().is_some().then(|| view! {
+                        <a href="/history">"HISTORY"</a>
+                        <a href="/settings">"CREDITS"</a>
+                    })}
+                    <AuthNav />
+                </nav>
+            </header>
+
+            <main>
+                <Routes fallback=|| view! { <NotFound /> }>
+                    <Route path=path!("/") view=Home />
+                    <Route path=path!("/login") view=Login />
+                    <Route path=path!("/register") view=Register />
+                    <Route path=path!("/forgot-password") view=ForgotPassword />
+                    
+                    <Route path=path!("/configure") view=|| view! { <AuthGuard><Configure /></AuthGuard> } />
+                    <Route path=path!("/view/:job_id") view=|| view! { <AuthGuard><ViewResult /></AuthGuard> } />
+                    <Route path=path!("/history") view=|| view! { <AuthGuard><History /></AuthGuard> } />
+                    <Route path=path!("/settings") view=|| view! { <AuthGuard><Credits /></AuthGuard> } />
+                </Routes>
+            </main>
+
+            <Footer />
+        </div>
     }
 }
 
@@ -246,30 +257,40 @@ fn Home() -> impl IntoView {
                                 <span class="h-value">"V7.1 STABLE"</span>
                             </div>
                             <div class="h-stat">
-                                <span class="h-label">"Max Output"</span>
-                                <span class="h-value">"4K UHD"</span>
+                                <span class="h-label">"Inference"</span>
+                                <span class="h-value">"PRECISION"</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <style>
-                    ".hybrid-layout { 
+                    ".hero-section { padding: 6rem 0 10rem; }
+                    .hybrid-layout { 
                         display: grid; 
-                        grid-template-columns: 1.2fr 1fr; 
-                        gap: 2rem; 
-                        margin-top: 2rem; 
+                        grid-template-columns: 1.4fr 1fr; 
+                        gap: 2.5rem; 
+                        margin-top: 4rem; 
                         text-align: left;
-                        align-items: flex-start;
+                        align-items: stretch;
+                        max-width: 1100px;
+                        margin-left: auto;
+                        margin-right: auto;
                     }
-                    .hybrid-card { padding: 1rem; height: 100%; display: flex; flex-direction: column; }
-                    .hybrid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
-                    .h-stat { background: var(--bg-color); border: 1px solid var(--border-color); padding: 1rem; border-radius: 8px; }
+                    .hybrid-card { padding: 1.5rem; height: 100%; display: flex; flex-direction: column; background: var(--surface-color); border: 1px solid var(--border-color); }
+                    .hybrid-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+                    .h-stat { background: var(--bg-color); border: 1px solid var(--border-color); padding: 1.25rem; border-radius: 8px; }
                     .h-label { display: block; font-size: 0.6rem; color: var(--text-muted); font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 0.25rem; }
-                    .h-value { font-size: 0.9rem; font-weight: 700; color: var(--text-color); font-family: var(--font-mono); }
+                    .h-value { font-size: 0.85rem; font-weight: 700; color: var(--text-color); font-family: var(--font-mono); }
                     
-                    @media (max-width: 1000px) {
-                        .hybrid-layout { grid-template-columns: 1fr; }
+                    @media (max-width: 1050px) {
+                        .hybrid-layout { 
+                            grid-template-columns: 1fr; 
+                            max-width: 600px; 
+                            gap: 1.5rem;
+                        }
+                        .hybrid-left { order: 2; }
+                        .hybrid-right { order: 1; }
                     }
                     "
                 </style>

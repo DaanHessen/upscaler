@@ -178,7 +178,11 @@ pub fn Configure() -> impl IntoView {
                 .cost-summary { font-size: 0.7rem; margin-top: 1rem; }
                 
                 @media (max-width: 900px) {
-                    .config-layout { grid-template-columns: 1fr; }
+                    .config-layout { grid-template-columns: 1fr; gap: 1rem; }
+                    .preview-visual { min-height: 300px; margin: 0; border-radius: 0; border-left: none; border-right: none; }
+                    .params-body { padding: 1.5rem; }
+                    .card-footer { padding: 1.5rem; }
+                    .radio-item { padding: 0.75rem; }
                 }
                 "
             </style>
