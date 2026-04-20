@@ -70,7 +70,7 @@ fn MainLayout() -> impl IntoView {
     
     view! {
         <div class="app-wrapper">
-            <header class="glass">
+            <header class="glass stagger-1">
                 <div class="logo">
                     <div class="logo-icon"><Zap size={18} /></div>
                     "UPSYL" 
@@ -79,8 +79,10 @@ fn MainLayout() -> impl IntoView {
                 <nav>
                     <a href="/">"STUDIO"</a>
                     {move || auth.user.get().is_some().then(|| view! {
-                        <a href="/history">"HISTORY"</a>
-                        <a href="/settings">"CREDITS"</a>
+                        <>
+                            <a href="/history">"HISTORY"</a>
+                            <a href="/settings">"CREDITS"</a>
+                        </>
                     })}
                     <AuthNav />
                 </nav>
@@ -236,15 +238,15 @@ fn Home() -> impl IntoView {
     view! {
         <div class="fade-in">
             <div class="hero-section">
-                <h1 class="text-gradient">"Professional Super-Resolution"</h1>
-                <p class="muted" style="max-width: 600px; margin: 0 auto 1rem; font-size: 1.125rem;">
+                <h1 class="text-gradient stagger-1">"Professional Super-Resolution"</h1>
+                <p class="muted stagger-2" style="max-width: 600px; margin: 0 auto 1.5rem; font-size: 1.25rem; font-weight: 600;">
                     "Bespoke neural restoration for photography and illustration."
                 </p>
-                <p class="muted" style="max-width: 600px; margin: 0 auto 3rem; font-size: 0.875rem; opacity: 0.7;">
-                    "Restore frequency details, eliminate compression, and reach target resolutions with UPSYL precision."
+                <p class="muted stagger-3" style="max-width: 640px; margin: 0 auto 4rem; font-size: 0.9375rem; opacity: 0.6; line-height: 1.6;">
+                    "Restore frequency details, eliminate compression, and reach target resolutions with UPSYL precision in a hardware-accelerated studio environment."
                 </p>
                 
-                <div class="hybrid-layout">
+                <div class="hybrid-layout stagger-3">
                     <div class="hybrid-left">
                         <ComparisonSlider 
                             before_url="/assets/hero_before.png".to_string() 

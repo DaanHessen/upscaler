@@ -72,7 +72,7 @@ pub fn HistoryGallery() -> impl IntoView {
             </Suspense>
 
             <style>
-                ".history-header { margin-bottom: var(--s-16); border-bottom: 1px solid hsl(var(--border-muted)); padding-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: flex-end; }
+                ".history-header { margin-bottom: var(--s-16); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: flex-end; }
                 .vault-subtitle { font-size: 0.875rem; color: hsl(var(--text-dim)); font-weight: 500; }
                 
                 .history-grid {
@@ -81,7 +81,7 @@ pub fn HistoryGallery() -> impl IntoView {
                     gap: var(--s-8);
                 }
                 
-                .empty-vault {
+                .empty-state {
                     grid-column: 1 / -1;
                     display: flex;
                     flex-direction: column;
@@ -90,15 +90,15 @@ pub fn HistoryGallery() -> impl IntoView {
                     padding: 8rem 2rem;
                     text-align: center;
                     background: hsl(var(--surface));
-                    border: 1px solid hsl(var(--border));
+                    border: 1px solid var(--glass-border);
                     border-radius: var(--radius-lg);
                     color: hsl(var(--text-dim));
                 }
-                .empty-vault h3 { font-family: var(--font-heading); color: hsl(var(--text)); margin-top: var(--s-4); font-size: 1.1rem; }
-                .empty-vault p { font-size: 0.875rem; max-width: 320px; margin-top: var(--s-2); }
+                .empty-state h3 { font-family: var(--font-heading); color: hsl(var(--text)); margin-top: var(--s-4); font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
+                .empty-state p { font-size: 0.875rem; max-width: 320px; margin-top: var(--s-2); opacity: 0.8; }
 
                 .loading-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s-8); }
-                .skeleton-card { height: 320px; background: hsl(var(--surface)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); position: relative; overflow: hidden; }
+                .skeleton-card { height: 320px; background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); position: relative; overflow: hidden; }
                 .skeleton-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, hsl(var(--text) / 0.03), transparent); animation: shimmer 1.5s infinite; }
                 @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
 
@@ -154,56 +154,56 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                 
                 <div class="details-main">
                     <div class="style-tag">
-                        <Zap size={12} />
+                        <Zap size={10} />
                         <span>{item.style.unwrap_or_else(|| "AUTO".to_string())}</span>
                     </div>
-                </div>
-
-                <div class="card-actions">
-                    {
-                        match item.image_url.clone() {
-                            Some(url) => view! {
-                                <a href=url target="_blank" class="btn btn-primary btn-sm" style="flex: 1; text-decoration: none;">
-                                    <Download size={12} />
-                                    "EXPORT"
-                                </a>
-                            }.into_any(),
-                            _ => view! {
-                                <button class="btn btn-secondary btn-sm" disabled=true style="flex: 1; opacity: 0.5;">
-                                    "UNAVAILABLE"
-                                </button>
-                            }.into_any(),
+                    
+                    <div class="card-actions">
+                        {
+                            match item.image_url.clone() {
+                                Some(url) => view! {
+                                    <a href=url target="_blank" class="btn btn-primary btn-sm" style="flex: 1; text-decoration: none;">
+                                        <Download size={12} />
+                                        "EXPORT"
+                                    </a>
+                                }.into_any(),
+                                _ => view! {
+                                    <button class="btn btn-secondary btn-sm" disabled=true style="flex: 1; opacity: 0.5;">
+                                        "UNAVAILABLE"
+                                    </button>
+                                }.into_any(),
+                            }
                         }
-                    }
+                    </div>
                 </div>
             </div>
 
             <style>
-                ".history-card { display: flex; flex-direction: column; transition: transform 0.2s ease, border-color 0.2s ease; background: hsl(var(--surface)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-lg); overflow: hidden; }
-                .history-card:hover { border-color: hsl(var(--accent)); transform: translateY(-4px); box-shadow: var(--shadow-md); }
+                ".history-card { display: flex; flex-direction: column; background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+                .history-card:hover { border-color: hsl(var(--accent) / 0.4); transform: translateY(-4px); box-shadow: var(--shadow-xl); }
 
-                .card-visual { height: 200px; background: hsl(var(--surface-raised)); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid hsl(var(--border)); }
-                .card-visual img { width: 100%; height: 100%; object-fit: cover; }
-                .visual-placeholder { color: hsl(var(--border)); }
+                .card-visual { height: 220px; background: hsl(var(--surface-raised)); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; border-bottom: 1px solid var(--glass-border); }
+                .card-visual img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
+                .history-card:hover .card-visual img { transform: scale(1.05); }
+                .visual-placeholder { color: hsl(var(--border) / 0.5); }
                 
-                .badge-overlay { position: absolute; bottom: 0.75rem; right: 0.75rem; }
-                .quality-badge { font-size: 0.6rem; font-weight: 800; background: hsl(var(--bg) / 0.8); color: hsl(var(--text)); padding: 0.2rem 0.4rem; border-radius: 4px; border: 1px solid hsl(var(--border)); font-family: var(--font-mono); backdrop-filter: blur(4px); }
+                .badge-overlay { position: absolute; top: var(--s-4); right: var(--s-4); }
+                .quality-badge { font-size: 0.625rem; font-weight: 900; background: rgba(0,0,0,0.6); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); font-family: var(--font-mono); backdrop-filter: blur(8px); letter-spacing: 0.05em; }
 
-                .card-details { padding: var(--s-5); display: flex; flex-direction: column; gap: var(--s-4); flex: 1; }
+                .card-details { padding: var(--s-6); display: flex; flex-direction: column; gap: var(--s-4); flex: 1; }
                 .details-top { display: flex; justify-content: space-between; align-items: center; }
                 
-                .status-pill { font-size: 0.625rem; font-weight: 800; padding: 0.25rem 0.6rem; border-radius: 4px; border: 1px solid currentColor; letter-spacing: 0.05em; }
-                .status-pill.success { color: hsl(var(--success)); background: hsl(var(--success) / 0.1); }
-                .status-pill.error { color: hsl(var(--error)); background: hsl(var(--error) / 0.1); }
-                .status-pill.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.1); }
-                .status-pill.muted { color: hsl(var(--text-dim)); background: hsl(var(--surface-raised)); }
+                .status-pill { font-size: 0.6rem; font-weight: 900; padding: 0.2rem 0.5rem; border-radius: 4px; border: 1px solid currentColor; letter-spacing: 0.1em; text-transform: uppercase; }
+                .status-pill.success { color: hsl(var(--success)); background: hsl(var(--success) / 0.1); border-color: hsl(var(--success) / 0.2); }
+                .status-pill.error { color: hsl(var(--error)); background: hsl(var(--error) / 0.1); border-color: hsl(var(--error) / 0.2); }
+                .status-pill.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.1); border-color: hsl(var(--accent) / 0.2); }
 
-                .meta-date { display: flex; align-items: center; gap: var(--s-2); font-size: 0.75rem; color: hsl(var(--text-dim)); font-weight: 500; }
+                .meta-date { display: flex; align-items: center; gap: var(--s-2); font-size: 0.6875rem; color: hsl(var(--text-dim)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
                 
-                .details-main { display: flex; gap: 0.5rem; }
-                .style-tag { display: flex; align-items: center; gap: 0.4rem; font-size: 0.7rem; color: hsl(var(--text)); font-weight: 700; background: hsl(var(--surface-raised)); padding: 0.25rem 0.6rem; border-radius: 4px; text-transform: uppercase; border: 1px solid hsl(var(--border)); }
+                .details-main { display: flex; align-items: center; justify-content: space-between; margin-top: auto; padding-top: var(--s-4); border-top: 1px solid var(--glass-border); gap: var(--s-4); }
+                .style-tag { display: flex; align-items: center; gap: 0.4rem; font-size: 0.625rem; color: hsl(var(--text-muted)); font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
 
-                .card-actions { margin-top: auto; display: flex; gap: 0.5rem; }
+                .card-actions { display: flex; gap: 0.5rem; flex: 1; }
                 "
             </style>
         </div>

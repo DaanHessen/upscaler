@@ -132,51 +132,75 @@ pub fn UploadZone() -> impl IntoView {
                 ".upload-zone-wrapper { height: 100%; display: flex; flex-direction: column; }
                 .upload-dropzone { 
                     flex: 1; 
-                    min-height: 280px; 
+                    min-height: 300px; 
                     display: flex; 
                     flex-direction: column; 
                     align-items: center; 
                     justify-content: center; 
                     position: relative; 
                     cursor: pointer; 
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); 
-                    border: 1px solid hsl(var(--border)); 
+                    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); 
+                    border: 1px solid var(--glass-border); 
                     border-radius: var(--radius-lg);
                     background: hsl(var(--surface));
-                    box-shadow: inset 0 0 20px hsl(0 0% 0% / 0.2);
-                }
-                .upload-dropzone:hover { 
-                    border-color: hsl(var(--accent) / 0.5); 
-                    background: hsl(var(--accent) / 0.02); 
-                    box-shadow: 0 0 30px hsl(var(--accent) / 0.1), inset 0 0 20px hsl(0 0% 0% / 0.2);
-                }
-                .upload-dropzone.drag-over { 
-                    background: hsl(var(--accent) / 0.05); 
-                    border-color: hsl(var(--accent)); 
-                    transform: scale(0.99);
+                    box-shadow: inset 0 0 40px rgba(0,0,0,0.4);
+                    overflow: hidden;
                 }
                 
-                .dropzone-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--s-4); width: 100%; height: 100%; justify-content: center; padding: var(--s-8); cursor: pointer; }
+                .upload-dropzone::before {
+                    content: '';
+                    position: absolute;
+                    inset: -2px;
+                    background: conic-gradient(from 0deg, transparent, hsl(var(--accent)), transparent 25%);
+                    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+                    mask-composite: exclude;
+                    padding: 2px;
+                    border-radius: inherit;
+                    opacity: 0;
+                    transition: opacity 0.3s;
+                    animation: rotate 4s linear infinite;
+                    pointer-events: none;
+                }
+                
+                @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+                .upload-dropzone:hover { 
+                    border-color: transparent;
+                    background: hsl(var(--accent) / 0.04); 
+                    transform: translateY(-2px);
+                    box-shadow: 0 20px 40px -10px rgba(0,0,0,0.6), inset 0 0 40px rgba(0,0,0,0.4);
+                }
+                .upload-dropzone:hover::before { opacity: 0.6; }
+                
+                .upload-dropzone.drag-over { 
+                    background: hsl(var(--accent) / 0.1); 
+                    transform: scale(0.98);
+                }
+                .upload-dropzone.drag-over::before { opacity: 1; animation-duration: 2s; }
+                
+                .dropzone-content { text-align: center; display: flex; flex-direction: column; align-items: center; gap: var(--s-4); width: 100%; height: 100%; justify-content: center; padding: var(--s-8); cursor: pointer; z-index: 2; }
                 .icon-circle { 
-                    width: 56px; 
-                    height: 56px; 
+                    width: 64px; 
+                    height: 64px; 
                     border-radius: 50%; 
                     background: hsl(var(--surface-raised)); 
                     display: flex; 
                     align-items: center; 
                     justify-content: center; 
                     color: hsl(var(--text-muted)); 
-                    border: 1px solid hsl(var(--border)); 
-                    transition: all 0.3s;
+                    border: 1px solid var(--glass-border); 
+                    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
                 }
                 .upload-dropzone:hover .icon-circle {
-                    background: hsl(var(--accent) / 0.1);
-                    color: hsl(var(--accent));
-                    border-color: hsl(var(--accent) / 0.3);
+                    background: hsl(var(--accent));
+                    color: hsl(var(--bg));
+                    transform: scale(1.1) rotate(5deg);
+                    box-shadow: 0 0 20px hsl(var(--accent) / 0.4);
                 }
                 
-                .text-content h3 { font-family: var(--font-heading); font-size: 0.9375rem; font-weight: 700; margin-bottom: var(--s-1); text-transform: uppercase; letter-spacing: 0.02em; }
-                .text-content p { font-size: 0.75rem; color: hsl(var(--text-dim)); font-weight: 600; }
+                .text-content h3 { font-family: var(--font-heading); font-size: 1rem; font-weight: 800; margin-bottom: var(--s-1); text-transform: uppercase; letter-spacing: 0.05em; color: hsl(var(--text)); }
+                .text-content p { font-size: 0.8125rem; color: hsl(var(--text-dim)); font-weight: 600; opacity: 0.8; }
                 .text-content h3.error { color: hsl(var(--error)); }
 
                 .upload-loading { 
@@ -191,16 +215,31 @@ pub fn UploadZone() -> impl IntoView {
                     background: hsl(var(--surface)); 
                     border-radius: var(--radius-lg); 
                     border: 1px solid hsl(var(--accent) / 0.3); 
+                    box-shadow: 0 0 40px hsl(var(--accent) / 0.1);
                 }
-                .loading-text { font-size: 0.75rem; font-weight: 800; color: hsl(var(--accent)); letter-spacing: 0.2rem; font-family: var(--font-mono); }
+                .loading-text { font-size: 0.75rem; font-weight: 800; color: hsl(var(--accent)); letter-spacing: 0.3rem; font-family: var(--font-mono); text-shadow: 0 0 10px hsl(var(--accent) / 0.5); }
                 
-                .scan-line { position: absolute; width: 100%; height: 2px; background: linear-gradient(90deg, transparent, hsl(var(--accent)), transparent); top: 0; animation: scan 2s linear infinite; box-shadow: 0 0 15px hsl(var(--accent)); }
-                @keyframes scan { from { top: 0; } to { top: 100%; } }
+                .scan-line { 
+                    position: absolute; 
+                    width: 100%; 
+                    height: 100px; 
+                    background: linear-gradient(to bottom, transparent, hsl(var(--accent) / 0.2), transparent); 
+                    top: -100px; 
+                    animation: scan 2.5s ease-in-out infinite; 
+                    border-bottom: 1px solid hsl(var(--accent) / 0.5);
+                    box-shadow: 0 20px 40px -10px hsl(var(--accent) / 0.2); 
+                }
+                @keyframes scan { 
+                    0% { top: -100px; opacity: 0; } 
+                    20% { opacity: 1; }
+                    80% { opacity: 1; }
+                    100% { top: 100%; opacity: 0; } 
+                }
 
-                .upload-footer { margin-top: var(--s-6); display: flex; justify-content: space-between; border-top: 1px solid hsl(var(--border-muted)); padding-top: var(--s-6); }
+                .upload-footer { margin-top: var(--s-6); display: flex; justify-content: space-between; border-top: 1px solid var(--glass-border); padding-top: var(--s-6); }
                 .limit-box { display: flex; flex-direction: column; gap: var(--s-1); }
-                .limit-label { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); letter-spacing: 0.1em; text-transform: uppercase; }
-                .limit-value { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
+                .limit-label { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.15em; text-transform: uppercase; }
+                .limit-value { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); opacity: 0.9; }
                 "
             </style>
         </div>

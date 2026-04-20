@@ -68,11 +68,15 @@ pub fn ComparisonSlider(
                     margin: 0 auto;
                     overflow: hidden;
                     border-radius: var(--radius-lg);
-                    border: 1px solid hsl(var(--border));
-                    box-shadow: var(--shadow-md);
+                    border: 1px solid var(--glass-border);
+                    box-shadow: var(--shadow-xl);
                     cursor: ew-resize;
                     user-select: none;
                     background: hsl(var(--surface));
+                    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s;
+                }
+                .comparison-slider:hover {
+                    box-shadow: 0 40px 80px -20px rgba(0,0,0,0.9);
                 }
 
                 .image-before, .image-after {
@@ -90,17 +94,18 @@ pub fn ComparisonSlider(
                     position: absolute;
                     bottom: var(--s-6);
                     padding: var(--s-2) var(--s-4);
-                    background: hsl(var(--bg) / 0.6);
-                    backdrop-filter: blur(12px);
+                    background: rgba(10, 10, 12, 0.4);
+                    backdrop-filter: blur(20px) saturate(180%);
                     color: hsl(var(--text));
                     font-size: 0.625rem;
                     font-weight: 800;
                     text-transform: uppercase;
-                    letter-spacing: 0.1em;
+                    letter-spacing: 0.15em;
                     border-radius: var(--radius-sm);
-                    border: 1px solid hsl(var(--text) / 0.1);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
                     pointer-events: none;
-                    box-shadow: var(--shadow-sm);
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                    transition: opacity 0.3s;
                 }
 
                 .before-label { left: var(--s-6); }
@@ -113,8 +118,8 @@ pub fn ComparisonSlider(
                     width: 2px;
                     z-index: 10;
                     pointer-events: none;
-                    background: hsl(var(--text));
-                    box-shadow: 0 0 20px hsl(0 0% 0% / 0.5);
+                    background: white;
+                    box-shadow: 0 0 15px white, 0 0 30px rgba(255, 255, 255, 0.5);
                 }
 
                 .handle-circle {
@@ -122,16 +127,23 @@ pub fn ComparisonSlider(
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
-                    width: 32px;
-                    height: 32px;
-                    background: hsl(var(--text));
-                    border: 4px solid hsl(var(--bg));
+                    width: 44px;
+                    height: 44px;
+                    background: rgba(255, 255, 255, 0.1);
+                    backdrop-filter: blur(12px);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
                     border-radius: 50%;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    color: hsl(var(--bg));
-                    box-shadow: var(--shadow-md);
+                    color: white;
+                    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+                    transition: all 0.2s;
+                }
+                .comparison-slider:hover .handle-circle {
+                    background: rgba(255, 255, 255, 0.2);
+                    transform: translate(-50%, -50%) scale(1.1);
+                    border-color: rgba(255, 255, 255, 0.4);
                 }
                 "
             </style>
