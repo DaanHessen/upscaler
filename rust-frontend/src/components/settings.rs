@@ -17,8 +17,8 @@ pub fn Credits() -> impl IntoView {
         <div class="credits-container fade-in">
             <div class="page-header">
                 <div class="header-main">
-                    <h1 class="text-gradient">"Credits & Usage"</h1>
-                    <p class="muted">"Manage your upscaling credits and view your activity history."</p>
+                    <h1 class="text-gradient stagger-1">"Credits & Usage"</h1>
+                    <p class="muted stagger-2">"Manage your upscaling credits and view your activity history."</p>
                 </div>
             </div>
 

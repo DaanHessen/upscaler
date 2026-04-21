@@ -11,16 +11,16 @@ pub mod worker;
 
 use crate::client::VertexProvider;
 use crate::auth::AuthProvider;
-use crate::storage::StorageService;
-use crate::db::DbService;
+use crate::storage::StorageProvider;
+use crate::db::DbProvider;
 use jsonwebtoken::jwk::JwkSet;
 use std::sync::Arc;
 
 pub struct AppState {
     pub client: Arc<dyn VertexProvider>,
     pub auth: AuthProvider,
-    pub storage: StorageService,
-    pub db: DbService,
+    pub storage: Arc<dyn StorageProvider>,
+    pub db: Arc<dyn DbProvider>,
     pub jwks: JwkSet,
     pub supabase_jwt_secret: String,
     pub admin_user_id: Option<String>,

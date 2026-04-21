@@ -43,9 +43,13 @@ pub struct ModerateResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct PromptSettings {
+    #[serde(default)]
     pub keep_aspect_ratio: bool,
+    #[serde(default)]
     pub keep_depth_of_field: bool,
+    #[serde(default)]
     pub lighting: String,
+    #[serde(default)]
     pub thinking_level: String,
 }
 
@@ -195,5 +199,23 @@ impl ApiClient {
             .map_err(|e| e.to_string())?;
         
         Ok(resp.ok())
+    }
+
+    pub async fn change_password(token: Option<&str>, new_password: &str) -> Result<(), String> {
+        let body = serde_json::json!({ "new_password": new_password });
+        let resp = Self::authenticated_request("POST", "/auth/change-password", token)
+            .json(&body)
+            .map_err(|e| e.to_string())?
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if resp.ok() {
+            Ok(())
+        } else {
+            let err_body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+            let msg = err_body["error"].as_str().unwrap_or("Failed to change password");
+            Err(msg.to_string())
+        }
     }
 }

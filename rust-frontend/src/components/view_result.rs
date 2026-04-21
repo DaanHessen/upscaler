@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::{use_params_map, use_navigate};
 use crate::api::ApiClient;
 use crate::auth::use_auth;
-use crate::components::icons::{Download, RefreshCw, AlertCircle, Settings};
+use crate::components::icons::{Download, AlertCircle, Settings};
 use crate::components::comparison_slider::ComparisonSlider;
 
 #[component]
@@ -26,7 +26,11 @@ pub fn ViewResult() -> impl IntoView {
 
     view! {
         <div class="view-result-page fade-in">
-            <Suspense fallback=|| view! { <div class="loading-full-page"><RefreshCw size={32} /></div> }>
+            <Suspense fallback=|| view! { 
+                <div class="loading-full-page">
+                    <crate::components::icons::LoadingSpinner />
+                </div> 
+            }>
                 {move || Suspend::new(async move {
                     let res = job_data.await;
                     match res {
@@ -116,7 +120,7 @@ where F: Fn(()) + 'static + Copy {
                             <div class="scanner-frame">
                                 <div class="scanner-line"></div>
                                 <div class="scanner-glow"></div>
-                                <RefreshCw size={32} />
+                                <crate::components::icons::LoadingSpinner />
                             </div>
                         </div>
 
@@ -217,14 +221,14 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
     
     view! {
         <div class="result-container fade-in">
-            <div class="page-header">
+            <div class="view-result-header">
                 <div class="header-main">
-                    <h1 class="text-gradient">"Upscale Complete"</h1>
-                    <p class="muted">"Your asset has been successfully reconstructed."</p>
+                    <h1 class="text-gradient stagger-1">"Upscale Complete"</h1>
+                    <p class="muted stagger-2">"Your asset has been successfully reconstructed."</p>
                 </div>
-                <div class="header-actions">
-                    <button class="btn btn-secondary btn-sm" on:click=move |_| navigate("/configure", Default::default())>"NEW UPSCALE"</button>
-                    <a href=data.image_url.clone().unwrap_or_default() target="_blank" class="btn btn-primary btn-sm" style="text-decoration: none;">
+                <div class="header-actions stagger-3">
+                    <button class="btn btn-secondary" on:click=move |_| navigate("/configure", Default::default())>"NEW UPSCALE"</button>
+                    <a href=data.image_url.clone().unwrap_or_default() target="_blank" class="btn btn-primary" style="text-decoration: none;">
                         <Download size={14} />
                         "DOWNLOAD"
                     </a>
@@ -234,10 +238,10 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
             <div class="result-main">
                 <div class="result-slider-box shadow-2xl">
                     <ComparisonSlider 
-                        before_url=data.before_url.unwrap_or_else(|| "/assets/hero_before.png".to_string()) 
-                        after_url=data.image_url.unwrap_or_default()
-                        before_label="BEFORE"
-                        after_label="AFTER"
+                        images=vec![
+                            (data.before_url.unwrap_or_else(|| data.image_url.clone().unwrap_or_default()), 
+                             data.image_url.clone().unwrap_or_default())
+                        ]
                     />
                 </div>
 
@@ -300,19 +304,19 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
             </div>
 
             <style>
-                ".result-container { padding-bottom: var(--s-20); }
-                .page-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--s-16); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-8); }
-                .header-actions { display: flex; gap: var(--s-3); }
+                ".view-result-page { max-width: 1300px; margin: 0 auto; padding: 0 var(--s-4); }                .view-result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-16); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-8); }
+                .header-actions { display: flex; gap: var(--s-4); }
                 
                 .result-main { display: grid; grid-template-columns: 1fr 340px; gap: var(--s-12); align-items: stretch; }
                 .result-slider-box { border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--glass-border); min-height: 500px; background: #000; }
                 
                 .settings-card { background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); height: 100%; }
-                .settings-list { flex: 1; display: flex; flex-direction: column; gap: var(--s-8); margin-top: var(--s-4); }
-                .s-item { display: flex; flex-direction: column; gap: 2px; }
-                .s-label { font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.6; }
-                .s-value { font-size: 0.8125rem; font-weight: 750; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: hsl(var(--text)); }
-                .s-value.success { color: hsl(var(--accent)); }
+                .settings-list { flex: 1; display: flex; flex-direction: column; gap: var(--s-4); margin-top: var(--s-4); }
+                .s-item { display: flex; flex-direction: column; gap: 4px; padding: var(--s-3) 0; border-bottom: 1px solid var(--glass-border); }
+                .s-item:last-child { border-bottom: none; }
+                .s-label { font-size: 0.5rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.15em; text-transform: uppercase; opacity: 0.5; }
+                .s-value { font-size: 0.8125rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: hsl(var(--text)); }
+                .s-value.success { color: hsl(var(--accent)); text-shadow: 0 0 10px hsl(var(--accent) / 0.3); }
                 
                 @media (max-width: 1050px) {
                     .result-main { grid-template-columns: 1fr; }

@@ -9,12 +9,12 @@ use leptos_router::components::*;
 use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
 use crate::api::ApiClient;
-use crate::components::icons::{Zap, HistoryIcon, LogOut, CreditCard};
+use crate::components::icons::{Zap, HistoryIcon, LogOut, CreditCard, FileText, Mail, Lock};
 use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
 use crate::components::configure::Configure;
 use crate::components::view_result::ViewResult;
-use crate::components::legal::{Terms, Contact};
+use crate::components::legal::{Terms, Contact, Privacy, AUP, CookiePolicy};
 
 #[derive(Copy, Clone)]
 pub struct GlobalState {
@@ -162,6 +162,8 @@ fn App() -> impl IntoView {
     }
 }
 
+#[allow(non_snake_case)]
+#[component]
 pub fn Root() -> impl IntoView {
     view! {
         <AuthProvider>
@@ -206,6 +208,9 @@ fn MainLayout() -> impl IntoView {
                     <Route path=path!("/history") view=|| view! { <AuthGuard><History /></AuthGuard> } />
                     <Route path=path!("/settings") view=|| view! { <AuthGuard><Credits /></AuthGuard> } />
                     <Route path=path!("/terms") view=Terms />
+                    <Route path=path!("/privacy") view=Privacy />
+                    <Route path=path!("/rules") view=AUP />
+                    <Route path=path!("/cookies") view=CookiePolicy />
                     <Route path=path!("/contact") view=Contact />
                 </Routes>
             </main>
@@ -235,6 +240,12 @@ fn Footer() -> impl IntoView {
                     <span class="footer-meta">"© 2026 UPSYL"</span>
                     <span class="divider">"|"</span>
                     <a href="/terms" class="footer-link">"Terms"</a>
+                    <span class="divider">"•"</span>
+                    <a href="/privacy" class="footer-link">"Privacy"</a>
+                    <span class="divider">"•"</span>
+                    <a href="/rules" class="footer-link">"Rules"</a>
+                    <span class="divider">"•"</span>
+                    <a href="/cookies" class="footer-link">"Cookies"</a>
                     <span class="divider">"|"</span>
                     <a href="/contact" class="footer-link">"Support"</a>
                 </div>
@@ -349,27 +360,57 @@ fn AuthNav() -> impl IntoView {
                             <div class="dropdown-header">
                                 <span class="user-email">{user.email.clone().unwrap_or_default()}</span>
                             </div>
-                            <a href="/history" class="dropdown-item">
-                                <HistoryIcon size={16} />
-                                "My History"
-                            </a>
-                            <a href="/settings" class="dropdown-item">
-                                <CreditCard size={16} />
-                                "Billing & Credits"
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <div class="dropdown-item error" on:click=move |_| auth.logout()>
-                                <LogOut size={16} />
-                                "Sign Out"
-                            </div>
+                             <a href="/history" class="dropdown-item">
+                                 <HistoryIcon size={16} />
+                                 "My History"
+                             </a>
+                             <a href="/settings" class="dropdown-item">
+                                 <CreditCard size={16} />
+                                 "Billing & Credits"
+                             </a>
+                             <div class="dropdown-divider"></div>
+                             <a href="/terms" class="dropdown-item">
+                                 <FileText size={16} />
+                                 "Terms & Privacy"
+                             </a>
+                             <a href="/contact" class="dropdown-item">
+                                 <Mail size={16} />
+                                 "Support & Contact"
+                             </a>
+                             <div 
+                                 class="dropdown-item" 
+                                 on:click=move |_| {
+                                     let window = web_sys::window().unwrap();
+                                     if let Some(pw) = window.prompt_with_message("Enter your new password:").ok().flatten() {
+                                         if pw.len() < 1 { return; }
+                                         let auth = auth;
+                                         leptos::task::spawn_local(async move {
+                                             let token = auth.session.get().map(|s| s.access_token);
+                                             let res = ApiClient::change_password(token.as_deref(), &pw).await;
+                                             match res {
+                                                 Ok(_) => window.alert_with_message("Password updated successfully.").unwrap(),
+                                                 Err(e) => window.alert_with_message(&format!("Failed to update password: {}", e)).unwrap(),
+                                             }
+                                         });
+                                     }
+                                 }
+                             >
+                                 <Lock size={16} />
+                                 "Change Password"
+                             </div>
+                             <div class="dropdown-divider"></div>
+                             <div class="dropdown-item error" on:click=move |_| auth.logout()>
+                                 <LogOut size={16} />
+                                 "Sign Out"
+                             </div>
                         </div>
                     </div>
                 </div>
             }),
             None => Either::Right(view! {
-                <div style="display: flex; gap: 0.75rem;">
-                    <a href="/login" class="btn btn-secondary btn-sm">"Sign In"</a>
-                    <a href="/register" class="btn btn-primary btn-sm">"Create Account"</a>
+                <div style="display: flex; gap: var(--s-3); align-items: center;">
+                    <a href="/login" class="nav-auth-btn ghost">"Sign In"</a>
+                    <a href="/register" class="nav-auth-btn primary">"Create Account"</a>
                 </div>
             }),
         }}
@@ -388,19 +429,22 @@ fn Home() -> impl IntoView {
     view! {
         <div class="fade-in">
             <div class="hero-section">
-                <h1 class="text-gradient stagger-1">"Professional Super-Resolution"</h1>
+                <h1 class="text-gradient stagger-1">"Pro-Grade Upscaling"</h1>
                 <div class="hero-content stagger-2">
-                    <h2 class="hero-subtitle">"Professional AI upscaling for photographers and creators."</h2>
-                    <p class="hero-description">"Sharpen details, remove artifacts, and upscale to 4K with surgical precision."</p>
+                    <h2 class="hero-subtitle">"Studio-Fidelity Asset Reconstruction"</h2>
+                    <p class="hero-description">"Leverage high-performance vision models to enhance details, eliminate artifacts, and upscale to 4K resolution. Pure reconstruction for professional creators."</p>
                 </div>
                 
                 <div class="hybrid-layout stagger-3">
                     <div class="studio-card hybrid-left">
                         <ComparisonSlider 
-                            before_url="assets/hero_before.svg".to_string() 
-                            after_url="assets/hero_after.svg".to_string() 
-                            before_label="BEFORE (ORIGINAL)"
-                            after_label="AFTER (UPSCALED)"
+                            images=vec![
+                                ("assets/hero_before_1.svg".to_string(), "assets/hero_after_1.svg".to_string()),
+                                ("assets/hero_before_2.svg".to_string(), "assets/hero_after_2.svg".to_string()),
+                                ("assets/hero_before_3.svg".to_string(), "assets/hero_after_3.svg".to_string()),
+                                ("assets/hero_before_4.svg".to_string(), "assets/hero_after_4.svg".to_string()),
+                                ("assets/hero_before_5.svg".to_string(), "assets/hero_after_5.svg".to_string()),
+                            ]
                         />
                     </div>
                     <div class="studio-card hybrid-right">

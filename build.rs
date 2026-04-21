@@ -24,5 +24,7 @@ fn main() {
             }
             Err(e) => panic!("Error downloading model: {}", e),
         }
+    } else {
+        println!("cargo:warning=NSFW model already exists in OUT_DIR, ready to load.");
     }
 }

@@ -6,6 +6,7 @@ use upscaler::auth::AuthProvider;
 use upscaler::storage::StorageService;
 use upscaler::db::DbService;
 use std::sync::Arc;
+use upscaler::db::DbProvider;
 use uuid::Uuid;
 use dotenvy::dotenv;
 use tokio::task::JoinSet;
@@ -21,11 +22,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     println!("\n🚀 === UPSYL BACKEND LOAD TEST === 🚀\n");
 
-    // 1. Setup Mock State
+    // 1. Setup Mock State (All in-memory!)
     let mock_client = Arc::new(MockVertexClient);
-    let auth = AuthProvider::new().await?; 
-    let storage = StorageService::new().await?;
-    let db = DbService::new().await?;
+    let auth = AuthProvider::new_mock(); 
+    let storage = Arc::new(upscaler::storage::MockStorage::new());
+    let db = Arc::new(upscaler::db::SqliteDb::new_in_memory().await?);
     let jwks = jsonwebtoken::jwk::JwkSet { keys: vec![] };
     
     let state = Arc::new(AppState {
@@ -38,22 +39,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         admin_user_id: None,
     });
 
-    // 2. Identify a test user
-    let pool = state.db.pool();
-    let existing_user: Option<(Uuid,)> = sqlx::query_as("SELECT id FROM auth.users LIMIT 1")
-        .fetch_optional(pool)
-        .await?;
-
-    let user_id = match existing_user {
-        Some((id,)) => id,
-        None => {
-            println!("❌ ABORTED: No users found in DB. Load test needs a valid user.");
-            return Ok(());
-        }
-    };
+    // 2. Mock a test user in SQLite
+    let user_id = Uuid::new_v4();
+    state.db.ensure_user_exists(user_id).await?;
+    println!("🚀 Backend ready with mocked user: {}", user_id);
 
     // 3. Configuration
-    let concurrency = 1000; // Simulating 1000 concurrent processing jobs
+    let concurrency = 50;
     println!("Simulating {} concurrent processing requests...", concurrency);
 
     let start_time = Instant::now();

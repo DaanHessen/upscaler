@@ -1,0 +1,44 @@
+name: Rust Backend Tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+  # Mock variables so Auth/Storage don't fail parsing even if they aren't used
+  S3_ACCESS_KEY: mock
+  S3_SECRET_KEY: mock
+  S3_ENDPOINT: http://mock
+  S3_BUCKET_NAME: mock
+  PROJECT_ID: mock-project
+  SUPABASE_URL: http://mock
+  SUPABASE_JWT_SECRET: mock-secret
+  DATABASE_URL: postgres://mock:mock@localhost/mock
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+
+    - name: Build
+      run: cargo build
+
+    - name: Run Core Tests (prompts, etc)
+      run: cargo test
+
+    - name: Run Integration Flow Test
+      run: cargo run --bin integrated_flow
+
+    - name: Run Load Test
+      run: cargo run --bin load_test

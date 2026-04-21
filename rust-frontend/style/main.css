@@ -178,8 +178,8 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
 }
 .btn-primary:hover { 
   background-color: hsl(var(--text-muted)); 
-  transform: translateY(-2px); 
-  box-shadow: 0 8px 24px hsl(var(--text) / 0.15); 
+  transform: translateY(-1.5px); 
+  box-shadow: 0 12px 32px hsl(var(--text) / 0.15); 
 }
 .btn-primary:active { transform: translateY(0); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -299,8 +299,8 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
   font-size: 0.875rem;
   cursor: pointer;
   border: 2px solid hsl(var(--bg));
-  box-shadow: 0 0 0 1px hsl(var(--border));
-  transition: all 0.2s;
+  box-shadow: 0 0 0 1px hsl(var(--border)), 0 8px 24px -8px hsl(var(--accent) / 0.4);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   user-select: none;
   position: relative;
 }
@@ -451,3 +451,114 @@ footer {
 .stagger-1 { animation: staggerFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.1s both; }
 .stagger-2 { animation: staggerFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.2s both; }
 .stagger-3 { animation: staggerFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
+
+/* Redesigned Nav Auth Buttons */
+.nav-auth-btn {
+  font-family: var(--font-heading);
+  font-size: 0.625rem;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: var(--s-2) var(--s-4);
+  border-radius: 4px;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  min-width: 130px;
+}
+
+.nav-auth-btn.ghost {
+  color: hsl(var(--text-muted));
+  border: 1px solid var(--glass-border);
+  background: transparent;
+}
+.nav-auth-btn.ghost:hover {
+  color: hsl(var(--text));
+  border-color: hsl(var(--text-dim) / 0.4);
+  background: hsl(var(--surface-raised));
+}
+
+.nav-auth-btn.primary {
+  background: hsl(var(--text));
+  color: hsl(var(--bg));
+  border: 1px solid hsl(var(--text));
+  box-shadow: 0 4px 12px hsl(var(--text) / 0.1);
+}
+.nav-auth-btn.primary:hover {
+  background: hsl(var(--accent));
+  border-color: hsl(var(--accent));
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px hsl(var(--accent) / 0.3);
+}
+
+/* Polished Comparison Slider Controls */
+.nav-btn {
+  z-index: 50 !important;
+}
+.nav-btn:hover {
+  background: white !important;
+  color: black !important;
+  scale: 1.1 !important;
+}
+
+/* Modern Studio Loader */
+.studio-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+.studio-loader::before, .studio-loader::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  border-top-color: hsl(var(--accent));
+  animation: studio-spin 1s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+}
+
+.studio-loader::after {
+  inset: 4px;
+  border-top-color: hsl(var(--accent) / 0.4);
+  animation-duration: 1.5s;
+}
+
+@keyframes studio-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.scanning-text {
+  font-size: 0.625rem;
+  font-weight: 900;
+  color: hsl(var(--accent));
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  margin-top: var(--s-4);
+  animation: pulse 2s infinite;
+}
+
+/* Glass Auth Prompt */
+.auth-glass-card {
+  background: hsl(var(--surface) / 0.6);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  padding: var(--s-10);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-6);
+  max-width: 320px;
+  z-index: 100;
+}
+

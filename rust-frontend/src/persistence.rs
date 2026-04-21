@@ -88,6 +88,7 @@ pub async fn load_file() -> Option<web_sys::File> {
     res.dyn_into::<web_sys::File>().ok()
 }
 
+#[allow(dead_code)]
 pub async fn clear_persistence() {
     let _ = LocalStorage::delete("upsyl_temp_classification");
     if let Some(window) = web_sys::window() {
@@ -97,7 +98,7 @@ pub async fn clear_persistence() {
                     if let Ok(db) = res.dyn_into::<web_sys::IdbDatabase>() {
                         if let Ok(tx) = db.transaction_with_str_and_mode(STORE_NAME, web_sys::IdbTransactionMode::Readwrite) {
                             if let Ok(store) = tx.object_store(STORE_NAME) {
-                                let _Request: Result<web_sys::IdbRequest, JsValue> = store.clear();
+                                let _request: Result<web_sys::IdbRequest, JsValue> = store.clear();
                             }
                         }
                     }

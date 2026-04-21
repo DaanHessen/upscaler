@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use leptos::either::Either;
 use leptos::task::spawn_local;
 use crate::auth::use_auth;
+use crate::components::icons::{GithubIcon, AppleIcon};
 
 #[component]
 pub fn Login() -> impl IntoView {
@@ -49,6 +50,17 @@ pub fn Login() -> impl IntoView {
                         </svg>
                         "Continue with Google"
                     </button>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-bottom: var(--s-6);">
+                        <button class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <GithubIcon />
+                            "GitHub"
+                        </button>
+                        <button class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <AppleIcon />
+                            "Apple"
+                        </button>
+                    </div>
 
                     <div class="divider"><span>"OR"</span></div>
 
@@ -160,6 +172,17 @@ pub fn Register() -> impl IntoView {
                         </svg>
                         "Sign up with Google"
                     </button>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-bottom: var(--s-6);">
+                        <button class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <GithubIcon />
+                            "GitHub"
+                        </button>
+                        <button class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <AppleIcon />
+                            "Apple"
+                        </button>
+                    </div>
 
                     <div class="divider"><span>"OR"</span></div>
 

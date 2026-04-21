@@ -1,6 +1,6 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
-use crate::components::icons::{ImageIcon, RefreshCw, AlertCircle};
+use crate::components::icons::{ImageIcon, AlertCircle};
 use crate::auth::use_auth;
 use crate::api::ApiClient;
 use crate::{use_global_state};
@@ -14,9 +14,15 @@ pub fn UploadZone() -> impl IntoView {
     let (is_over, set_is_over) = signal(false);
     let (loading, set_loading) = signal(false);
     let (error, set_error) = signal(Option::<String>::None);
+    let (show_auth_prompt, set_show_auth_prompt) = signal(false);
 
     // Reusable file handling function
     let on_file = move |file: web_sys::File| {
+        if auth.user.get().is_none() {
+            set_show_auth_prompt.set(true);
+            return;
+        }
+
         set_loading.set(true);
         set_error.set(None);
         let token = auth.session.get().map(|s| s.access_token);
@@ -81,9 +87,8 @@ pub fn UploadZone() -> impl IntoView {
                 if loading.get() {
                     view! {
                         <div class="upload-loading">
-                            <div class="scan-line"></div>
-                            <RefreshCw size={32} />
-                            <span class="loading-text">"SCANNING IMAGE..."</span>
+                            <crate::components::icons::LoadingSpinner />
+                            <span class="scanning-text">"Analyzing Asset..."</span>
                         </div>
                     }.into_any()
                 } else {
@@ -111,12 +116,37 @@ pub fn UploadZone() -> impl IntoView {
                                             <p>"Try another image"</p>
                                         }.into_any(),
                                         None => view! {
-                                            <h3>"Select source image"</h3>
-                                            <p>"or drag and drop into this area"</p>
+                                            <h3>"Upload image"</h3>
+                                            <p>"or drag and drop here"</p>
                                         }.into_any()
                                     }}
                                 </div>
                             </label>
+
+                            // Auth Prompt Overlay
+                            {move || show_auth_prompt.get().then(|| view! {
+                                <div class="auth-prompt-overlay fade-in">
+                                    <div class="auth-glass-card">
+                                        <h3>"Authentication Required"</h3>
+                                        <p>"Please sign in or create an account to start reconstructing assets."</p>
+                                        <div class="auth-prompt-actions">
+                                            <a href="/login" class="btn btn-primary">"Sign In"</a>
+                                            <a href="/register" class="btn btn-secondary">"Create Account"</a>
+                                        </div>
+                                        <button 
+                                            class="text-link" 
+                                            style="margin-top: var(--s-2); font-size: 0.625rem; background: none; border: none; cursor: pointer;"
+                                            on:click=move |ev| {
+                                                ev.stop_propagation();
+                                                ev.prevent_default();
+                                                set_show_auth_prompt.set(false);
+                                            }
+                                        >
+                                            "MAYBE LATER"
+                                        </button>
+                                    </div>
+                                </div>
+                            })}
                         </div>
                     }.into_any()
                 }
@@ -128,7 +158,7 @@ pub fn UploadZone() -> impl IntoView {
                     <span class="limit-value">"25MB"</span>
                 </div>
                 <div class="limit-box">
-                    <span class="limit-label">"SYSTEM"</span>
+                    <span class="limit-label">"VERSION"</span>
                     <span class="limit-value">"V1.0 ALPHA"</span>
                 </div>
             </div>
@@ -248,6 +278,47 @@ pub fn UploadZone() -> impl IntoView {
                 .limit-box { display: flex; flex-direction: column; gap: var(--s-1); }
                 .limit-label { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.15em; text-transform: uppercase; }
                 .limit-value { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); opacity: 0.9; }
+
+                .auth-prompt-overlay {
+                    position: absolute;
+                    inset: 0;
+                    background: rgba(10, 10, 12, 0.85);
+                    backdrop-filter: blur(12px);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 50;
+                    padding: var(--s-8);
+                    border-radius: var(--radius-lg);
+                }
+
+                .auth-prompt-content {
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--s-4);
+                    max-width: 300px;
+                }
+
+                .auth-prompt-content h3 {
+                    font-size: 1.125rem;
+                    font-weight: 850;
+                    letter-spacing: -0.02em;
+                    color: white;
+                }
+
+                .auth-prompt-content p {
+                    font-size: 0.875rem;
+                    color: rgba(255, 255, 255, 0.6);
+                    line-height: 1.5;
+                }
+
+                .auth-prompt-actions {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--s-3);
+                    margin-top: var(--s-6);
+                }
                 "
             </style>
         </div>

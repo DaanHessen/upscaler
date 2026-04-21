@@ -21,7 +21,7 @@ bytes = "1.6"
 aws-sdk-s3 = { version = "1.66", features = ["behavior-version-latest"] }
 aws-config = { version = "1.5", features = ["behavior-version-latest"] }
 jsonwebtoken = { version = "10.3", features = ["aws_lc_rs", "use_pem"] }
-sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "chrono", "uuid", "tls-rustls"] }
+sqlx = { version = "0.8", features = ["runtime-tokio", "postgres", "sqlite", "chrono", "uuid", "tls-rustls"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.11", features = ["v4", "serde"] }
 tracing = "0.1"

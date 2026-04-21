@@ -117,8 +117,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let auth = AuthProvider::new().await?;
     let client = Arc::new(VertexClient::new(project_id, location));
-    let storage = StorageService::new().await?;
-    let db = DbService::new().await?;
+    let storage = Arc::new(StorageService::new().await?);
+    let db = Arc::new(DbService::new().await?);
 
     // Fetch JWKS from Supabase (Fail-Fast on startup)
     let supabase_url = env::var("SUPABASE_URL").expect("SUPABASE_URL must be set");
@@ -180,6 +180,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/history", get(history_handler))
         .route("/balance", get(balance_handler))
         .route("/checkout", post(checkout_handler))
+        .route("/auth/change-password", post(change_password_handler))
         .route("/admin/insights", get(admin_insights_handler))
         .layer(DefaultBodyLimit::max(25 * 1024 * 1024)) // 25MB
         .layer(GovernorLayer { config: governor_conf })
@@ -320,12 +321,12 @@ async fn balance_handler(
     };
 
     // Auto-create user row if first visit
-    if let Err(e) = credits::ensure_user_exists(state.db.pool(), user_id).await {
+    if let Err(e) = state.db.ensure_user_exists(user_id).await {
         error!("Failed to ensure user exists: {}", e);
         return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
     }
 
-    match credits::get_balance(state.db.pool(), user_id).await {
+    match state.db.get_balance(user_id).await {
         Ok(balance) => (StatusCode::OK, Json(serde_json::json!({
             "credits": balance
         }))).into_response(),
@@ -352,7 +353,7 @@ async fn checkout_handler(
     };
 
     // Ensure user exists before checkout
-    if let Err(e) = credits::ensure_user_exists(state.db.pool(), user_id).await {
+    if let Err(e) = state.db.ensure_user_exists(user_id).await {
         error!("Failed to ensure user exists: {}", e);
         return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
     }
@@ -376,6 +377,74 @@ async fn checkout_handler(
             err_json(StatusCode::INTERNAL_SERVER_ERROR, &format!("Checkout failed: {}", e)).into_response()
         }
     }
+}
+
+#[derive(Deserialize)]
+struct ChangePasswordRequest {
+    new_password: String,
+}
+
+async fn change_password_handler(
+    State(state): State<Arc<AppState>>,
+    jwt: JwtAuth,
+    HeaderMap(headers): HeaderMap,
+    Json(body): Json<ChangePasswordRequest>,
+) -> impl IntoResponse {
+    let user_id = match Uuid::parse_str(&jwt.user_id) {
+        Ok(id) => id,
+        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+    };
+
+    // Extract raw JWT to pass to Supabase
+    let auth_header = match headers.get("authorization").and_then(|v| v.to_str().ok()) {
+        Some(h) => h,
+        None => return err_json(StatusCode::UNAUTHORIZED, "Missing authorization header").into_response(),
+    };
+
+    let client = reqwest::Client::new();
+    let supabase_url = env::var("SUPABASE_URL").unwrap_or_else(|_| "".to_string());
+    let supabase_anon_key = env::var("SUPABASE_ANON_KEY").unwrap_or_else(|_| "".to_string());
+
+    if supabase_url.is_empty() || supabase_anon_key.is_empty() {
+        error!("Supabase configuration missing for password change");
+        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Configuration error").into_response();
+    }
+
+    let url = format!("{}/auth/v1/user", supabase_url);
+    
+    match client
+        .put(&url)
+        .header("apikey", &supabase_anon_key)
+        .header("Authorization", auth_header)
+        .json(&serde_json::json!({
+            "password": body.new_password
+        }))
+        .send()
+        .await {
+            Ok(resp) => {
+                if resp.status().is_success() {
+                    info!("Password updated successfully for user {}", user_id);
+                    (StatusCode::OK, Json(serde_json::json!({ "success": true }))).into_response()
+                } else {
+                    let status = resp.status();
+                    let err_text = resp.text().await.unwrap_or_default();
+                    error!("Supabase password update failed for user {}: {} - {}", user_id, status, err_text);
+                    
+                    // Try to parse error from Supabase
+                    let err_json: serde_json::Value = serde_json::from_str(&err_text).unwrap_or_default();
+                    let msg = err_json.get("msg")
+                        .or(err_json.get("error_description"))
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("Failed to update password");
+
+                    err_json(status, msg).into_response()
+                }
+            }
+            Err(e) => {
+                error!("Request to Supabase failed for user {}: {}", user_id, e);
+                err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to connect to auth provider").into_response()
+            }
+        }
 }
 
 async fn stripe_webhook_handler(
@@ -444,8 +513,7 @@ async fn stripe_webhook_handler(
     };
 
     // 8. Add credits (with replay protection via unique index)
-    match credits::add_credits(
-        state.db.pool(),
+    match state.db.add_credits(
         user_id,
         checkout.credits,
         &checkout.session_id,
@@ -616,12 +684,12 @@ async fn upscale_handler(
 
     // --- High Performance Optimization: Early Balance Check ---
     // Check if user has minimum credits before doing ANY CPU work (decoding/NSFW/Style)
-    if let Err(e) = credits::ensure_user_exists(state.db.pool(), user_id).await {
+    if let Err(e) = state.db.ensure_user_exists(user_id).await {
         error!("Failed to ensure user exists: {}", e);
         return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
     }
     
-    match credits::get_balance(state.db.pool(), user_id).await {
+    match state.db.get_balance(user_id).await {
         Ok(balance) => {
             if balance < 2 { // 2K is minimum quality now
                 return (StatusCode::PAYMENT_REQUIRED, Json(ErrorResponse {
@@ -727,8 +795,7 @@ async fn upscale_handler(
     };
 
     // --- Atomic credit deduction ---
-    let deduct_result = credits::deduct_credits(
-        state.db.pool(),
+    let deduct_result = state.db.deduct_credits(
         user_id,
         credit_cost,
         Uuid::nil(), 
@@ -756,7 +823,7 @@ async fn upscale_handler(
 
     if let Err(e) = state.storage.upload_object(&original_path, data, "image/png").await {
         error!("Failed to save original image: {}", e);
-        if let Err(refund_err) = credits::refund_credits(state.db.pool(), user_id, credit_cost, Uuid::nil()).await {
+        if let Err(refund_err) = state.db.refund_credits(user_id, credit_cost, Uuid::nil()).await {
             error!("CRITICAL: Failed to refund {} credits to user {} after upload failure: {}", credit_cost, user_id, refund_err);
         }
         return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to upload image").into_response();
@@ -774,18 +841,14 @@ async fn upscale_handler(
         Ok(id) => id,
         Err(e) => {
             error!("Failed to insert job into database: {}", e);
-            if let Err(refund_err) = credits::refund_credits(state.db.pool(), user_id, credit_cost, Uuid::nil()).await {
+            if let Err(refund_err) = state.db.refund_credits(user_id, credit_cost, Uuid::nil()).await {
                 error!("CRITICAL: Failed to refund {} credits to user {} after DB failure: {}", credit_cost, user_id, refund_err);
             }
             return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to enqueue job").into_response();
         }
     };
 
-    if let Err(e) = sqlx::query("UPDATE upscales SET credits_charged = $1 WHERE id = $2")
-        .bind(credit_cost)
-        .bind(job_id)
-        .execute(state.db.pool())
-        .await {
+    if let Err(e) = state.db.update_credits_charged(job_id, credit_cost).await {
         error!("Failed to set credits_charged on job {}: {}", job_id, e);
     }
 
@@ -827,8 +890,7 @@ async fn queue_worker(state: Arc<AppState>) {
                         // Refund credits on processing failure
                         if job.credits_charged > 0 {
                             info!("Refunding {} credits to user {} for failed job {}", job.credits_charged, job.user_id, job.id);
-                            if let Err(refund_err) = upscaler::credits::refund_credits(
-                                state_clone.db.pool(),
+                            if let Err(refund_err) = state_clone.db.refund_credits(
                                 job.user_id,
                                 job.credits_charged,
                                 job.id,
@@ -858,7 +920,6 @@ async fn queue_worker(state: Arc<AppState>) {
 }
 
 // --- Janitor Service (Automatic 24-hour cleanup) ---
--
 
 async fn janitor_service(state: Arc<AppState>) {
     info!("Janitor cleanup service started.");

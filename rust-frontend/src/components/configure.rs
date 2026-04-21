@@ -84,99 +84,90 @@ pub fn Configure() -> impl IntoView {
             </div>
 
             <div class="config-layout">
-                <div class="config-left">
-                    <div class="card preview-card shadow-lg">
-                        <div class="params-body">
-                            <div class="card-tag">
-                                <ImageIcon size={10} />
-                                <span>"SOURCE ASSET"</span>
-                            </div>
-                            <div class="preview-visual">
-                                {move || {
-                                    let has_file = global_state.temp_file.get().is_some();
-                                    if has_file {
-                                        view! { <img src=preview_src() /> }.into_any()
-                                    } else {
-                                        view! { <div class="empty-preview">"No image selected"</div> }.into_any()
-                                    }
-                                }}
-                                <div class="resolution-badge">
-                                    <span>"1.0 MP"</span>
-                                    <span>"PRE-PROCESSOR FEED"</span>
-                                </div>
-                            </div>
-                            <div class="meta-stats" style="margin-top: auto; border: none; padding-top: var(--s-4);">
-                                <div class="stat-box">
-                                    <span class="stat-label">"Classification"</span>
-                                    <div class="classification-active">
-                                        <div class="scanning-icon">
-                                            <Zap size={10} />
-                                        </div>
-                                        <span class="stat-value highlight">{move || {
-                                            let cls: String = global_state.temp_classification.get().unwrap_or_else(|| "PENDING...".to_string());
-                                            cls
-                                        }}</span>
+                <div class="config-stage shadow-2xl">
+                    <div class="preview-section">
+                        <div class="section-tag">
+                            <ImageIcon size={10} />
+                            "ASSET PREVIEW"
+                        </div>
+                        <div class="preview-viewport">
+                            {move || {
+                                let has_file = global_state.temp_file.get().is_some();
+                                if has_file {
+                                    view! { <img src=preview_src() class="fade-in" /> }.into_any()
+                                } else {
+                                    view! { <div class="empty-state">"No asset detected"</div> }.into_any()
+                                }
+                            }}
+                            <div class="viewport-overlay">
+                                <div class="badge">
+                                    <span class="label">"Status"</span>
+                                    <div class="badge-content">
+                                        <div class="pulse-dot"></div>
+                                        {move || global_state.temp_classification.get().unwrap_or_else(|| "Analyzing...".to_string())}
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="config-right">
-                    <div class="card params-card shadow-lg">
-                        <div class="params-body">
-                            <div class="card-tag">
-                                <Settings size={10} />
-                                <span>"PARAMETERS"</span>
-                            </div>
-                            
-                            <div class="params-content">
-                                <div class="param-group" title="Higher resolution requires more processing power and credits.">
+                    <div class="controls-section">
+                        <div class="section-tag">
+                            <Settings size={10} />
+                            "CONFIGURATION"
+                        </div>
+
+                        <div class="controls-grid">
+                            <div class="control-column">
+                                <div class="control-group">
                                     <label>"Target Resolution"</label>
-                                    <div class="radio-group">
+                                    <div class="resolution-switch">
                                         <div 
-                                            class=move || if global_state.quality.get() == "2K" { "radio-item active" } else { "radio-item" }
+                                            class=move || if global_state.quality.get() == "2K" { "res-opt active" } else { "res-opt" }
                                             on:click=move |_| global_state.set_quality.set("2K".to_string())
                                         >
-                                            <div class="pack-info">
-                                                <span class="pack-name">"2K (HD)"</span>
-                                                <span class="pack-credits">"2 CREDITS"</span>
-                                            </div>
+                                            <span class="res-title">"2K"</span>
+                                            <span class="res-sub">"HD"</span>
                                         </div>
                                         <div 
-                                            class=move || if global_state.quality.get() == "4K" { "radio-item active" } else { "radio-item" }
+                                            class=move || if global_state.quality.get() == "4K" { "res-opt active" } else { "res-opt" }
                                             on:click=move |_| global_state.set_quality.set("4K".to_string())
                                         >
-                                            <div class="pack-info">
-                                                <span class="pack-name">"4K (UHD)"</span>
-                                                <span class="pack-credits">"4 CREDITS"</span>
-                                            </div>
+                                            <span class="res-title">"4K"</span>
+                                            <span class="res-sub">"Ultra"</span>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div class="param-group">
-                                    <label>"Image Type"</label>
-                                    <div class="segmented-control">
+                                <div class="control-group">
+                                    <label>"Reconstruction Style"</label>
+                                    <div class="style-toggle">
                                         <button 
-                                            class=move || if global_state.style.get() == "PHOTOGRAPHY" { "segment active" } else { "segment" }
+                                            class=move || if global_state.style.get() == "PHOTOGRAPHY" { "toggle-btn active" } else { "toggle-btn" }
                                             on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
                                         >
+                                            <Sun size={12} />
                                             "PHOTOGRAPHY"
                                         </button>
                                         <button 
-                                            class=move || if global_state.style.get() == "ILLUSTRATION" { "segment active" } else { "segment" }
+                                            class=move || if global_state.style.get() == "ILLUSTRATION" { "toggle-btn active" } else { "toggle-btn" }
                                             on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
                                         >
+                                            <ImageIcon size={12} />
                                             "ILLUSTRATION"
                                         </button>
                                     </div>
                                 </div>
+                            </div>
 
-                                <div class="param-group">
-                                    <label>"Engine Creativity"</label>
-                                    <div class="slider-wrapper">
+                            <div class="control-column">
+                                <div class="control-group">
+                                    <label>"Neural Temperature"</label>
+                                    <div class="slider-container">
+                                        <div class="slider-header">
+                                            <span>"Creative Drift"</span>
+                                            <span class="val-pill">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                                        </div>
                                         <input 
                                             type="range" 
                                             min="0.0" 
@@ -188,215 +179,218 @@ pub fn Configure() -> impl IntoView {
                                     </div>
                                 </div>
 
-                                <div class="card-divider"></div>
-
-                                <div class="param-group">
-                                    <label>"Advanced Reconstruction"</label>
-                                    <div class="checkbox-grid">
-                                        <div 
-                                            class=move || if global_state.keep_aspect_ratio.get() { "check-item active" } else { "check-item" }
+                                <div class="control-group">
+                                    <label>"Advanced Preserves"</label>
+                                    <div class="toggles-row">
+                                        <button 
+                                            class=move || if global_state.keep_aspect_ratio.get() { "pill-toggle active" } else { "pill-toggle" }
                                             on:click=move |_| global_state.set_keep_aspect_ratio.update(|v| *v = !*v)
                                         >
-                                            <Maximize size={14} />
-                                            <span>"Keep Aspect Ratio"</span>
-                                        </div>
-                                        <div 
-                                            class=move || if global_state.keep_depth_of_field.get() { "check-item active" } else { "check-item" }
+                                            <Maximize size={12} />
+                                            "Ratio Lock"
+                                        </button>
+                                        <button 
+                                            class=move || if global_state.keep_depth_of_field.get() { "pill-toggle active" } else { "pill-toggle" }
                                             on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
                                         >
-                                            <Target size={14} />
-                                            <span>"Precision Focus"</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="param-group">
-                                    <label>"Lighting Style"</label>
-                                    <div class="select-wrapper">
-                                        <select 
-                                            on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
-                                            prop:value=move || global_state.lighting.get()
-                                        >
-                                            <option value="Original">"Maintain Original (UPSYL DEFAULT)"</option>
-                                            <option value="Studio">"Studio High-Key"</option>
-                                            <option value="Cinematic">"Cinematic Drama"</option>
-                                            <option value="Vivid">"Vivid Contrast"</option>
-                                            <option value="Natural">"Natural Overcast"</option>
-                                        </select>
-                                        <Sun size={14} custom_style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; opacity: 0.5;".to_string() />
-                                    </div>
-                                </div>
-
-                                <div class="param-group">
-                                    <label>"Engine Intelligence"</label>
-                                    <div class="segmented-control">
-                                        <button 
-                                            class=move || if global_state.thinking_level.get() == "MINIMAL" { "segment active" } else { "segment" }
-                                            on:click=move |_| global_state.set_thinking_level.set("MINIMAL".to_string())
-                                        >
-                                            "MINIMAL (FAST)"
-                                        </button>
-                                        <button 
-                                            class=move || if global_state.thinking_level.get() == "HIGH" { "segment active" } else { "segment" }
-                                            on:click=move |_| global_state.set_thinking_level.set("HIGH".to_string())
-                                        >
-                                            "HIGH (STUDIO)"
+                                            <Target size={12} />
+                                            "Depth Lock"
                                         </button>
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="card-actions-row" style="margin-top: auto;">
-                                <button 
-                                    class="btn btn-primary btn-lg btn-block" 
-                                    disabled=move || loading.get() || global_state.temp_file.get().is_none()
-                                    on:click=handle_upscale
+                        <div class="lighting-group">
+                            <label>"Atmospheric Lighting"</label>
+                            <div class="select-box">
+                                <select 
+                                    on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
+                                    prop:value=move || global_state.lighting.get()
                                 >
-                                    {move || if loading.get() { "UPSCALING..." } else { "UPSCALE" }}
+                                    <option value="Original">"Maintain Original (Default)"</option>
+                                    <option value="Studio">"Studio Lighting"</option>
+                                    <option value="Cinematic">"Cinematic Shadowing"</option>
+                                    <option value="Vivid">"High Vividity"</option>
+                                    <option value="Natural">"Soft Ambient"</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="intelligence-group">
+                            <label>"Engine Intelligence"</label>
+                            <div class="segmented-control">
+                                <button 
+                                    class=move || if global_state.thinking_level.get() == "MINIMAL" { "segment active" } else { "segment" }
+                                    on:click=move |_| global_state.set_thinking_level.set("MINIMAL".to_string())
+                                >
+                                    "STANDARD"
+                                </button>
+                                <button 
+                                    class=move || if global_state.thinking_level.get() == "HIGH" { "segment active" } else { "segment" }
+                                    on:click=move |_| global_state.set_thinking_level.set("HIGH".to_string())
+                                >
+                                    "PROFESSIONAL"
                                 </button>
                             </div>
+                        </div>
+
+                        <div class="action-footer">
+                            <button 
+                                class="btn-upscale"
+                                disabled=move || loading.get() || global_state.temp_file.get().is_none()
+                                on:click=handle_upscale
+                            >
+                                <div class="btn-ripple"></div>
+                                <Zap size={18} />
+                                <span>{move || if loading.get() { "STARTING ENGINE..." } else { "INITIATE UPSCALE" }}</span>
+                                <div class="cost-tag">
+                                    {move || {
+                                        let q = global_state.quality.get();
+                                        if q == "4K" { "4 CREDITS" } else { "2 CREDITS" }
+                                    }}
+                                </div>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <style>
-                ".configure-page { width: 100%; max-width: 1200px; margin: 0 auto; }
-                .page-header { margin-bottom: var(--s-16); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-8); }
+                ".configure-page { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
+                .page-header { margin-bottom: 2rem; }
                 
-                .config-layout { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: var(--s-12); margin-top: var(--s-6); align-items: stretch; }
-                
-                /* Card Geometry */
-                .params-body { padding: var(--s-10); height: 100%; display: flex; flex-direction: column; }
-                .card-tag { display: flex; align-items: center; gap: var(--s-2); font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.1em; margin-bottom: var(--s-8); opacity: 0.6; }
-                
-                .preview-card, .params-card { background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); transition: border-color 0.3s; }
-                .preview-card:hover, .params-card:hover { border-color: hsl(var(--accent) / 0.2); }
-
-                /* Preview Section */
-                .preview-visual { 
-                    background: #000; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    min-height: 480px; 
-                    border-radius: var(--radius-md); 
-                    overflow: hidden; 
+                .config-layout { display: flex; flex-direction: column; gap: 2rem; }
+                .config-stage { 
+                    background: hsl(var(--surface)); 
                     border: 1px solid var(--glass-border); 
-                    position: relative;
+                    border-radius: var(--radius-lg); 
+                    overflow: hidden;
+                    display: grid;
+                    grid-template-columns: 380px 1fr;
+                    min-height: 600px;
                 }
-                .preview-visual img { max_width: 100%; max-height: 100%; object-fit: contain; }
-                .empty-preview { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.5; }
 
-                /* Settings Panel */
-                .params-content { display: flex; flex-direction: column; gap: var(--s-12); flex: 1; }
-                .param-group label { display: block; font-size: 0.625rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.15em; color: hsl(var(--text-dim)); margin-bottom: var(--s-6); opacity: 0.8; }
-                
-                .radio-group { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); }
-                .radio-item { 
-                    padding: var(--s-6); 
-                    border: 1px solid var(--glass-border); 
-                    border-radius: var(--radius-md); 
-                    cursor: pointer; 
-                    display: flex; 
-                    justify-content: space-between; 
-                    align-items: center; 
-                    transition: all 0.2s;
-                }
-                .radio-item:hover { border-color: hsl(var(--accent) / 0.4); background: hsl(var(--surface-raised) / 0.4); }
-                .radio-item.active { border-color: hsl(var(--accent)); background: hsl(var(--accent) / 0.05); }
-                
-                .pack-info { display: flex; flex-direction: column; gap: 4px; }
-                .pack-name { font-size: 0.875rem; font-weight: 750; color: hsl(var(--text)); }
-                .pack-credits { font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05em; }
+                .section-tag { font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.15em; margin-bottom: 1.5rem; opacity: 0.5; display: flex; align-items: center; gap: 0.5rem; }
 
-                .segmented-control { display: grid; grid-template-columns: 1fr 1fr; background: hsl(var(--surface-raised) / 0.5); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 4px; gap: 4px; }
-                .segment { background: transparent; border: none; padding: 12px; border-radius: 4px; color: hsl(var(--text-dim)); font-size: 0.65rem; font-weight: 800; cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em; }
-                .segment:hover { color: hsl(var(--text)); background: hsl(var(--surface-raised)); }
-                .segment.active { background: hsl(var(--accent)); color: hsl(var(--bg)); box-shadow: 0 4px 12px hsl(var(--accent) / 0.2); }
-                
-                .slider-wrapper { display: flex; flex-direction: column; gap: 0.75rem; }
-                input[type='range'] { -webkit-appearance: none; width: 100%; background: transparent; }
-                input[type='range']::-webkit-slider-runnable-track { width: 100%; height: 6px; cursor: pointer; background: hsl(var(--surface-raised)); border-radius: 3px; border: 1px solid var(--glass-border); }
-                input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; border: 2px solid hsl(var(--accent)); height: 18px; width: 18px; border-radius: 50%; background: hsl(var(--bg)); cursor: pointer; margin-top: -6px; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-                
-                .range-labels { display: flex; justify-content: space-between; margin-top: 0.25rem; font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.5; }
-                
-                .card-actions-row { margin-top: var(--s-16); }
-                .btn-block { width: 100%; border-radius: var(--radius-md); font-weight: 850; letter-spacing: 0.1em; padding: var(--s-5); border: none; cursor: pointer; transition: all 0.2s; }
-                .btn-block:disabled { opacity: 0.5; cursor: not-allowed; }
-                
-                .card-divider { height: 1px; background: var(--glass-border); margin: var(--s-2) 0; opacity: 0.5; }
-
-                /* Settings Extras */
-                .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
-                .check-item { 
-                    padding: var(--s-4); 
-                    border: 1px solid var(--glass-border); 
-                    border-radius: var(--radius-md); 
-                    font-size: 0.6875rem; 
-                    font-weight: 700; 
-                    color: hsl(var(--text-muted)); 
-                    cursor: pointer; 
-                    display: flex; 
-                    align-items: center; 
-                    gap: var(--s-2);
-                    transition: all 0.2s;
-                    user-select: none;
-                }
-                .check-item:hover { border-color: hsl(var(--accent) / 0.4); background: hsl(var(--surface-raised) / 0.3); }
-                .check-item.active { border-color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08); color: hsl(var(--text)); }
-
-                .select-wrapper { position: relative; width: 100%; }
-                select { 
-                    width: 100%; 
-                    background: hsl(var(--surface-raised) / 0.5); 
-                    border: 1px solid var(--glass-border); 
-                    border-radius: var(--radius-md); 
-                    padding: 12px 36px 12px 12px; 
-                    color: hsl(var(--text)); 
-                    font-size: 0.75rem; 
-                    font-weight: 600; 
-                    appearance: none; 
-                    cursor: pointer;
-                    transition: all 0.2s;
-                }
-                select:hover { border-color: hsl(var(--accent) / 0.4); }
-                select:focus { outline: none; border-color: hsl(var(--accent)); box-shadow: 0 0 0 2px hsl(var(--accent) / 0.1); }
-                
-                .resolution-badge {
-                    position: absolute;
-                    bottom: 12px;
-                    right: 12px;
-                    background: hsl(var(--bg) / 0.8);
-                    backdrop-filter: blur(10px);
-                    padding: 6px 12px;
-                    border-radius: 4px;
-                    border: 1px solid var(--glass-border);
+                /* Left Side: Preview */
+                .preview-section { 
+                    background: hsl(var(--surface-raised) / 0.3);
+                    border-right: 1px solid var(--glass-border);
+                    padding: 2rem;
                     display: flex;
                     flex-direction: column;
-                    align-items: flex-end;
-                    gap: 2px;
-                    pointer-events: none;
                 }
-                .resolution-badge span:first-child { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 900; color: hsl(var(--accent)); }
-                .resolution-badge span:last-child { font-size: 0.5rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05em; }
+                .preview-viewport { 
+                    flex: 1;
+                    background: #000;
+                    border-radius: var(--radius-md);
+                    border: 1px solid var(--glass-border);
+                    position: relative;
+                    overflow: hidden;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
+                .preview-viewport img { width: 100%; height: 100%; object-fit: contain; }
+                .empty-state { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim)); opacity: 0.3; }
 
-                /* Classification Animation */
-                .classification-active { display: flex; align-items: center; justify-content: center; gap: var(--s-3); }
-                .scanning-icon { color: hsl(var(--accent)); animation: spin 2s linear infinite; display: flex; }
+                .viewport-overlay { position: absolute; bottom: 1rem; left: 1rem; right: 1rem; }
+                .badge { 
+                    background: hsl(var(--bg) / 0.8); 
+                    backdrop-filter: blur(10px); 
+                    border: 1px solid var(--glass-border);
+                    padding: 0.5rem 0.75rem;
+                    border-radius: 6px;
+                    display: flex;
+                    flex-direction: column;
+                    gap: 2px;
+                }
+                .badge .label { font-size: 0.5rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05em; }
+                .badge-content { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 700; color: hsl(var(--accent)); }
+                .pulse-dot { width: 6px; height: 6px; background: hsl(var(--accent)); border-radius: 50%; box-shadow: 0 0 10px hsl(var(--accent)); animation: pulse 2s infinite; }
 
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                /* Right Side: Controls */
+                .controls-section { padding: 2rem 2.5rem; display: flex; flex-direction: column; gap: 2rem; }
+                .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+                .control-group { display: flex; flex-direction: column; gap: 1rem; }
+                .control-group label { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; }
 
-                .meta-stats { display: flex; gap: var(--s-12); margin-top: var(--s-12); border-top: 1px solid var(--glass-border); padding-top: var(--s-8); width: 100%; justify-content: center; }
-                .stat-box { display: flex; flex-direction: column; gap: 6px; text-align: center; }
-                .stat-label { font-size: 0.5rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.12em; }
-                .stat-value { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-muted)); font-family: var(--font-mono); }
-                .stat-value.highlight { color: hsl(var(--accent)); }
+                /* Resolution Switch */
+                .resolution-switch { display: grid; grid-template-columns: 1fr 1fr; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 4px; gap: 4px; }
+                .res-opt { padding: 0.75rem; border-radius: 4px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.2s; }
+                .res-opt.active { background: hsl(var(--accent)); }
+                .res-opt.active .res-title { color: hsl(var(--bg)); }
+                .res-opt.active .res-sub { color: hsl(var(--bg) / 0.7); }
+                .res-title { font-size: 1rem; font-weight: 900; color: hsl(var(--text)); }
+                .res-sub { font-size: 0.625rem; font-weight: 700; color: hsl(var(--text-dim)); text-transform: uppercase; }
 
-                @media (max-width: 950px) {
-                    .config-layout { grid-template-columns: 1fr; }
-                    .preview-visual { min-height: 320px; }
+                /* Style Toggle */
+                .style-toggle { display: flex; flex-direction: column; gap: 0.5rem; }
+                .toggle-btn { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.75rem; font-size: 0.6875rem; font-weight: 800; color: hsl(var(--text-dim)); cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; }
+                .toggle-btn:hover { border-color: hsl(var(--accent) / 0.5); }
+                .toggle-btn.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.05); }
+
+                /* Slider */
+                .slider-container { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1rem; }
+                .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 0.6875rem; font-weight: 700; color: hsl(var(--text-muted)); }
+                .val-pill { background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); padding: 2px 8px; border-radius: 100px; font-family: var(--font-mono); font-weight: 800; }
+
+                /* Pill Toggles */
+                .toggles-row { display: flex; flex-direction: column; gap: 0.5rem; }
+                .pill-toggle { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: 100px; padding: 0.625rem 1rem; font-size: 0.6875rem; font-weight: 800; color: hsl(var(--text-dim)); cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; }
+                .pill-toggle.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.05); }
+
+                /* Lighting & Intel */
+                .select-box { position: relative; }
+                .select-box select { width: 100%; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.75rem 1rem; color: hsl(var(--text)); font-size: 0.75rem; font-weight: 600; appearance: none; }
+                
+                .segmented-control { display: grid; grid-template-columns: 1fr 1fr; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 4px; gap: 4px; }
+                .segment { background: transparent; border: none; padding: 0.75rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); cursor: pointer; transition: all 0.2s; }
+                .segment.active { background: hsl(var(--text)); color: hsl(var(--bg)); }
+
+                /* Action Button */
+                .action-footer { margin-top: auto; padding-top: 1rem; }
+                .btn-upscale { 
+                    width: 100%; 
+                    background: linear-gradient(135deg, hsl(var(--accent)), #6366f1);
+                    border: none;
+                    border-radius: var(--radius-md);
+                    padding: 1.25rem;
+                    color: white;
+                    font-size: 1rem;
+                    font-weight: 900;
+                    letter-spacing: 0.05em;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 1rem;
+                    cursor: pointer;
+                    position: relative;
+                    overflow: hidden;
+                    box-shadow: 0 10px 30px -10px hsl(var(--accent) / 0.5);
+                    transition: all 0.3s;
+                }
+                .btn-upscale:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -15px hsl(var(--accent) / 0.6); }
+                .btn-upscale:active { transform: translateY(0); }
+                .btn-upscale:disabled { opacity: 0.5; transform: none; filter: grayscale(1); cursor: not-allowed; }
+
+                .cost-tag { background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 100px; font-size: 0.625rem; font-weight: 900; }
+
+                @keyframes pulse { 0% { transform: scale(0.95); opacity: 1; } 70% { transform: scale(3); opacity: 0; } 100% { transform: scale(0.95); opacity: 0; } }
+
+                @media (max-width: 900px) {
+                    .config-stage { grid-template-columns: 1fr; min-height: auto; }
+                    .preview-section { border-right: none; border-bottom: 1px solid var(--glass-border); padding: 1.5rem; }
+                    .preview-viewport { height: 300px; flex: none; }
+                    .controls-section { padding: 1.5rem; }
+                    .controls-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+                }
+
+                @media (max-height: 800px) {
+                    .config-stage { min-height: 500px; }
+                    .preview-section { padding: 1rem; }
+                    .controls-section { padding: 1.5rem; gap: 1.5rem; }
                 }
                 "
             </style>

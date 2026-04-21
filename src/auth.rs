@@ -32,6 +32,22 @@ impl AuthProvider {
         Ok(Self { provider })
     }
 
+    pub fn new_mock() -> Self {
+        struct MockTokenProvider;
+        #[async_trait]
+        impl TokenProvider for MockTokenProvider {
+            async fn project_id(&self) -> Result<Arc<str>, gcp_auth::Error> {
+                Ok(Arc::from("mock-project"))
+            }
+            async fn token(&self, _scopes: &[&str]) -> Result<Arc<Token>, gcp_auth::Error> {
+                let token_json = r#"{"access_token": "mock-token", "token_type": "Bearer", "expires_in": 3600}"#;
+                let token: Token = serde_json::from_str(token_json).map_err(|e| gcp_auth::Error::Other("Mock failed", e.into()))?;
+                Ok(Arc::new(token))
+            }
+        }
+        Self { provider: Arc::new(MockTokenProvider) }
+    }
+
     pub async fn get_token(&self) -> Result<Token, Box<dyn Error + Send + Sync>> {
         let scopes = &["https://www.googleapis.com/auth/cloud-platform"];
         let token = self.provider.token(scopes).await?;

@@ -197,11 +197,15 @@ impl AuthContext {
             // Fetch credits
             if let Ok(c) = crate::api::ApiClient::get_balance(Some(&t_str)).await {
                 ctx.set_credits.set(Some(c));
+            } else {
+                leptos::logging::error!("Telemetry: Failed to fetch balance (is token valid?)");
             }
             
             // Fetch history
             if let Ok(h) = crate::api::ApiClient::get_history(Some(&t_str)).await {
                 ctx.set_history.set(Some(h));
+            } else {
+                leptos::logging::error!("Telemetry: Failed to fetch history");
             }
             
             ctx.set_last_fetch.set(Some(js_sys::Date::now()));

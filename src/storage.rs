@@ -6,6 +6,14 @@ use std::error::Error;
 use std::env;
 use tracing::{info, error};
 
+#[axum::async_trait]
+pub trait StorageProvider: Send + Sync {
+    async fn upload_object(&self, path: &str, body: Vec<u8>, mime: &str) -> Result<(), Box<dyn Error + Send + Sync>>;
+    async fn get_signed_url(&self, path: &str) -> Result<String, Box<dyn Error + Send + Sync>>;
+    async fn download_object(&self, path: &str) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>>;
+    async fn delete_object(&self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>>;
+}
+
 #[derive(Clone)]
 pub struct StorageService {
     client: Client,
@@ -43,8 +51,11 @@ impl StorageService {
 
         Ok(Self { client, bucket, endpoint })
     }
+}
 
-    pub async fn upload_object(&self, path: &str, body: Vec<u8>, mime: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+#[axum::async_trait]
+impl StorageProvider for StorageService {
+    async fn upload_object(&self, path: &str, body: Vec<u8>, mime: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
         let size = body.len();
         
         self.client
@@ -56,7 +67,6 @@ impl StorageService {
             .send()
             .await
             .map_err(|e| {
-                // Extract detailed error info from the SDK error
                 error!(
                     "S3 upload failed: bucket={}, key={}, size={} bytes, endpoint={}, error={:?}",
                     self.bucket, path, size, self.endpoint, e
@@ -68,7 +78,7 @@ impl StorageService {
         Ok(())
     }
 
-    pub async fn get_signed_url(&self, path: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    async fn get_signed_url(&self, path: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         let expires_in = Duration::from_secs(3600); // 1 hour
         let presigned_request = self.client
             .get_object()
@@ -84,7 +94,7 @@ impl StorageService {
         Ok(presigned_request.uri().to_string())
     }
 
-    pub async fn download_object(&self, path: &str) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+    async fn download_object(&self, path: &str) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
         let resp = self.client
             .get_object()
             .bucket(&self.bucket)
@@ -100,7 +110,7 @@ impl StorageService {
         Ok(data.to_vec())
     }
 
-    pub async fn delete_object(&self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+    async fn delete_object(&self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.client
             .delete_object()
             .bucket(&self.bucket)
@@ -113,6 +123,49 @@ impl StorageService {
             })?;
 
         info!("Deleted {} from bucket '{}'", path, self.bucket);
+        Ok(())
+    }
+}
+
+pub struct MockStorage {
+    files: std::sync::Mutex<std::collections::HashMap<String, Vec<u8>>>,
+}
+
+impl MockStorage {
+    pub fn new() -> Self {
+        Self { files: std::sync::Mutex::new(std::collections::HashMap::new()) }
+    }
+}
+
+#[axum::async_trait]
+impl StorageProvider for MockStorage {
+    async fn upload_object(&self, path: &str, body: Vec<u8>, _mime: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.files.lock().unwrap().insert(path.to_string(), body);
+        Ok(())
+    }
+
+    async fn get_signed_url(&self, path: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+        Ok(format!("https://mock-storage.local/{}", path))
+    }
+
+    async fn download_object(&self, path: &str) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+        let files = self.files.lock().unwrap();
+        if let Some(data) = files.get(path) {
+            Ok(data.clone())
+        } else {
+            // Return a valid 1x1 transparent PNG
+            Ok(vec![
+                0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+                0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+                0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+                0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+                0x42, 0x60, 0x82
+            ])
+        }
+    }
+
+    async fn delete_object(&self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.files.lock().unwrap().remove(path);
         Ok(())
     }
 }

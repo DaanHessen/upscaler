@@ -17,18 +17,19 @@ pub fn HistoryGallery() -> impl IntoView {
         <div class="history-container fade-in">
             <div class="history-header">
                 <div class="header-main">
-                    <h1>"UPSYL Vault"</h1>
-                    <p class="muted">"Secure vault of previously reconstructed assets."</p>
+                    <h1 class="text-gradient stagger-1">"History"</h1>
+                    <p class="muted stagger-2">"Your previously upscaled images."</p>
                 </div>
-                <button class="btn btn-secondary btn-sm" on:click=move |_| auth.sync_telemetry(true)>
+                <button class="btn btn-secondary btn-sm stagger-3" on:click=move |_| auth.sync_telemetry(true)>
                     <RefreshCw size={14} />
-                    "Refresh Vault"
+                    "Refresh"
                 </button>
             </div>
 
             <Suspense fallback=move || view! { 
-                <div class="loading-grid">
-                    {(0..6).map(|_| view! { <div class="skeleton-card"></div> }).collect_view()}
+                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10rem 0; gap: var(--s-6);">
+                    <crate::components::icons::LoadingSpinner />
+                    <span class="scanning-text">"Synchronizing..."</span>
                 </div> 
             }>
                 {move || {
