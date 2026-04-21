@@ -6,7 +6,7 @@ use base64::{engine::general_purpose, Engine as _};
 use std::error::Error;
 use std::sync::Arc;
 use uuid::Uuid;
-use tracing::{info, warn, error};
+use tracing::{info, warn};
 
 pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::UpscaleRecord) -> Result<(), Box<dyn Error + Send + Sync>> {
     // 1. Download original image
@@ -56,9 +56,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
                 image_size: job.quality.clone(),
             }),
             temperature: Some(job.temperature),
-            thinking_config: Some(crate::models::ThinkingConfig {
-                thinking_level: prompt_settings.thinking_level.clone(),
-            }),
+            thinking_config: None,
         },
     };
 

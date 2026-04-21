@@ -331,6 +331,12 @@ fn Footer() -> impl IntoView {
                     70% { transform: scale(1); box-shadow: 0 0 0 6px hsl(var(--success) / 0); }
                     100% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--success) / 0); }
                 }
+
+                @keyframes pulse-accent {
+                    0% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--accent) / 0.7); }
+                    70% { transform: scale(1); box-shadow: 0 0 0 6px hsl(var(--accent) / 0); }
+                    100% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--accent) / 0); }
+                }
                 
                 @media (max-width: 768px) {
                     footer { padding: var(--s-8) var(--s-6); }

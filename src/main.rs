@@ -160,11 +160,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         janitor_service(janitor_state).await;
     });
 
-    // Rate Limiting: 60 requests per minute per IP, burst of 10
+    // Rate Limiting: High limits for local development to prevent blocking concurrent assets
     let governor_conf = Arc::new(
         GovernorConfigBuilder::default()
-            .per_second(1)
-            .burst_size(10)
+            .per_second(50)
+            .burst_size(100)
             .finish()
             .unwrap(),
     );
@@ -178,6 +178,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/upscales/:job_id", get(poll_upscale_handler))
         .route("/history", get(history_handler))
         .route("/balance", get(balance_handler))
+        .route("/storage/view/*path", get(get_storage_object))
         .route("/checkout", post(checkout_handler))
         .route("/auth/change-password", post(change_password_handler))
         .route("/admin/insights", get(admin_insights_handler))
@@ -249,7 +250,7 @@ async fn admin_insights_handler(
     if !jwt.is_admin(&state) {
         return Err(upscaler::errors::ApiError::Forbidden("Admin access required".to_string()));
     }
-    
+
     match state.db.get_recent_moderation_logs().await {
         Ok(logs) => {
             let mut enriched = Vec::new();
@@ -268,6 +269,36 @@ async fn admin_insights_handler(
         Err(e) => {
             error!("Failed to fetch moderation logs: {}", e);
             Err(upscaler::errors::ApiError::Internal("Database error".to_string()))
+        }
+    }
+}
+
+async fn get_storage_object(
+    State(state): State<Arc<AppState>>,
+    Path(path): Path<String>,
+) -> Result<Response, upscaler::errors::ApiError> {
+    info!("Proxying storage object: {}", path);
+    match state.storage.download_object(&path).await {
+        Ok(bytes) => {
+            let mime = if path.ends_with(".webp") {
+                "image/webp"
+            } else if path.ends_with(".png") {
+                "image/png"
+            } else if path.ends_with(".jpg") || path.ends_with(".jpeg") {
+                "image/jpeg"
+            } else {
+                "application/octet-stream"
+            };
+
+            Ok((
+                [(axum::http::header::CONTENT_TYPE, mime)],
+                [(axum::http::header::CACHE_CONTROL, "public, max-age=3600")],
+                bytes,
+            ).into_response())
+        }
+        Err(e) => {
+            error!("Proxy: Failed to download object {}: {:?}", path, e);
+            Err(upscaler::errors::ApiError::NotFound("Object not found".to_string()))
         }
     }
 }
@@ -477,7 +508,6 @@ async fn change_password_handler(
                 return Err(upscaler::errors::ApiError::Internal("Failed to connect to auth provider".to_string()));
             }
         }
-    Ok((StatusCode::OK, Json(serde_json::json!({ "success": true }))).into_response())
 }
 
 async fn stripe_webhook_handler(
@@ -572,6 +602,7 @@ async fn history_handler(
         Err(_) => return Err(upscaler::errors::ApiError::Unauthorized("Invalid user ID".to_string())),
     };
 
+    info!("Fetching history for user {}", user_id);
     let records = match state.db.get_user_history(user_id).await {
         Ok(r) => r,
         Err(e) => {
@@ -600,20 +631,21 @@ async fn history_handler(
 
         if item.status == "COMPLETED" {
             if let Some(path) = rec.output_path {
-                if let Ok(url) = state.storage.get_signed_url(&path).await {
-                    item.image_url = Some(url);
-                }
+                // Ensure paths don't have leading slashes for the proxy
+                let sanitized_path = path.trim_start_matches('/');
+                item.image_url = Some(format!("/api/storage/view/{}", sanitized_path));
                 
                 // Generate preview URL using the naming convention worker uses
-                let preview_path = path.replace(".png", "_thumb.webp");
-                if let Ok(url) = state.storage.get_signed_url(&preview_path).await {
-                    item.preview_url = Some(url);
-                }
+                let preview_path = sanitized_path.replace(".png", "_thumb.webp");
+                item.preview_url = Some(format!("/api/storage/view/{}", preview_path));
+                
+                info!("History item {}: image={}, preview={}", item.id, sanitized_path, preview_path);
             }
         }
         history.push(item);
     }
 
+    info!("Returning {} history records for user {}", history.len(), user_id);
     Ok((StatusCode::OK, Json(history)).into_response())
 }
 
@@ -641,9 +673,7 @@ async fn poll_upscale_handler(
 
             if job.status == "COMPLETED" {
                 if let Some(path) = &job.output_path {
-                    if let Ok(url) = state.storage.get_signed_url(path).await {
-                        res.as_object_mut().unwrap().insert("output_url".to_string(), serde_json::Value::String(url));
-                    }
+                    res.as_object_mut().unwrap().insert("output_url".to_string(), serde_json::Value::String(format!("/api/storage/view/{}", path)));
                 }
             }
 

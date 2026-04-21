@@ -76,15 +76,15 @@ pub fn Configure() -> impl IntoView {
 
     view! {
         <div class="configure-page fade-in">
-            <div class="page-header">
+            <div class="page-header stagger-1">
                 <div class="header-main">
                     <h1 class="text-gradient">"Upscale Settings"</h1>
-                    <p class="muted">"Customize the reconstruction parameters for your asset."</p>
+                    <p class="muted">"Precision restoration parameters for your assets."</p>
                 </div>
             </div>
 
-            <div class="config-layout">
-                <div class="config-stage shadow-2xl">
+            <div class="config-layout stagger-2">
+                <div class="config-stage shadow-xl">
                     <div class="preview-section">
                         <div class="section-tag">
                             <ImageIcon size={10} />
@@ -127,14 +127,14 @@ pub fn Configure() -> impl IntoView {
                                             on:click=move |_| global_state.set_quality.set("2K".to_string())
                                         >
                                             <span class="res-title">"2K"</span>
-                                            <span class="res-sub">"HD"</span>
+                                            <span class="res-sub">"HD RESTORE"</span>
                                         </div>
                                         <div 
                                             class=move || if global_state.quality.get() == "4K" { "res-opt active" } else { "res-opt" }
                                             on:click=move |_| global_state.set_quality.set("4K".to_string())
                                         >
                                             <span class="res-title">"4K"</span>
-                                            <span class="res-sub">"Ultra"</span>
+                                            <span class="res-sub">"ULTRA HD"</span>
                                         </div>
                                     </div>
                                 </div>
@@ -217,24 +217,6 @@ pub fn Configure() -> impl IntoView {
                             </div>
                         </div>
 
-                        <div class="intelligence-group">
-                            <label>"Engine Intelligence"</label>
-                            <div class="segmented-control">
-                                <button 
-                                    class=move || if global_state.thinking_level.get() == "MINIMAL" { "segment active" } else { "segment" }
-                                    on:click=move |_| global_state.set_thinking_level.set("MINIMAL".to_string())
-                                >
-                                    "STANDARD"
-                                </button>
-                                <button 
-                                    class=move || if global_state.thinking_level.get() == "HIGH" { "segment active" } else { "segment" }
-                                    on:click=move |_| global_state.set_thinking_level.set("HIGH".to_string())
-                                >
-                                    "PROFESSIONAL"
-                                </button>
-                            </div>
-                        </div>
-
                         <div class="action-footer">
                             <button 
                                 class="btn-upscale"
@@ -257,18 +239,21 @@ pub fn Configure() -> impl IntoView {
             </div>
 
             <style>
-                ".configure-page { max-width: 1000px; margin: 0 auto; padding: 2rem 1rem; }
-                .page-header { margin-bottom: 2rem; }
+                ".configure-page { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; min-height: 80vh; display: flex; flex-direction: column; }
+                .page-header { margin-bottom: 3rem; }
+                .page-header h1 { font-size: 2.5rem; font-weight: 900; letter-spacing: -0.05em; margin-bottom: 0.5rem; }
+                .page-header .muted { font-size: 1rem; color: hsl(var(--text-muted)); font-weight: 500; }
                 
-                .config-layout { display: flex; flex-direction: column; gap: 2rem; }
+                .config-layout { flex: 1; display: flex; flex-direction: column; }
                 .config-stage { 
                     background: hsl(var(--surface)); 
                     border: 1px solid var(--glass-border); 
                     border-radius: var(--radius-lg); 
                     overflow: hidden;
                     display: grid;
-                    grid-template-columns: 380px 1fr;
-                    min-height: 600px;
+                    grid-template-columns: 420px 1fr;
+                    flex: 1;
+                    min-height: 650px;
                 }
 
                 .section-tag { font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.15em; margin-bottom: 1.5rem; opacity: 0.5; display: flex; align-items: center; gap: 0.5rem; }
@@ -295,102 +280,96 @@ pub fn Configure() -> impl IntoView {
                 .preview-viewport img { width: 100%; height: 100%; object-fit: contain; }
                 .empty-state { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim)); opacity: 0.3; }
 
-                .viewport-overlay { position: absolute; bottom: 1rem; left: 1rem; right: 1rem; }
+                .viewport-overlay { position: absolute; bottom: 1.5rem; left: 1.5rem; right: 1.5rem; }
                 .badge { 
-                    background: hsl(var(--bg) / 0.8); 
-                    backdrop-filter: blur(10px); 
+                    background: hsl(var(--bg) / 0.85); 
+                    backdrop-filter: blur(12px); 
                     border: 1px solid var(--glass-border);
-                    padding: 0.5rem 0.75rem;
-                    border-radius: 6px;
+                    padding: 0.625rem 1rem;
+                    border-radius: var(--radius-md);
                     display: flex;
                     flex-direction: column;
-                    gap: 2px;
+                    gap: 4px;
+                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
                 }
-                .badge .label { font-size: 0.5rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05em; }
-                .badge-content { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; font-weight: 700; color: hsl(var(--accent)); }
-                .pulse-dot { width: 6px; height: 6px; background: hsl(var(--accent)); border-radius: 50%; box-shadow: 0 0 10px hsl(var(--accent)); animation: pulse 2s infinite; }
+                .badge .label { font-size: 0.55rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; }
+                .badge-content { display: flex; align-items: center; gap: var(--s-3); font-size: 0.8125rem; font-weight: 800; color: hsl(var(--accent)); text-transform: uppercase; letter-spacing: 0.05em; }
+                .pulse-dot { width: 8px; height: 8px; background: hsl(var(--accent)); border-radius: 50%; box-shadow: 0 0 12px hsl(var(--accent)); animation: pulse-accent 2s infinite; }
 
                 /* Right Side: Controls */
-                .controls-section { padding: 2rem 2.5rem; display: flex; flex-direction: column; gap: 2rem; }
-                .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-                .control-group { display: flex; flex-direction: column; gap: 1rem; }
-                .control-group label { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; }
+                .controls-section { padding: 3rem; display: flex; flex-direction: column; gap: 2.5rem; }
+                .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; }
+                .control-group { display: flex; flex-direction: column; gap: 1.25rem; }
+                .control-group label { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.15em; }
 
                 /* Resolution Switch */
-                .resolution-switch { display: grid; grid-template-columns: 1fr 1fr; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 4px; gap: 4px; }
-                .res-opt { padding: 0.75rem; border-radius: 4px; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.2s; }
-                .res-opt.active { background: hsl(var(--accent)); }
-                .res-opt.active .res-title { color: hsl(var(--bg)); }
-                .res-opt.active .res-sub { color: hsl(var(--bg) / 0.7); }
-                .res-title { font-size: 1rem; font-weight: 900; color: hsl(var(--text)); }
-                .res-sub { font-size: 0.625rem; font-weight: 700; color: hsl(var(--text-dim)); text-transform: uppercase; }
+                .resolution-switch { display: grid; grid-template-columns: 1fr 1fr; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 5px; gap: 5px; }
+                .res-opt { padding: 1rem; border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; }
+                .res-opt.active { background: hsl(var(--accent)); border-color: hsl(var(--accent)); transform: translateY(-2px); box-shadow: 0 8px 24px hsl(var(--accent) / 0.3); }
+                .res-opt.active .res-title { color: white; }
+                .res-opt.active .res-sub { color: rgba(255, 255, 255, 0.7); }
+                .res-title { font-size: 1.25rem; font-weight: 950; color: hsl(var(--text)); letter-spacing: -0.02em; }
+                .res-sub { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05rem; }
+                .res-opt:hover:not(.active) { background: hsl(var(--surface-raised)); }
 
                 /* Style Toggle */
-                .style-toggle { display: flex; flex-direction: column; gap: 0.5rem; }
-                .toggle-btn { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.75rem; font-size: 0.6875rem; font-weight: 800; color: hsl(var(--text-dim)); cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; }
-                .toggle-btn:hover { border-color: hsl(var(--accent) / 0.5); }
-                .toggle-btn.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.05); }
+                .style-toggle { display: flex; flex-direction: column; gap: 0.75rem; }
+                .toggle-btn { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1rem; font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-muted)); cursor: pointer; display: flex; align-items: center; gap: 1rem; transition: all 0.2s; }
+                .toggle-btn:hover { border-color: hsl(var(--accent) / 0.5); color: hsl(var(--text)); }
+                .toggle-btn.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08); box-shadow: inset 0 0 12px hsl(var(--accent) / 0.05); }
 
                 /* Slider */
-                .slider-container { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1rem; }
-                .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 0.6875rem; font-weight: 700; color: hsl(var(--text-muted)); }
-                .val-pill { background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); padding: 2px 8px; border-radius: 100px; font-family: var(--font-mono); font-weight: 800; }
+                .slider-container { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1.25rem; }
+                .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; font-size: 0.75rem; font-weight: 800; color: hsl(var(--text-muted)); letter-spacing: 0.02em; }
+                .val-pill { background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); padding: 4px 10px; border-radius: 100px; font-family: var(--font-mono); font-weight: 900; font-size: 0.8125rem; border: 1px solid hsl(var(--accent) / 0.2); }
 
                 /* Pill Toggles */
-                .toggles-row { display: flex; flex-direction: column; gap: 0.5rem; }
-                .pill-toggle { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: 100px; padding: 0.625rem 1rem; font-size: 0.6875rem; font-weight: 800; color: hsl(var(--text-dim)); cursor: pointer; display: flex; align-items: center; gap: 0.5rem; transition: all 0.2s; }
-                .pill-toggle.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.05); }
+                .toggles-row { display: flex; flex-direction: column; gap: 0.75rem; }
+                .pill-toggle { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.875rem 1.25rem; font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-muted)); cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; }
+                .pill-toggle.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08); }
+                .pill-toggle:hover:not(.active) { border-color: hsl(var(--text-dim) / 0.4); }
 
-                /* Lighting & Intel */
-                .select-box { position: relative; }
-                .select-box select { width: 100%; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.75rem 1rem; color: hsl(var(--text)); font-size: 0.75rem; font-weight: 600; appearance: none; }
+                /* Lighting */
+                .lighting-group { margin-top: 1rem; display: flex; flex-direction: column; gap: 1.25rem; }
+                .lighting-group label { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.15em; }
+                .select-box select { width: 100%; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1.125rem 1.25rem; color: hsl(var(--text)); font-size: 0.875rem; font-weight: 700; appearance: none; cursor: pointer; transition: all 0.2s; }
+                .select-box select:hover { border-color: hsl(var(--accent) / 0.5); }
                 
-                .segmented-control { display: grid; grid-template-columns: 1fr 1fr; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 4px; gap: 4px; }
-                .segment { background: transparent; border: none; padding: 0.75rem; border-radius: 4px; font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); cursor: pointer; transition: all 0.2s; }
-                .segment.active { background: hsl(var(--text)); color: hsl(var(--bg)); }
-
                 /* Action Button */
-                .action-footer { margin-top: auto; padding-top: 1rem; }
+                .action-footer { margin-top: auto; padding-top: 2rem; }
                 .btn-upscale { 
                     width: 100%; 
                     background: linear-gradient(135deg, hsl(var(--accent)), #6366f1);
                     border: none;
                     border-radius: var(--radius-md);
-                    padding: 1.25rem;
+                    padding: 1.5rem;
                     color: white;
-                    font-size: 1rem;
-                    font-weight: 900;
-                    letter-spacing: 0.05em;
+                    font-size: 1.125rem;
+                    font-weight: 950;
+                    letter-spacing: 0.08em;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    gap: 1rem;
+                    gap: 1.25rem;
                     cursor: pointer;
                     position: relative;
                     overflow: hidden;
-                    box-shadow: 0 10px 30px -10px hsl(var(--accent) / 0.5);
-                    transition: all 0.3s;
+                    box-shadow: 0 12px 32px -12px hsl(var(--accent) / 0.6);
+                    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                    text-transform: uppercase;
                 }
-                .btn-upscale:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -15px hsl(var(--accent) / 0.6); }
-                .btn-upscale:active { transform: translateY(0); }
+                .btn-upscale:hover { transform: translateY(-4px); box-shadow: 0 24px 48px -15px hsl(var(--accent) / 0.7); }
+                .btn-upscale:active { transform: translateY(0) scale(0.98); }
                 .btn-upscale:disabled { opacity: 0.5; transform: none; filter: grayscale(1); cursor: not-allowed; }
 
-                .cost-tag { background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 100px; font-size: 0.625rem; font-weight: 900; }
+                .cost-tag { background: rgba(0,0,0,0.25); padding: 5px 12px; border-radius: 100px; font-size: 0.6875rem; font-weight: 950; color: white; letter-spacing: 0.05em; border: 1px solid rgba(255,255,255,0.1); }
 
-                @keyframes pulse { 0% { transform: scale(0.95); opacity: 1; } 70% { transform: scale(3); opacity: 0; } 100% { transform: scale(0.95); opacity: 0; } }
-
-                @media (max-width: 900px) {
+                @media (max-width: 1100px) {
                     .config-stage { grid-template-columns: 1fr; min-height: auto; }
-                    .preview-section { border-right: none; border-bottom: 1px solid var(--glass-border); padding: 1.5rem; }
-                    .preview-viewport { height: 300px; flex: none; }
-                    .controls-section { padding: 1.5rem; }
-                    .controls-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-                }
-
-                @media (max-height: 800px) {
-                    .config-stage { min-height: 500px; }
-                    .preview-section { padding: 1rem; }
-                    .controls-section { padding: 1.5rem; gap: 1.5rem; }
+                    .preview-section { border-right: none; border-bottom: 1px solid var(--glass-border); padding: 2rem; }
+                    .preview-viewport { height: 400px; }
+                    .controls-section { padding: 2rem; }
+                    .controls-grid { grid-template-columns: 1fr; gap: 2rem; }
                 }
                 "
             </style>

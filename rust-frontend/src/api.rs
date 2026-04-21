@@ -102,7 +102,15 @@ impl ApiClient {
             .map_err(|e| e.to_string())?;
 
         if resp.ok() {
-            let data: Vec<HistoryItem> = resp.json().await.map_err(|e| e.to_string())?;
+            let json_text = resp.text().await.map_err(|e| e.to_string())?;
+            leptos::logging::log!("DEBUG: History API Response: {}", json_text);
+            
+            let data: Vec<HistoryItem> = serde_json::from_str(&json_text).map_err(|e| {
+                let err_msg = format!("History Deserialization Error: {}. Raw: {}", e, json_text);
+                leptos::logging::error!("{}", err_msg);
+                err_msg
+            })?;
+            
             Ok(data)
         } else if resp.status() == 401 {
             Err("AUTH_EXPIRED".to_string())

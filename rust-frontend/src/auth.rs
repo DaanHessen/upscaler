@@ -254,8 +254,8 @@ impl AuthContext {
         let now = js_sys::Date::now();
         let last = self.last_fetch.get();
         
-        // 5 minute cache (300,000 ms)
-        if !force && last.is_some() && (now - last.unwrap() < 300_000.0) && self.credits.get().is_some() {
+        // 10 second cache (10,000 ms)
+        if !force && last.is_some() && (now - last.unwrap() < 10_000.0) && self.credits.get().is_some() {
             return;
         }
 
