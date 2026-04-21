@@ -39,7 +39,7 @@ pub fn AuthProvider(children: Children) -> impl IntoView {
     let (history, set_history) = signal(Option::<Vec<crate::api::HistoryItem>>::None);
     let (last_fetch, set_last_fetch) = signal(Option::<f64>::None);
     
-    provide_context(AuthContext { 
+    let ctx = AuthContext { 
         user, 
         session, 
         set_user, 
@@ -50,7 +50,16 @@ pub fn AuthProvider(children: Children) -> impl IntoView {
         set_history,
         last_fetch,
         set_last_fetch
+    };
+
+    // Centralized Telemetry Sync: Watch for session changes and sync
+    Effect::new(move |_| {
+        if ctx.session.get().is_some() {
+            ctx.sync_telemetry(false);
+        }
     });
+    
+    provide_context(ctx);
     
     children()
 }

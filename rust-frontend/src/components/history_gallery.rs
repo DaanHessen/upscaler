@@ -7,10 +7,6 @@ use leptos_router::components::A;
 #[component]
 pub fn HistoryGallery() -> impl IntoView {
     let auth = use_auth();
-    // Trigger throttled telemetry sync on mount
-    Effect::new(move |_| {
-        auth.sync_telemetry(false);
-    });
 
     let _history = auth.history;
 

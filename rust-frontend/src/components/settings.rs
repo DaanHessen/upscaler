@@ -5,11 +5,6 @@ use crate::auth::use_auth;
 #[component]
 pub fn Credits() -> impl IntoView {
     let auth = use_auth();
-    
-    // Trigger throttled telemetry sync on mount
-    Effect::new(move |_| {
-        auth.sync_telemetry(false);
-    });
 
     let (selected_pack, set_selected_pack) = signal(10); // Default to 10 euro pack
 
@@ -167,7 +162,7 @@ pub fn Credits() -> impl IntoView {
                 
                 /* Card Geometry */
                 .params-body { padding: var(--s-10); height: 100%; display: flex; flex-direction: column; }
-                .card-tag { display: flex; align-items: center; gap: var(--s-2); font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.1em; margin-bottom: var(--s-8); opacity: 0.6; }
+                .card-tag { display: flex; align-items: center; gap: var(--s-2); font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.1em; margin-bottom: var(--s-8); opacity: 0.8; }
                 
                 .vault-card, .replenish-card { background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); transition: border-color 0.3s; }
                 .vault-card:hover, .replenish-card:hover { border-color: hsl(var(--accent) / 0.2); }
@@ -183,11 +178,11 @@ pub fn Credits() -> impl IntoView {
                     letter-spacing: -0.06em;
                     text-shadow: 0 0 30px hsl(var(--accent) / 0.1);
                 }
-                .credit-symbol { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.4em; text-transform: uppercase; margin-top: var(--s-4); opacity: 0.4; }
+                .credit-symbol { font-size: 0.75rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.4em; text-transform: uppercase; margin-top: var(--s-4); opacity: 0.6; }
                 
                 .meta-stats { display: flex; gap: var(--s-12); margin-top: var(--s-12); border-top: 1px solid var(--glass-border); padding-top: var(--s-8); width: 100%; justify-content: center; }
                 .stat-box { display: flex; flex-direction: column; gap: 4px; text-align: center; }
-                .stat-label { font-size: 0.5rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.12em; }
+                .stat-label { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.12em; }
                 .stat-value { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-muted)); font-family: var(--font-mono); }
                 .stat-value.highlight { color: hsl(var(--success)); }
 
@@ -208,7 +203,7 @@ pub fn Credits() -> impl IntoView {
                 
                 .pack-info { display: flex; flex-direction: column; gap: 2px; }
                 .pack-name { font-size: 0.8125rem; font-weight: 750; color: hsl(var(--text)); }
-                .pack-credits { font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05em; }
+                .pack-credits { font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05em; }
                 .pack-price { font-family: var(--font-mono); font-size: 1.125rem; font-weight: 900; color: hsl(var(--accent)); }
 
                 .card-actions-row { margin-top: var(--s-8); }
@@ -219,7 +214,7 @@ pub fn Credits() -> impl IntoView {
                 .history-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--s-8); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-6); }
                 
                 .history-title h2 { font-size: 1.25rem; font-weight: 900; letter-spacing: -0.02em; }
-                .history-title p { font-size: 0.75rem; margin-top: 4px; }
+                .history-title p { font-size: 0.8125rem; margin-top: 4px; }
 
                 .telemetry-badge { 
                     display: flex; 
@@ -230,13 +225,13 @@ pub fn Credits() -> impl IntoView {
                     border: 1px solid var(--glass-border); 
                     border-radius: 4px;
                 }
-                .badge-label { font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.6; }
+                .badge-label { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; opacity: 0.8; }
                 .badge-value { font-family: var(--font-mono); font-size: 0.8125rem; font-weight: 800; color: hsl(var(--accent)); }
 
                 /* Table Interior - Increased spacing & padding */
                 .usage-card { background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); overflow: hidden; }
                 .usage-table { width: 100%; border-collapse: collapse; text-align: left; }
-                .usage-table th { padding: var(--s-6) var(--s-10); font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.2em; border-bottom: 1px solid var(--glass-border); background: hsl(var(--surface-raised) / 0.5); }
+                .usage-table th { padding: var(--s-6) var(--s-10); font-size: 0.75rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.2em; border-bottom: 1px solid var(--glass-border); background: hsl(var(--surface-raised) / 0.5); }
                 .usage-table td { padding: var(--s-6) var(--s-10); font-size: 0.75rem; border-bottom: 1px solid var(--glass-border); color: hsl(var(--text-muted)); font-family: var(--font-mono); line-height: 1.6; transition: all 0.2s; }
                 .usage-table tr:last-child td { border-bottom: none; }
                 .usage-table tr:hover td { background: hsl(var(--surface-raised) / 0.3); color: hsl(var(--text)); }
@@ -248,7 +243,7 @@ pub fn Credits() -> impl IntoView {
                 .cell-link { color: hsl(var(--accent)); text-decoration: none; font-weight: 800; transition: opacity 0.2s; }
                 .cell-link:hover { opacity: 0.8; }
                 
-                .status-chip { font-size: 0.55rem; font-weight: 900; padding: 2px 10px; border-radius: 4px; border: 1px solid currentColor; text-transform: uppercase; letter-spacing: 0.1em; }
+                .status-chip { font-size: 0.6875rem; font-weight: 900; padding: 2px 10px; border-radius: 4px; border: 1px solid currentColor; text-transform: uppercase; letter-spacing: 0.1em; }
                 .status-chip.completed { color: hsl(var(--success)); background: hsl(var(--success) / 0.05); border-color: hsl(var(--success) / 0.2); }
                 .status-chip.failed { color: hsl(var(--error)); background: hsl(var(--error) / 0.05); border-color: hsl(var(--error) / 0.2); }
                 

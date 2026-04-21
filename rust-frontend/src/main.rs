@@ -346,13 +346,6 @@ fn Footer() -> impl IntoView {
 #[component]
 fn AuthNav() -> impl IntoView {
     let auth = use_auth();
-    
-    // Trigger throttled telemetry sync on mount
-    Effect::new(move |_| {
-        if auth.user.get().is_some() {
-            auth.sync_telemetry(false);
-        }
-    });
 
     let (show_dropdown, set_show_dropdown) = signal(false);
     let theme = use_global_state().theme;
@@ -378,25 +371,22 @@ fn AuthNav() -> impl IntoView {
                             }}
                         </Suspense>
                         
-                        <div class="dropdown-container">
+                        <div 
+                            class="dropdown-container"
+                            on:mouseenter=move |_| set_show_dropdown.set(true)
+                            on:mouseleave=move |_| set_show_dropdown.set(false)
+                        >
                             <div 
                                 class="avatar-btn"
                                 on:click=move |ev| {
                                     ev.stop_propagation();
+                                    // Toggle for mobile/touch compatibility
                                     set_show_dropdown.update(|v| *v = !*v);
                                 }
                             >
                                 {user.email.clone().unwrap_or_default().chars().next().unwrap_or('?').to_uppercase().to_string()}
                             </div>
                             
-                            // Backdrop for click-outside
-                            {move || show_dropdown.get().then(|| view! {
-                                <div 
-                                    style="position: fixed; inset: 0; z-index: 999; background: transparent; cursor: default;"
-                                    on:click=move |_| set_show_dropdown.set(false)
-                                ></div>
-                            })}
-
                             <div 
                                 class="dropdown-menu"
                                 class:show=show_dropdown

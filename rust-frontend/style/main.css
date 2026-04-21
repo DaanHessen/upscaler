@@ -6,8 +6,8 @@
   --border: 240 10% 15%;
   --border-muted: 240 10% 10%;
   --text: 0 0% 100%;
-  --text-muted: 240 5% 65%;
-  --text-dim: 240 5% 45%;
+  --text-muted: 240 5% 75%;
+  --text-dim: 240 5% 60%;
   --glass: rgba(10, 10, 12, 0.7);
   --glass-border: rgba(255, 255, 255, 0.08);
 
@@ -370,9 +370,16 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
   box-shadow: 0 0 15px hsl(var(--accent) / 0.3);
 }
 
+.dropdown-container {
+  position: relative;
+  /* Bridge the gap for hover stability */
+  padding-bottom: 20px;
+  margin-bottom: -20px;
+}
+
 .dropdown-menu {
   position: absolute;
-  top: calc(100% + 12px);
+  top: 100%;
   right: 0;
   width: 260px;
   background-color: hsl(var(--surface-raised));
