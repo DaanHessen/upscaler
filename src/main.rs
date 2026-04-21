@@ -52,6 +52,8 @@ struct PollResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub before_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
@@ -73,6 +75,8 @@ struct HistoryItem {
     pub temperature: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub image_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preview_url: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<String>,
     pub prompt_settings: serde_json::Value,
@@ -387,7 +391,7 @@ struct ChangePasswordRequest {
 }
 
 async fn change_password_handler(
-    State(state): State<Arc<AppState>>,
+    State(_state): State<Arc<AppState>>,
     jwt: JwtAuth,
     headers: HeaderMap,
     Json(body): Json<ChangePasswordRequest>,
@@ -559,6 +563,7 @@ async fn history_handler(
             style: rec.style,
             temperature: rec.temperature,
             image_url: None,
+            preview_url: None,
             error: rec.error_msg,
             prompt_settings: rec.prompt_settings,
             usage_metadata: rec.usage_metadata,
@@ -570,6 +575,12 @@ async fn history_handler(
             if let Some(path) = rec.output_path {
                 if let Ok(url) = state.storage.get_signed_url(&path).await {
                     item.image_url = Some(url);
+                }
+                
+                // Generate preview URL using the naming convention worker uses
+                let preview_path = path.replace(".png", "_thumb.webp");
+                if let Ok(url) = state.storage.get_signed_url(&preview_path).await {
+                    item.preview_url = Some(url);
                 }
             }
         }
@@ -605,6 +616,7 @@ async fn poll_upscale_handler(
     let mut response = PollResponse {
         status: record.status.clone(),
         image_url: None,
+        preview_url: None,
         before_url: None,
         error: record.error_msg,
         queue_position: None,
@@ -631,6 +643,12 @@ async fn poll_upscale_handler(
                     error!("Failed to generate signed URL for completed job {}: {}", job_id, e);
                     response.error = Some("Final image generated, but failed to create download link".to_string());
                 }
+            }
+
+            // Generate preview URL using the naming convention worker uses
+            let preview_path = path.replace(".png", "_thumb.webp");
+            if let Ok(url) = state.storage.get_signed_url(&preview_path).await {
+                response.preview_url = Some(url);
             }
         }
     }

@@ -1,14 +1,15 @@
 :root {
-  /* Core Palette - Studio Dark */
+  /* Theme Variables - Default (Dark) */
   --bg: 240 10% 4%;
   --surface: 240 10% 7%;
   --surface-raised: 240 10% 12%;
   --border: 240 10% 15%;
   --border-muted: 240 10% 10%;
-  
   --text: 0 0% 100%;
   --text-muted: 240 5% 65%;
   --text-dim: 240 5% 45%;
+  --glass: rgba(10, 10, 12, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.08);
 
   --accent: 210 100% 60%;
   --accent-glow: 210 100% 60% / 0.15;
@@ -16,6 +17,8 @@
   --error: 0 84% 60%;
   --success: 142 71% 45%;
   --warning: 38 92% 50%;
+  
+  /* Spacing Scale */
 
   /* Spacing Scale */
   --s-1: 0.25rem;
@@ -43,6 +46,29 @@
   --shadow-xl: 0 32px 64px -16px rgba(0,0,0,0.8);
   --glass: rgba(10, 10, 12, 0.7);
   --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+/* Light Theme Overrides - studio crisp default */
+[data-theme="light"] {
+  --bg: 0 0% 100%;
+  --surface: 240 20% 98%;
+  --surface-raised: 240 10% 94%;
+  --border: 240 10% 90%;
+  --border-muted: 240 10% 95%;
+  
+  --text: 240 10% 4%;
+  --text-muted: 240 5% 40%;
+  --text-dim: 240 5% 60%;
+
+  --glass: rgba(255, 255, 255, 0.82);
+  --glass-border: rgba(0, 0, 0, 0.08);
+
+  --accent: 210 100% 45%;
+  --accent-glow: 210 100% 45% / 0.1;
+  
+  --shadow-sm: 0 2px 8px -2px rgba(0,0,0,0.05);
+  --shadow-md: 0 12px 32px -8px rgba(0,0,0,0.1);
+  --shadow-xl: 0 32px 64px -16px rgba(0,0,0,0.15);
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -562,3 +588,37 @@ footer {
   z-index: 100;
 }
 
+/* --- Loading & Optimization Animations --- */
+
+@keyframes skeleton-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, 
+    hsl(var(--surface-raised)) 25%, 
+    hsl(var(--border)) 50%, 
+    hsl(var(--surface-raised)) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s infinite linear;
+}
+
+.history-card img {
+  opacity: 0;
+  transition: opacity 0.4s ease-out;
+}
+
+.history-card img.loaded {
+  opacity: 1;
+}
+
+.visual-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  color: hsl(var(--text-dim));
+}

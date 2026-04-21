@@ -75,7 +75,7 @@ fn is_token_expired(token: &str) -> bool {
     false
 }
 
-fn decode_base64_json(b64: &str) -> Result<serde_json::Value, String> {
+pub fn decode_base64_json(b64: &str) -> Result<serde_json::Value, String> {
     // Basic base64url decoding to handle JWT payload
     let mut input = b64.replace('-', "+").replace('_', "/");
     while input.len() % 4 != 0 {
@@ -157,8 +157,12 @@ impl AuthContext {
             .map_err(|e| e.to_string())?;
 
         if resp.ok() {
-            // Supabase usually requires email confirmation, so we don't necessarily get a session back.
-            // But we can confirm success.
+            // If email confirmation is disabled, Supabase returns a session immediately
+            if let Ok(session) = resp.json::<Session>().await {
+                self.set_user.set(Some(session.user.clone()));
+                self.set_session.set(Some(session.clone()));
+                let _ = LocalStorage::set("sb_session", session);
+            }
             Ok(())
         } else {
             let err_body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
@@ -176,6 +180,62 @@ impl AuthContext {
         self.set_history.set(None);
         self.set_last_fetch.set(None);
         LocalStorage::delete("sb_session");
+    }
+
+    pub async fn recover_password(&self, email: &str, redirect_to: &str) -> Result<(), String> {
+        let url = format!("{}/auth/v1/recover", SUPABASE_URL);
+        
+        let body = serde_json::json!({
+            "email": email,
+            "gotrue_meta_security": {},
+        });
+
+        let resp = Request::post(&url)
+            .header("apikey", SUPABASE_ANON_KEY)
+            .header("Redirect-To", redirect_to)
+            .json(&body)
+            .map_err(|e| e.to_string())?
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if resp.ok() {
+            Ok(())
+        } else {
+            let err_body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+            let msg = err_body["msg"].as_str()
+                .or(err_body["error_description"].as_str())
+                .unwrap_or("Recovery request failed");
+            Err(msg.to_string())
+        }
+    }
+
+    pub async fn update_password(&self, new_password: &str) -> Result<(), String> {
+        let session = self.session.get().ok_or("Not authenticated")?;
+        let url = format!("{}/auth/v1/user", SUPABASE_URL);
+        
+        let body = serde_json::json!({
+            "password": new_password,
+        });
+
+        let resp = Request::put(&url)
+            .header("apikey", SUPABASE_ANON_KEY)
+            .header("Authorization", &format!("Bearer {}", session.access_token))
+            .json(&body)
+            .map_err(|e| e.to_string())?
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if resp.ok() {
+            Ok(())
+        } else {
+            let err_body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+            let msg = err_body["msg"].as_str()
+                .or(err_body["error_description"].as_str())
+                .unwrap_or("Password update failed");
+            Err(msg.to_string())
+        }
     }
 
     pub fn sync_telemetry(&self, force: bool) {

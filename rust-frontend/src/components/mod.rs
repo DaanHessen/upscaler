@@ -7,3 +7,6 @@ pub mod comparison_slider;
 pub mod configure;
 pub mod view_result;
 pub mod legal;
+pub mod auth_callback;
+pub mod reset_password;
+pub mod profile;

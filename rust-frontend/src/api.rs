@@ -13,6 +13,7 @@ pub struct SubmitResponse {
 pub struct PollResponse {
     pub status: String,
     pub image_url: Option<String>,
+    pub preview_url: Option<String>,
     pub before_url: Option<String>,
     pub error: Option<String>,
     pub queue_position: Option<i64>,
@@ -29,6 +30,7 @@ pub struct HistoryItem {
     pub style: Option<String>,
     pub temperature: f32,
     pub image_url: Option<String>,
+    pub preview_url: Option<String>,
     pub error: Option<String>,
     pub prompt_settings: serde_json::Value,
     pub usage_metadata: serde_json::Value,

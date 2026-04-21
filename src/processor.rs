@@ -460,3 +460,35 @@ pub fn preprocess_image_internal(
         ratio_name: nearest.name.to_string(),
     })
 }
+
+/// Generates a lightweight preview thumbnail (Optimized JPEG, max 360px).
+pub fn generate_thumbnail(data: &[u8]) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+    let img = image::load_from_memory(data)?;
+    let (width, height) = img.dimensions();
+    
+    // Target max dimensions for previews
+    const MAX_DIM: u32 = 360;
+    
+    let (nw, nh) = if width > height {
+        if width > MAX_DIM {
+            (MAX_DIM, (height as f32 * (MAX_DIM as f32 / width as f32)) as u32)
+        } else {
+            (width, height)
+        }
+    } else {
+        if height > MAX_DIM {
+            ((width as f32 * (MAX_DIM as f32 / height as f32)) as u32, MAX_DIM)
+        } else {
+            (width, height)
+        }
+    };
+
+    let thumb = img.resize_exact(nw, nh, image::imageops::FilterType::Lanczos3);
+    
+    let mut buffer = Cursor::new(Vec::new());
+    // Use Optimized JPEG at 60% quality for tiny file sizes (often <20KB)
+    let mut encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 60);
+    thumb.write_with_encoder(encoder)?;
+    
+    Ok(buffer.into_inner())
+}

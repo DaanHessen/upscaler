@@ -98,12 +98,24 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         }
     }
 
-    // 5. Upload result back
+    // 5. Upload result and generate preview
     let processed_id = Uuid::new_v4();
     let processed_path = format!("{}/processed/{}.png", job.user_id, processed_id);
+    let preview_path = format!("{}/processed/{}_thumb.webp", job.user_id, processed_id);
 
     info!("Uploading result to storage for job {}", job.id);
-    state.storage.upload_object(&processed_path, image_bytes, "image/png").await?;
+    state.storage.upload_object(&processed_path, image_bytes.clone(), "image/png").await?;
+
+    // Generate and upload thumbnail for instant history loading
+    match crate::processor::generate_thumbnail(&image_bytes) {
+        Ok(thumb_data) => {
+            info!("Uploading thumbnail to storage for job {}", job.id);
+            if let Err(e) = state.storage.upload_object(&preview_path, thumb_data, "image/webp").await {
+                warn!("Thumbnail upload failed for job {}: {}", job.id, e);
+            }
+        },
+        Err(e) => warn!("Thumbnail generation failed for job {}: {}", job.id, e),
+    }
 
     // 6. Update database with success
     let usage_json = serde_json::to_value(&gemini_response.usage_metadata).unwrap_or(serde_json::json!({}));

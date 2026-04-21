@@ -9,12 +9,15 @@ use leptos_router::components::*;
 use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
 use crate::api::ApiClient;
-use crate::components::icons::{Zap, HistoryIcon, LogOut, CreditCard, FileText, Mail, Lock};
+use crate::components::icons::{Zap, LogOut, Sun, Moon, UserIcon};
 use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
 use crate::components::configure::Configure;
 use crate::components::view_result::ViewResult;
 use crate::components::legal::{Terms, Contact, Privacy, AUP, CookiePolicy};
+use crate::components::auth_callback::AuthCallback;
+use crate::components::reset_password::ResetPassword;
+use crate::components::profile::AccountSettings;
 
 #[derive(Copy, Clone)]
 pub struct GlobalState {
@@ -39,6 +42,8 @@ pub struct GlobalState {
     pub set_preview_base64: WriteSignal<Option<String>>,
     pub thinking_level: ReadSignal<String>,
     pub set_thinking_level: WriteSignal<String>,
+    pub theme: ReadSignal<String>,
+    pub set_theme: WriteSignal<String>,
 }
 
 pub fn provide_global_state() {
@@ -53,6 +58,7 @@ pub fn provide_global_state() {
     let (keep_depth_of_field, set_keep_depth_of_field) = signal(initial_settings.as_ref().map(|s| s.keep_depth_of_field).unwrap_or(true));
     let (lighting, set_lighting) = signal(initial_settings.as_ref().map(|s| s.lighting.clone()).unwrap_or_else(|| "Original".to_string()));
     let (thinking_level, set_thinking_level) = signal(initial_settings.as_ref().map(|s| s.thinking_level.clone()).unwrap_or_else(|| "HIGH".to_string()));
+    let (theme, set_theme) = signal(initial_settings.as_ref().map(|s| s.theme.clone()).unwrap_or_else(|| "dark".to_string()));
     let (preview_base64, set_preview_base64) = signal(None);
     
     provide_context(GlobalState { 
@@ -76,6 +82,8 @@ pub fn provide_global_state() {
         set_preview_base64,
         thinking_level,
         set_thinking_level,
+        theme,
+        set_theme,
     });
 }
 
@@ -101,12 +109,6 @@ fn AuthGuard(children: Children) -> impl IntoView {
 fn App() -> impl IntoView {
     provide_global_state();
 
-    let _auth_ctx = use_context::<crate::auth::AuthContext>().unwrap_or_else(|| {
-        // Fallback if needed, but AuthNav will handle it
-        // ...
-        unreachable!("AuthContext should be provided by AuthProvider wrap")
-    });
-
     // 1. Hydroate Global State from Storage
     let global_state = use_global_state();
     
@@ -125,7 +127,18 @@ fn App() -> impl IntoView {
             keep_depth_of_field: global_state.keep_depth_of_field.get(),
             lighting: global_state.lighting.get(),
             thinking_level: global_state.thinking_level.get(),
+            theme: global_state.theme.get(),
         });
+    });
+
+    // Apply theme to document element
+    Effect::new(move |_| {
+        let current_theme = global_state.theme.get();
+        if let Some(document) = web_sys::window().and_then(|w| w.document()) {
+            if let Some(html) = document.document_element() {
+                let _ = html.set_attribute("data-theme", &current_theme);
+            }
+        }
     });
 
     // Hydrate everything on start
@@ -145,6 +158,7 @@ fn App() -> impl IntoView {
             gs.set_keep_aspect_ratio.set(s.keep_aspect_ratio);
             gs.set_keep_depth_of_field.set(s.keep_depth_of_field);
             gs.set_lighting.set(s.lighting);
+            gs.set_theme.set(s.theme);
         }
 
         // Hydrate file (async)
@@ -179,17 +193,17 @@ fn MainLayout() -> impl IntoView {
     view! {
         <div class="app-wrapper">
             <header class="glass stagger-1">
-                <a href="/" class="logo" style="text-decoration: none; display: flex; align-items: center; gap: var(--s-3); color: inherit;">
+                <A href="/" attr:class="logo" attr:style="text-decoration: none; display: flex; align-items: center; gap: var(--s-3); color: inherit;">
                     <div class="logo-icon"><Zap size={18} /></div>
                     "UPSYL" 
                     <span>"STUDIO"</span>
-                </a>
+                </A>
                 <nav>
-                    <a href="/">"STUDIO"</a>
+                    <A href="/" attr:class="nav-link">"STUDIO"</A>
                     {move || auth.user.get().is_some().then(|| view! {
                         <>
-                            <a href="/history">"HISTORY"</a>
-                            <a href="/settings">"BILLING"</a>
+                            <A href="/history" attr:class="nav-link">"HISTORY"</A>
+                            <A href="/settings" attr:class="nav-link">"BILLING"</A>
                         </>
                     })}
                     <AuthNav />
@@ -202,11 +216,14 @@ fn MainLayout() -> impl IntoView {
                     <Route path=path!("/login") view=Login />
                     <Route path=path!("/register") view=Register />
                     <Route path=path!("/forgot-password") view=ForgotPassword />
+                    <Route path=path!("/reset-password") view=ResetPassword />
+                    <Route path=path!("/auth/callback") view=AuthCallback />
                     
                     <Route path=path!("/configure") view=|| view! { <AuthGuard><Configure /></AuthGuard> } />
                     <Route path=path!("/view/:job_id") view=|| view! { <AuthGuard><ViewResult /></AuthGuard> } />
                     <Route path=path!("/history") view=|| view! { <AuthGuard><History /></AuthGuard> } />
                     <Route path=path!("/settings") view=|| view! { <AuthGuard><Credits /></AuthGuard> } />
+                    <Route path=path!("/account") view=|| view! { <AuthGuard><AccountSettings /></AuthGuard> } />
                     <Route path=path!("/terms") view=Terms />
                     <Route path=path!("/privacy") view=Privacy />
                     <Route path=path!("/rules") view=AUP />
@@ -230,24 +247,24 @@ fn Footer() -> impl IntoView {
         <footer>
             <div class="footer-content">
                 <div class="footer-left">
-                    <div class="footer-logo">
-                        <Zap size={14} />
-                        "UPSYL STUDIO"
-                    </div>
+                    <A href="/" attr:class="logo">
+                        <crate::components::icons::Zap size={24} />
+                        "UPSYL" <span>"STUDIO"</span>
+                    </A>
                 </div>
                 
                 <div class="footer-center">
                     <span class="footer-meta">"© 2026 UPSYL"</span>
                     <span class="divider">"|"</span>
-                    <a href="/terms" class="footer-link">"Terms"</a>
+                    <A href="/terms" attr:class="footer-link">"Terms"</A>
                     <span class="divider">"•"</span>
-                    <a href="/privacy" class="footer-link">"Privacy"</a>
+                    <A href="/privacy" attr:class="footer-link">"Privacy"</A>
                     <span class="divider">"•"</span>
-                    <a href="/rules" class="footer-link">"Rules"</a>
+                    <A href="/rules" attr:class="footer-link">"Rules"</A>
                     <span class="divider">"•"</span>
-                    <a href="/cookies" class="footer-link">"Cookies"</a>
+                    <A href="/cookies" attr:class="footer-link">"Cookies"</A>
                     <span class="divider">"|"</span>
-                    <a href="/contact" class="footer-link">"Support"</a>
+                    <A href="/contact" attr:class="footer-link">"Support"</A>
                 </div>
 
                 <div class="footer-right">
@@ -315,6 +332,8 @@ fn AuthNav() -> impl IntoView {
     });
 
     let (show_dropdown, set_show_dropdown) = signal(false);
+    let theme = use_global_state().theme;
+    let set_theme = use_global_state().set_theme;
     
     view! {
         {move || match auth.user.get() {
@@ -322,7 +341,6 @@ fn AuthNav() -> impl IntoView {
                     <div style="display: flex; align-items: center; gap: var(--s-6);">
                         <Suspense>
                             {move || {
-                                let _history = auth.history;
                                 let res = auth.credits.get();
                                 match res {
                                     Some(credits) => view! { 
@@ -360,45 +378,33 @@ fn AuthNav() -> impl IntoView {
                             <div class="dropdown-header">
                                 <span class="user-email">{user.email.clone().unwrap_or_default()}</span>
                             </div>
-                             <a href="/history" class="dropdown-item">
-                                 <HistoryIcon size={16} />
-                                 "My History"
-                             </a>
-                             <a href="/settings" class="dropdown-item">
-                                 <CreditCard size={16} />
-                                 "Billing & Credits"
-                             </a>
-                             <div class="dropdown-divider"></div>
-                             <a href="/terms" class="dropdown-item">
-                                 <FileText size={16} />
-                                 "Terms & Privacy"
-                             </a>
-                             <a href="/contact" class="dropdown-item">
-                                 <Mail size={16} />
-                                 "Support & Contact"
-                             </a>
+                             <A href="/account" attr:class="dropdown-item">
+                                 <UserIcon size={16} />
+                                 "Account Settings"
+                             </A>
                              <div 
-                                 class="dropdown-item" 
+                                 class="dropdown-item"
                                  on:click=move |_| {
-                                     let window = web_sys::window().unwrap();
-                                     if let Some(pw) = window.prompt_with_message("Enter your new password:").ok().flatten() {
-                                         if pw.len() < 1 { return; }
-                                         let auth = auth;
-                                         leptos::task::spawn_local(async move {
-                                             let token = auth.session.get().map(|s| s.access_token);
-                                             let res = ApiClient::change_password(token.as_deref(), &pw).await;
-                                             match res {
-                                                 Ok(_) => window.alert_with_message("Password updated successfully.").unwrap(),
-                                                 Err(e) => window.alert_with_message(&format!("Failed to update password: {}", e)).unwrap(),
-                                             }
-                                         });
-                                     }
+                                     set_theme.update(|t| {
+                                         *t = if *t == "dark" { "light".to_string() } else { "dark".to_string() };
+                                     });
                                  }
                              >
-                                 <Lock size={16} />
-                                 "Change Password"
+                                 {move || if theme.get() == "dark" {
+                                     view! { <><Sun size={16} /> "LIGHT MODE"</> }.into_any()
+                                 } else {
+                                     view! { <><Moon size={16} /> "DARK MODE"</> }.into_any()
+                                 }}
                              </div>
                              <div class="dropdown-divider"></div>
+                             <A href="/terms" attr:class="dropdown-item">
+                                 <crate::components::icons::ShieldCheck size={16} />
+                                 "Terms of Service"
+                             </A>
+                             <A href="/contact" attr:class="dropdown-item">
+                                 <crate::components::icons::Mail size={16} />
+                                 "Contact Support"
+                             </A>
                              <div class="dropdown-item error" on:click=move |_| auth.logout()>
                                  <LogOut size={16} />
                                  "Sign Out"

@@ -26,11 +26,14 @@ pub fn HistoryGallery() -> impl IntoView {
                 </button>
             </div>
 
-            <Suspense fallback=move || view! { 
-                <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10rem 0; gap: var(--s-6);">
-                    <crate::components::icons::LoadingSpinner />
-                    <span class="scanning-text">"Synchronizing..."</span>
-                </div> 
+            <Suspense fallback=move || {
+                view! {
+                    <div class="history-grid">
+                        {(0..8).map(|_| view! { 
+                            <div class="card history-card skeleton" style="height: 380px; opacity: 0.5;"></div> 
+                        }).collect_view()}
+                    </div>
+                }
             }>
                 {move || {
                     let h = auth.history.get();
@@ -54,8 +57,10 @@ pub fn HistoryGallery() -> impl IntoView {
                             }
                         }
                         None => view! {
-                            <div class="loading-grid">
-                                {(0..6).map(|_| view! { <div class="skeleton-card"></div> }).collect_view()}
+                            <div class="history-grid">
+                                {(0..8).map(|_| view! { 
+                                    <div class="card history-card skeleton" style="height: 380px; opacity: 0.5;"></div> 
+                                }).collect_view()}
                             </div> 
                         }.into_any()
                     }
@@ -125,8 +130,19 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
         <div class="card history-card">
             <div class="card-visual">
                 {
-                    match item.image_url.clone() {
-                        Some(url) => view! { <img src=url /> }.into_any(),
+                    let url = item.preview_url.clone().or_else(|| item.image_url.clone());
+                    match url {
+                        Some(u) => {
+                            let (loaded, set_loaded) = signal(false);
+                            view! { 
+                                <img 
+                                    src=u 
+                                    loading="lazy" 
+                                    class:loaded=loaded 
+                                    on:load=move |_| set_loaded.set(true)
+                                /> 
+                            }.into_any()
+                        },
                         _ => view! { <div class="visual-placeholder"><ImageIcon size={32} /></div> }.into_any(),
                     }
                 }
@@ -152,12 +168,19 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                     
                     <div class="card-actions">
                         {
+                            let status = item.status.clone();
                             match item.image_url.clone() {
                                 Some(url) => view! {
                                     <a href=url target="_blank" class="btn btn-primary btn-sm" style="flex: 1; text-decoration: none;">
                                         <Download size={12} />
-                                        "EXPORT"
+                                        "DOWNLOAD"
                                     </a>
+                                }.into_any(),
+                                _ if status == "FAILED" => view! {
+                                    <button class="btn btn-secondary btn-sm" disabled=true style="flex: 1; opacity: 0.35; filter: grayscale(1); cursor: not-allowed; border-color: var(--glass-border); gap: var(--s-1);">
+                                        <Download size={12} />
+                                        "DOWNLOAD"
+                                    </button>
                                 }.into_any(),
                                 _ => view! {
                                     <button class="btn btn-secondary btn-sm" disabled=true style="flex: 1; opacity: 0.35; filter: grayscale(1); cursor: not-allowed; border-color: var(--glass-border);">

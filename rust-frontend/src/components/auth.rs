@@ -260,10 +260,34 @@ pub fn ForgotPassword() -> impl IntoView {
     let (email, set_email) = signal(String::new());
     let (submitted, set_submitted) = signal(false);
 
+    let auth = use_auth();
+    let (error, set_error) = signal(Option::<String>::None);
+    let (loading, set_loading) = signal(false);
+
     let on_submit = move |ev: leptos::web_sys::SubmitEvent| {
         ev.prevent_default();
-        // Placeholder for password reset logic
-        set_submitted.set(true);
+        let email_val = email.get();
+        if email_val.is_empty() { return; }
+        
+        set_loading.set(true);
+        set_error.set(None);
+        
+        // Define redirect URL
+        // In production this should be your domain, for now we assume localhost for dev
+        let redirect_to = "http://localhost:8080/auth/callback"; 
+
+        let ctx = auth;
+        leptos::task::spawn_local(async move {
+            match ctx.recover_password(&email_val, redirect_to).await {
+                Ok(_) => {
+                    set_submitted.set(true);
+                }
+                Err(e) => {
+                    set_error.set(Some(e));
+                }
+            }
+            set_loading.set(false);
+        });
     };
 
     view! {
@@ -292,7 +316,10 @@ pub fn ForgotPassword() -> impl IntoView {
                                     required
                                 />
                             </div>
-                            <button type="submit" class="btn btn-primary" style="margin-top: 2rem; width: 100%;">"Send Reset Link"</button>
+                            {move || error.get().map(|e| view! { <p class="error-msg" style="margin-top: 1rem;">{e}</p> })}
+                            <button type="submit" class="btn btn-primary" disabled=loading.get() style="margin-top: 2rem; width: 100%;">
+                                {move || if loading.get() { "SENDING..." } else { "Send Reset Link" }}
+                            </button>
                             <a href="/login" class="btn btn-secondary" style="margin-top: 1rem; width: 100%;">"Back to Login"</a>
                         </form>
                     })

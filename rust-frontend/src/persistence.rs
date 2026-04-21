@@ -19,6 +19,7 @@ pub struct SettingsState {
     pub keep_depth_of_field: bool,
     pub lighting: String,
     pub thinking_level: String,
+    pub theme: String,
 }
 
 pub fn save_classification(style: Option<String>) {
