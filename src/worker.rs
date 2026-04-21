@@ -63,7 +63,19 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     };
 
     info!("Sending request to Vertex AI for job {} (temp={}, quality={})", job.id, job.temperature, job.quality);
-    let gemini_response = state.client.generate_image(token_data.as_str(), request).await?;
+    
+    let start_time = std::time::Instant::now();
+    let gemini_response = state.client.generate_image(token_data.as_str(), request).await;
+    let duration = start_time.elapsed();
+    let latency_ms = duration.as_millis() as i32;
+
+    let gemini_response = match gemini_response {
+        Ok(res) => res,
+        Err(e) => {
+            state.db.update_job_failed(job.id, &e.to_string(), latency_ms).await?;
+            return Err(e);
+        }
+    };
 
     let candidate = gemini_response.candidates.first()
         .ok_or("Gemini returned no candidates")?;
@@ -74,12 +86,14 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     let image_bytes = general_purpose::STANDARD.decode(&inline_data.data)?;
 
     if candidate.finish_reason == "SAFETY" {
+        state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
         return Err("Image rejected by internal safety filters.".into());
     }
 
     // Google Vertex AI sometimes returns a 64x64 pure black image bypass instead of explicitly tagging SAFETY
     if let Ok(generated_img) = image::load_from_memory(&image_bytes) {
         if generated_img.width() == 64 && generated_img.height() == 64 {
+            state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
             return Err("Image rejected by internal safety filters.".into());
         }
     }
@@ -93,7 +107,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     // 6. Update database with success
     let usage_json = serde_json::to_value(&gemini_response.usage_metadata).unwrap_or(serde_json::json!({}));
-    state.db.update_job_success(job.id, &processed_path, &usage_json).await?;
+    state.db.update_job_success(job.id, &processed_path, &usage_json, latency_ms).await?;
 
     Ok(())
 }

@@ -18,7 +18,7 @@ pub fn Credits() -> impl IntoView {
             <div class="page-header">
                 <div class="header-main">
                     <h1 class="text-gradient stagger-1">"Credits & Usage"</h1>
-                    <p class="muted stagger-2">"Manage your upscaling credits and view your activity history."</p>
+                    <p class="muted stagger-2">"Manage your credits and view your activity history."</p>
                 </div>
             </div>
 
@@ -44,7 +44,7 @@ pub fn Credits() -> impl IntoView {
                             </div>
                             <div class="stat-box">
                                 <span class="stat-label">"Status"</span>
-                                <span class="stat-value highlight">"VERIFIED"</span>
+                                <span class="stat-value highlight">"SYNCED"</span>
                             </div>
                         </div>
                     </div>
@@ -108,25 +108,28 @@ pub fn Credits() -> impl IntoView {
                                 <tr>
                                     <th>"ASSET ID"</th>
                                     <th>"TIMESTAMP"</th>
-                                    <th>"FIDELITY"</th>
+                                    <th>"RECON"</th>
                                     <th>"ENGINE"</th>
+                                    <th>"UNITS"</th>
                                     <th>"STATUS"</th>
-                                    <th>"LATENCY"</th>
+                                    <th>"DURATION"</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                <Suspense fallback=|| view! { <tr><td colspan="6" style="padding: 6rem; text-align: center; opacity: 0.3;">"Synchronizing telemetry stream..."</td></tr> }>
+                                <Suspense fallback=|| view! { <tr><td colspan="7" style="padding: 6rem; text-align: center; opacity: 0.3;">"Synchronizing telemetry stream..."</td></tr> }>
                                     {move || {
                                         let h = auth.history.get();
                                         match h {
                                             Some(items) => items.into_iter().map(|item| {
-                                                let id_short = item.id.to_string()[..8].to_string();
+                                                let id_short = item.id.to_string()[..8].to_string().to_uppercase();
                                                 let status_label = if item.status == "COMPLETED" { "VERIFIED".to_string() } else { item.status.clone() };
                                                 let item_url = item.image_url;
                                                 let item_created = item.created_at;
                                                 let item_quality = item.quality.replace(" RECON", "");
                                                 let item_style = item.style.unwrap_or_else(|| "AUTO".to_string());
                                                 let item_status_lower = item.status.to_lowercase();
+                                                let item_latency = format!("{:.1}S", item.latency_ms as f32 / 1000.0);
+                                                let item_credits = format!("{}U", item.credits_charged);
                                                 
                                                 view! {
                                                     <tr>
@@ -139,12 +142,13 @@ pub fn Credits() -> impl IntoView {
                                                         <td>{item_created}</td>
                                                         <td>{item_quality}</td>
                                                         <td>{item_style}</td>
+                                                        <td class="credits-cell">{item_credits}</td>
                                                         <td><span class=format!("status-chip {}", item_status_lower)>{status_label}</span></td>
-                                                        <td class="latency-cell">"~15.4S"</td>
+                                                        <td class="latency-cell">{item_latency}</td>
                                                     </tr>
                                                 }
                                             }).collect_view().into_any(),
-                                            None => view! { <tr><td colspan="6" style="padding: 6rem; text-align: center; opacity: 0.3;">"Acquiring telemetry data..."</td></tr> }.into_any()
+                                            None => view! { <tr><td colspan="7" style="padding: 6rem; text-align: center; opacity: 0.3;">"Acquiring telemetry data..."</td></tr> }.into_any()
                                         }
                                     }}
                                 </Suspense>
@@ -237,8 +241,9 @@ pub fn Credits() -> impl IntoView {
                 .usage-table tr:last-child td { border-bottom: none; }
                 .usage-table tr:hover td { background: hsl(var(--surface-raised) / 0.3); color: hsl(var(--text)); }
                 
-                .id-cell { opacity: 0.8; }
+                .id-cell { opacity: 0.8; font-weight: 850; color: hsl(var(--text-dim) / 0.8); }
                 .latency-cell { color: hsl(var(--success) / 0.82); font-weight: 800; }
+                .credits-cell { color: hsl(var(--accent)); font-weight: 800; opacity: 0.8; }
                 
                 .cell-link { color: hsl(var(--accent)); text-decoration: none; font-weight: 800; transition: opacity 0.2s; }
                 .cell-link:hover { opacity: 0.8; }

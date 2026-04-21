@@ -189,7 +189,7 @@ fn MainLayout() -> impl IntoView {
                     {move || auth.user.get().is_some().then(|| view! {
                         <>
                             <a href="/history">"HISTORY"</a>
-                            <a href="/settings">"CREDITS"</a>
+                            <a href="/settings">"BILLING"</a>
                         </>
                     })}
                     <AuthNav />

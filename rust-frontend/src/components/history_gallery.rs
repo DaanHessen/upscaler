@@ -22,7 +22,7 @@ pub fn HistoryGallery() -> impl IntoView {
                 </div>
                 <button class="btn btn-secondary btn-sm stagger-3" on:click=move |_| auth.sync_telemetry(true)>
                     <RefreshCw size={14} />
-                    "Refresh"
+                    "REFRESH"
                 </button>
             </div>
 
@@ -41,7 +41,7 @@ pub fn HistoryGallery() -> impl IntoView {
                                 view! {
                                     <div class="empty-state">
                                         <ImageIcon size={48} />
-                                        <h3>"Empty Vault"</h3>
+                                        <h3>"Empty"</h3>
                                         <p>"Successfully processed images will appear here for 24 hours."</p>
                                     </div>
                                 }.into_any()
@@ -160,8 +160,8 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                                     </a>
                                 }.into_any(),
                                 _ => view! {
-                                    <button class="btn btn-secondary btn-sm" disabled=true style="flex: 1; opacity: 0.5;">
-                                        "UNAVAILABLE"
+                                    <button class="btn btn-secondary btn-sm" disabled=true style="flex: 1; opacity: 0.35; filter: grayscale(1); cursor: not-allowed; border-color: var(--glass-border);">
+                                        "LOCKED"
                                     </button>
                                 }.into_any(),
                             }

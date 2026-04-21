@@ -77,6 +77,8 @@ struct HistoryItem {
     pub error: Option<String>,
     pub prompt_settings: serde_json::Value,
     pub usage_metadata: serde_json::Value,
+    pub latency_ms: i32,
+    pub credits_charged: i32,
 }
 
 #[derive(Serialize)]
@@ -387,7 +389,7 @@ struct ChangePasswordRequest {
 async fn change_password_handler(
     State(state): State<Arc<AppState>>,
     jwt: JwtAuth,
-    HeaderMap(headers): HeaderMap,
+    headers: HeaderMap,
     Json(body): Json<ChangePasswordRequest>,
 ) -> impl IntoResponse {
     let user_id = match Uuid::parse_str(&jwt.user_id) {
@@ -431,9 +433,9 @@ async fn change_password_handler(
                     error!("Supabase password update failed for user {}: {} - {}", user_id, status, err_text);
                     
                     // Try to parse error from Supabase
-                    let err_json: serde_json::Value = serde_json::from_str(&err_text).unwrap_or_default();
-                    let msg = err_json.get("msg")
-                        .or(err_json.get("error_description"))
+                    let err_data: serde_json::Value = serde_json::from_str(&err_text).unwrap_or_default();
+                    let msg = err_data.get("msg")
+                        .or(err_data.get("error_description"))
                         .and_then(|v| v.as_str())
                         .unwrap_or("Failed to update password");
 
@@ -560,6 +562,8 @@ async fn history_handler(
             error: rec.error_msg,
             prompt_settings: rec.prompt_settings,
             usage_metadata: rec.usage_metadata,
+            latency_ms: rec.latency_ms,
+            credits_charged: rec.credits_charged,
         };
 
         if item.status == "COMPLETED" {
@@ -884,7 +888,7 @@ async fn queue_worker(state: Arc<AppState>) {
                 let state_clone = state.clone();                tokio::spawn(async move {
                     if let Err(e) = upscaler::worker::process_upscale_job(&state_clone, &job).await {
                         error!("Job {} failed: {}", job.id, e);
-                        if let Err(db_err) = state_clone.db.update_job_failed(job.id, &e.to_string()).await {
+                        if let Err(db_err) = state_clone.db.update_job_failed(job.id, &e.to_string(), 0).await {
                             error!("Failed to update job status to FAILED for {}: {}", job.id, db_err);
                         }
                         // Refund credits on processing failure

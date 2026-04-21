@@ -21,6 +21,7 @@ pub struct UpscaleRecord {
     pub credits_charged: i32,
     pub prompt_settings: serde_json::Value,
     pub usage_metadata: serde_json::Value,
+    pub latency_ms: i32,
 }
 
 #[derive(Clone)]
@@ -50,12 +51,14 @@ pub trait DbProvider: Send + Sync {
         id: Uuid,
         output_path: &str,
         usage_metadata: &serde_json::Value,
+        latency_ms: i32,
     ) -> Result<(), Box<dyn Error + Send + Sync>>;
 
     async fn update_job_failed(
         &self,
         id: Uuid,
         error_msg: &str,
+        latency_ms: i32,
     ) -> Result<(), Box<dyn Error + Send + Sync>> ;
 
     async fn get_job_status(&self, id: Uuid) -> Result<Option<UpscaleRecord>, Box<dyn Error + Send + Sync>>;
@@ -126,7 +129,7 @@ impl DbProvider for DbService {
         let rec = sqlx::query_as::<_, UpscaleRecord>(
             "UPDATE upscales SET status = 'PROCESSING' WHERE id = (
                 SELECT id FROM upscales WHERE status = 'PENDING' ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1
-            ) RETURNING id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata"
+            ) RETURNING id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms"
         )
         .fetch_optional(&self.pool)
         .await?;
@@ -138,12 +141,14 @@ impl DbProvider for DbService {
         id: Uuid,
         output_path: &str,
         usage_metadata: &serde_json::Value,
+        latency_ms: i32,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         sqlx::query(
-            "UPDATE upscales SET status = 'COMPLETED', output_path = $1, usage_metadata = $2 WHERE id = $3"
+            "UPDATE upscales SET status = 'COMPLETED', output_path = $1, usage_metadata = $2, latency_ms = $3 WHERE id = $4"
         )
         .bind(output_path)
         .bind(usage_metadata)
+        .bind(latency_ms)
         .bind(id)
         .execute(&self.pool)
         .await?;
@@ -154,11 +159,13 @@ impl DbProvider for DbService {
         &self,
         id: Uuid,
         error_msg: &str,
+        latency_ms: i32,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         sqlx::query(
-            "UPDATE upscales SET status = 'FAILED', error_msg = $1 WHERE id = $2"
+            "UPDATE upscales SET status = 'FAILED', error_msg = $1, latency_ms = $2 WHERE id = $3"
         )
         .bind(error_msg)
+        .bind(latency_ms)
         .bind(id)
         .execute(&self.pool)
         .await?;
@@ -167,7 +174,7 @@ impl DbProvider for DbService {
 
     async fn get_job_status(&self, id: Uuid) -> Result<Option<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let rec = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata FROM upscales WHERE id = $1"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE id = $1"
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -177,7 +184,7 @@ impl DbProvider for DbService {
 
     async fn get_user_history(&self, user_id: Uuid) -> Result<Vec<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let records = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata FROM upscales WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50"
         )
         .bind(user_id)
         .fetch_all(&self.pool)
@@ -340,7 +347,7 @@ impl DbProvider for SqliteDb {
         // SQLite doesn't support FOR UPDATE SKIP LOCKED exactly the same way, 
         // but for a single-threaded test mock it's fine
         let rec = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata FROM upscales WHERE status = 'PENDING' LIMIT 1"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE status = 'PENDING' LIMIT 1"
         )
         .fetch_optional(&self.pool)
         .await?;
@@ -352,19 +359,21 @@ impl DbProvider for SqliteDb {
         Ok(rec)
     }
 
-    async fn update_job_success(&self, id: Uuid, output_path: &str, usage_metadata: &serde_json::Value) -> Result<(), Box<dyn Error + Send + Sync>> {
-        sqlx::query("UPDATE upscales SET status = 'COMPLETED', output_path = ?, usage_metadata = ? WHERE id = ?")
+    async fn update_job_success(&self, id: Uuid, output_path: &str, usage_metadata: &serde_json::Value, latency_ms: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+        sqlx::query("UPDATE upscales SET status = 'COMPLETED', output_path = ?, usage_metadata = ?, latency_ms = ? WHERE id = ?")
             .bind(output_path)
             .bind(usage_metadata.to_string())
+            .bind(latency_ms)
             .bind(id)
             .execute(&self.pool)
             .await?;
         Ok(())
     }
 
-    async fn update_job_failed(&self, id: Uuid, error_msg: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
-        sqlx::query("UPDATE upscales SET status = 'FAILED', error_msg = ? WHERE id = ?")
+    async fn update_job_failed(&self, id: Uuid, error_msg: &str, latency_ms: i32) -> Result<(), Box<dyn Error + Send + Sync>> {
+        sqlx::query("UPDATE upscales SET status = 'FAILED', error_msg = ?, latency_ms = ? WHERE id = ?")
             .bind(error_msg)
+            .bind(latency_ms)
             .bind(id)
             .execute(&self.pool)
             .await?;
@@ -373,7 +382,7 @@ impl DbProvider for SqliteDb {
 
     async fn get_job_status(&self, id: Uuid) -> Result<Option<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let rec = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata FROM upscales WHERE id = ?"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE id = ?"
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -383,7 +392,7 @@ impl DbProvider for SqliteDb {
 
     async fn get_user_history(&self, user_id: Uuid) -> Result<Vec<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let records = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata FROM upscales WHERE user_id = ? ORDER BY created_at DESC"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE user_id = ? ORDER BY created_at DESC"
         )
         .bind(user_id)
         .fetch_all(&self.pool)

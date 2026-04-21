@@ -32,6 +32,8 @@ pub struct HistoryItem {
     pub error: Option<String>,
     pub prompt_settings: serde_json::Value,
     pub usage_metadata: serde_json::Value,
+    pub latency_ms: i32,
+    pub credits_charged: i32,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
