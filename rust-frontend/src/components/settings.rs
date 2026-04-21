@@ -5,6 +5,11 @@ use crate::auth::use_auth;
 #[component]
 pub fn Credits() -> impl IntoView {
     let auth = use_auth();
+    
+    // Trigger throttled telemetry sync on mount (handles SPA navigation)
+    Effect::new(move |_| {
+        auth.sync_telemetry(false);
+    });
 
     let (selected_pack, set_selected_pack) = signal(10); // Default to 10 euro pack
 
@@ -87,11 +92,11 @@ pub fn Credits() -> impl IntoView {
             <div class="history-section">
                 <div class="history-header">
                     <div class="history-title">
-                        <h2>"Telemetry Logs"</h2>
-                        <p class="muted">"Secure logs of all system-level reconstruction activity."</p>
+                        <h2>"Logs"</h2>
+                        <p class="muted">"History of your previous upscales and credits usage."</p>
                     </div>
                     <div class="telemetry-badge">
-                        <span class="badge-label">"LOGGED ENTRIES:"</span>
+                        <span class="badge-label">"UPSCALED IMAGES:"</span>
                         <span class="badge-value">{move || auth.history.get().map(|v| v.len().to_string()).unwrap_or_else(|| "0".to_string())}</span>
                     </div>
                 </div>
@@ -101,13 +106,13 @@ pub fn Credits() -> impl IntoView {
                         <table class="usage-table">
                             <thead>
                                 <tr>
-                                    <th>"ASSET ID"</th>
+                                    <th>"ID"</th>
                                     <th>"TIMESTAMP"</th>
-                                    <th>"RECON"</th>
-                                    <th>"ENGINE"</th>
-                                    <th>"UNITS"</th>
+                                    <th>"QUALITY"</th>
+                                    <th>"STYLE"</th>
+                                    <th>"CREDITS"</th>
                                     <th>"STATUS"</th>
-                                    <th>"DURATION"</th>
+                                    <th>"TIME"</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -117,14 +122,14 @@ pub fn Credits() -> impl IntoView {
                                         match h {
                                             Some(items) => items.into_iter().map(|item| {
                                                 let id_short = item.id.to_string()[..8].to_string().to_uppercase();
-                                                let status_label = if item.status == "COMPLETED" { "VERIFIED".to_string() } else { item.status.clone() };
+                                                let status_label = if item.status == "COMPLETED" { "SUCCESS".to_string() } else { item.status.clone() };
                                                 let item_url = item.image_url;
                                                 let item_created = item.created_at;
                                                 let item_quality = item.quality.replace(" RECON", "");
                                                 let item_style = item.style.unwrap_or_else(|| "AUTO".to_string());
                                                 let item_status_lower = item.status.to_lowercase();
                                                 let item_latency = format!("{:.1}S", item.latency_ms as f32 / 1000.0);
-                                                let item_credits = format!("{}U", item.credits_charged);
+                                                let item_credits = format!("{}C", item.credits_charged);
                                                 
                                                 view! {
                                                     <tr>

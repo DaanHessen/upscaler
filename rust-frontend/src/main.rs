@@ -373,6 +373,7 @@ fn AuthNav() -> impl IntoView {
                         
                         <div 
                             class="dropdown-container"
+                            style="display: flex; align-items: center;"
                             on:mouseenter=move |_| set_show_dropdown.set(true)
                             on:mouseleave=move |_| set_show_dropdown.set(false)
                         >

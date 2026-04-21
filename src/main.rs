@@ -182,8 +182,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/auth/change-password", post(change_password_handler))
         .route("/admin/insights", get(admin_insights_handler))
         .layer(axum::extract::DefaultBodyLimit::max(25 * 1024 * 1024)) // 25MB
-        .layer(GovernorLayer { config: governor_conf })
-        .with_state(state.clone());
+        .layer(GovernorLayer { config: governor_conf });
 
     // Stripe webhook — NO auth, NO rate-limit (Stripe sends raw JSON with its own signature)
     let webhook_routes = Router::new()
@@ -191,10 +190,11 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .with_state(state.clone());
 
     let app = Router::new()
-        .merge(api_routes)
+        .nest("/api", api_routes)
         .merge(webhook_routes)
         .layer(CorsLayer::permissive())
-        .fallback_service(ServeDir::new("frontend"));
+        .fallback_service(ServeDir::new("frontend"))
+        .with_state(state.clone());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     let listener = tokio::net::TcpListener::bind(addr).await?;

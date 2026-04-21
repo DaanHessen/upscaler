@@ -80,7 +80,7 @@ impl ApiClient {
     }
 
     pub async fn get_balance(token: Option<&str>) -> Result<i32, String> {
-        let resp = Self::authenticated_request("GET", "/balance", token)
+        let resp = Self::authenticated_request("GET", "/api/balance", token)
             .send()
             .await
             .map_err(|e| e.to_string())?;
@@ -96,7 +96,7 @@ impl ApiClient {
     }
 
     pub async fn get_history(token: Option<&str>) -> Result<Vec<HistoryItem>, String> {
-        let resp = Self::authenticated_request("GET", "/history", token)
+        let resp = Self::authenticated_request("GET", "/api/history", token)
             .send()
             .await
             .map_err(|e| e.to_string())?;
@@ -112,7 +112,7 @@ impl ApiClient {
     }
 
     pub async fn poll_job(job_id: Uuid, token: Option<&str>) -> Result<PollResponse, String> {
-        let endpoint = format!("/upscales/{}", job_id);
+        let endpoint = format!("/api/upscales/{}", job_id);
         let resp = Self::authenticated_request("GET", &endpoint, token)
             .send()
             .await
@@ -133,7 +133,7 @@ impl ApiClient {
         let form_data = web_sys::FormData::new().map_err(|e| format!("{:?}", e))?;
         form_data.append_with_blob("image", file).map_err(|e| format!("{:?}", e))?;
 
-        let url = "/moderate";
+        let url = "/api/moderate";
         let mut req = Request::post(url);
         
         if let Some(t) = token {
@@ -173,7 +173,7 @@ impl ApiClient {
         let settings_json = serde_json::to_string(prompt_settings).unwrap_or_default();
         form_data.append_with_str("prompt_settings", &settings_json).map_err(|e| format!("{:?}", e))?;
 
-        let url = "/upscale";
+        let url = "/api/upscale";
         let mut req = Request::post(url);
         
         if let Some(t) = token {
@@ -197,7 +197,7 @@ impl ApiClient {
     }
 
     pub async fn get_health() -> Result<bool, String> {
-        let resp = Request::get("/health")
+        let resp = Request::get("/api/health")
             .send()
             .await
             .map_err(|e| e.to_string())?;
@@ -207,7 +207,7 @@ impl ApiClient {
 
     pub async fn change_password(token: Option<&str>, new_password: &str) -> Result<(), String> {
         let body = serde_json::json!({ "new_password": new_password });
-        let resp = Self::authenticated_request("POST", "/auth/change-password", token)
+        let resp = Self::authenticated_request("POST", "/api/auth/change-password", token)
             .json(&body)
             .map_err(|e| e.to_string())?
             .send()

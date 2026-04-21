@@ -372,9 +372,19 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
 
 .dropdown-container {
   position: relative;
-  /* Bridge the gap for hover stability */
-  padding-bottom: 20px;
-  margin-bottom: -20px;
+  /* Rely on ::after for hover bridge to avoid pushing the container and misaligning the icon */
+}
+
+/* Hover Bridge: ensures no gap between avatar and menu */
+.dropdown-container::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: var(--s-4);
+  background: transparent;
+  z-index: 998;
 }
 
 .dropdown-menu {
@@ -382,13 +392,17 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
   top: 100%;
   right: 0;
   width: 260px;
+  margin-top: 10px; /* Visual gap that is now bridged by pseudo-element */
   background-color: hsl(var(--surface-raised));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
-  padding: var(--s-2);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-2xl);
+  padding: var(--s-4);
   z-index: 1000;
   display: none;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .dropdown-menu.show {
