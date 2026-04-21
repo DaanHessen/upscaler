@@ -9,6 +9,7 @@ use leptos_router::components::*;
 use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
 use crate::api::ApiClient;
+use leptos_router::hooks::use_location;
 use crate::components::icons::{Zap, LogOut, Sun, Moon, UserIcon};
 use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
@@ -187,6 +188,28 @@ pub fn Root() -> impl IntoView {
 }
 
 #[component]
+fn NavLink(href: &'static str, children: Children) -> impl IntoView {
+    let location = use_location();
+    let is_active = move || {
+        let path = location.pathname.get();
+        if href == "/" {
+            path == "/"
+        } else {
+            path.starts_with(href)
+        }
+    };
+
+    view! {
+        <A 
+            href=href 
+            attr:class=move || if is_active() { "nav-link active" } else { "nav-link" }
+        >
+            {children()}
+        </A>
+    }
+}
+
+#[component]
 fn MainLayout() -> impl IntoView {
     let auth = use_auth();
     
@@ -199,11 +222,11 @@ fn MainLayout() -> impl IntoView {
                     <span>"STUDIO"</span>
                 </A>
                 <nav>
-                    <A href="/" attr:class="nav-link">"STUDIO"</A>
+                    <NavLink href="/">"STUDIO"</NavLink>
                     {move || auth.user.get().is_some().then(|| view! {
                         <>
-                            <A href="/history" attr:class="nav-link">"HISTORY"</A>
-                            <A href="/settings" attr:class="nav-link">"BILLING"</A>
+                            <NavLink href="/history">"HISTORY"</NavLink>
+                            <NavLink href="/settings">"BILLING"</NavLink>
                         </>
                     })}
                     <AuthNav />
@@ -337,7 +360,7 @@ fn AuthNav() -> impl IntoView {
     
     view! {
         {move || match auth.user.get() {
-            Some(user) => Either::Left(view! {
+            Some(user) => view! {
                     <div style="display: flex; align-items: center; gap: var(--s-6);">
                         <Suspense>
                             {move || {
@@ -358,67 +381,75 @@ fn AuthNav() -> impl IntoView {
                         <div class="dropdown-container">
                             <div 
                                 class="avatar-btn"
-                                on:mouseenter=move |_| set_show_dropdown.set(true)
                                 on:click=move |ev| {
                                     ev.stop_propagation();
                                     set_show_dropdown.update(|v| *v = !*v);
                                 }
                             >
-                            {user.email.clone().unwrap_or_default().chars().next().unwrap_or('?').to_uppercase().to_string()}
-                        </div>
-                        <div 
-                            class="dropdown-menu"
-                            class:show=show_dropdown
-                            on:mouseleave=move |_| set_show_dropdown.set(false)
-                            on:click=move |ev| {
-                                ev.stop_propagation();
-                                set_show_dropdown.set(false);
-                            }
-                        >
-                            <div class="dropdown-header">
-                                <span class="user-email">{user.email.clone().unwrap_or_default()}</span>
+                                {user.email.clone().unwrap_or_default().chars().next().unwrap_or('?').to_uppercase().to_string()}
                             </div>
-                             <A href="/account" attr:class="dropdown-item">
-                                 <UserIcon size={16} />
-                                 "Account Settings"
-                             </A>
-                             <div 
-                                 class="dropdown-item"
-                                 on:click=move |_| {
-                                     set_theme.update(|t| {
-                                         *t = if *t == "dark" { "light".to_string() } else { "dark".to_string() };
-                                     });
-                                 }
-                             >
-                                 {move || if theme.get() == "dark" {
-                                     view! { <><Sun size={16} /> "LIGHT MODE"</> }.into_any()
-                                 } else {
-                                     view! { <><Moon size={16} /> "DARK MODE"</> }.into_any()
-                                 }}
-                             </div>
-                             <div class="dropdown-divider"></div>
-                             <A href="/terms" attr:class="dropdown-item">
-                                 <crate::components::icons::ShieldCheck size={16} />
-                                 "Terms of Service"
-                             </A>
-                             <A href="/contact" attr:class="dropdown-item">
-                                 <crate::components::icons::Mail size={16} />
-                                 "Contact Support"
-                             </A>
-                             <div class="dropdown-item error" on:click=move |_| auth.logout()>
-                                 <LogOut size={16} />
-                                 "Sign Out"
-                             </div>
+                            
+                            // Backdrop for click-outside
+                            {move || show_dropdown.get().then(|| view! {
+                                <div 
+                                    style="position: fixed; inset: 0; z-index: 999; background: transparent; cursor: default;"
+                                    on:click=move |_| set_show_dropdown.set(false)
+                                ></div>
+                            })}
+
+                            <div 
+                                class="dropdown-menu"
+                                class:show=show_dropdown
+                                style="z-index: 1000;"
+                                on:click=move |_| {
+                                    set_show_dropdown.set(false);
+                                }
+                            >
+                                <div class="dropdown-header">
+                                    <span class="user-email">{user.email.clone().unwrap_or_default()}</span>
+                                </div>
+                                <A href="/account" attr:class="dropdown-item">
+                                    <UserIcon size={16} />
+                                    "Account Settings"
+                                </A>
+                                <div 
+                                    class="dropdown-item"
+                                    on:click=move |ev| {
+                                        ev.stop_propagation();
+                                        set_theme.update(|t| {
+                                            *t = if *t == "dark" { "light".to_string() } else { "dark".to_string() };
+                                        });
+                                    }
+                                >
+                                    {move || if theme.get() == "dark" {
+                                        view! { <div style="display: flex; align-items: center; gap: var(--s-3);"><Sun size={16} /> "LIGHT MODE"</div> }.into_any()
+                                    } else {
+                                        view! { <div style="display: flex; align-items: center; gap: var(--s-3);"><Moon size={16} /> "DARK MODE"</div> }.into_any()
+                                    }}
+                                </div>
+                                <div class="dropdown-divider"></div>
+                                <A href="/terms" attr:class="dropdown-item">
+                                    <crate::components::icons::ShieldCheck size={16} />
+                                    "Terms of Service"
+                                </A>
+                                <A href="/contact" attr:class="dropdown-item">
+                                    <crate::components::icons::Mail size={16} />
+                                    "Contact Support"
+                                </A>
+                                <div class="dropdown-item error" on:click=move |_| auth.logout()>
+                                    <LogOut size={16} />
+                                    "Sign Out"
+                                </div>
+                            </div>
                         </div>
-                    </div>
                 </div>
-            }),
-            None => Either::Right(view! {
+            }.into_any(),
+            None => view! {
                 <div style="display: flex; gap: var(--s-3); align-items: center;">
                     <a href="/login" class="nav-auth-btn ghost">"Sign In"</a>
                     <a href="/register" class="nav-auth-btn primary">"Create Account"</a>
                 </div>
-            }),
+            }.into_any(),
         }}
     }
 }

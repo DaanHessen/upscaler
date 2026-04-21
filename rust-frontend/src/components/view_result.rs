@@ -108,7 +108,7 @@ where F: Fn(()) + 'static + Copy {
 
     view! {
         <div class="polling-container fade-in">
-            <div class="processing-studio-card card shadow-lg">
+            <div class="processing-studio-card stagger-1">
                 <div class="params-body">
                     <div class="card-tag">
                         <Settings size={10} />
@@ -120,7 +120,7 @@ where F: Fn(()) + 'static + Copy {
                             <div class="scanner-frame">
                                 <div class="scanner-line"></div>
                                 <div class="scanner-glow"></div>
-                                <crate::components::icons::LoadingSpinner />
+                                <div class="scanner-lens"></div>
                             </div>
                         </div>
 
@@ -137,7 +137,7 @@ where F: Fn(()) + 'static + Copy {
                             </div>
                             <div class="telemetry-segment">
                                 <span class="t-label">"ENGINE"</span>
-                                <span class="t-value">"V2 STUDIO"</span>
+                                <span class="t-value">"STUDIO V2"</span>
                             </div>
                         </div>
                     </div>
@@ -146,7 +146,7 @@ where F: Fn(()) + 'static + Copy {
             
             <style>
                 ".polling-container { display: flex; align-items: center; justify-content: center; padding: var(--s-20) 0; min-height: 60vh; }
-                .processing-studio-card { width: 100%; max-width: 500px; background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); }
+                .processing-studio-card { width: 100%; max-width: 500px; background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--s-8); box-shadow: var(--shadow-xl); }
                 
                 .studio-processing-view { display: flex; flex-direction: column; align-items: center; gap: var(--s-10); padding: var(--s-10) 0; }
                 
@@ -162,9 +162,16 @@ where F: Fn(()) + 'static + Copy {
                     align-items: center; 
                     justify-content: center; 
                     overflow: hidden;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+                    box-shadow: 0 0 40px hsl(var(--accent) / 0.15);
                 }
-                .scanner-frame svg { color: hsl(var(--accent)); animation: spin 4s linear infinite; z-index: 10; opacity: 0.5; }
+                .scanner-lens {
+                    width: 60px;
+                    height: 60px;
+                    border-radius: 50%;
+                    border: 1px solid hsl(var(--accent) / 0.3);
+                    background: radial-gradient(circle at center, hsl(var(--accent) / 0.1), transparent);
+                    animation: pulse 2s infinite;
+                }
                 
                 .scanner-line { 
                     position: absolute; 
@@ -174,7 +181,7 @@ where F: Fn(()) + 'static + Copy {
                     height: 2px; 
                     background: hsl(var(--accent)); 
                     box-shadow: 0 0 15px hsl(var(--accent)); 
-                    animation: scan-move 2.5s ease-in-out infinite; 
+                    animation: scan-move 3s ease-in-out infinite; 
                     z-index: 5;
                 }
                 .scanner-glow {
@@ -182,9 +189,9 @@ where F: Fn(()) + 'static + Copy {
                     top: 0;
                     left: 0;
                     width: 100%;
-                    height: 30px;
+                    height: 40px;
                     background: linear-gradient(to bottom, hsl(var(--accent) / 0.2), transparent);
-                    animation: scan-glow-move 2.5s ease-in-out infinite;
+                    animation: scan-glow-move 3s ease-in-out infinite;
                     z-index: 4;
                 }
 
@@ -194,20 +201,18 @@ where F: Fn(()) + 'static + Copy {
                 }
                 @keyframes scan-glow-move {
                     0%, 100% { top: 0; transform: scaleY(1); }
-                    50% { top: calc(100% - 30px); transform: scaleY(-1); }
+                    50% { top: calc(100% - 40px); transform: scaleY(-1); }
                 }
 
                 .processing-meta { text-align: center; display: flex; flex-direction: column; gap: var(--s-2); }
-                .stage-tag { font-size: 0.625rem; font-weight: 900; color: hsl(var(--accent)); letter-spacing: 0.2em; text-transform: uppercase; }
-                .stage-title { font-size: 1.5rem; font-weight: 850; letter-spacing: -0.02em; color: hsl(var(--text)); }
-                .stage-desc { font-size: 0.8125rem; max-width: 320px; margin: 0 auto; color: hsl(var(--text-dim)); }
+                .stage-tag { font-size: 0.625rem; font-weight: 950; color: hsl(var(--accent)); letter-spacing: 0.25em; text-transform: uppercase; }
+                .stage-title { font-size: 1.5rem; font-weight: 850; letter-spacing: -0.04em; color: hsl(var(--text)); }
+                .stage-desc { font-size: 0.875rem; max-width: 320px; margin: 0 auto; color: hsl(var(--text-dim)); opacity: 0.8; }
 
-                .telemetry-bar { display: flex; gap: var(--s-8); margin-top: var(--s-4); padding-top: var(--s-6); border-top: 1px solid var(--glass-border); width: 100%; justify-content: center; }
-                .telemetry-segment { display: flex; flex-direction: column; gap: 2px; }
-                .t-label { font-size: 0.5rem; font-weight: 900; color: hsl(var(--text-dim)); opacity: 0.5; letter-spacing: 0.1em; }
-                .t-value { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-muted)); }
-
-                @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+                .telemetry-bar { display: flex; gap: var(--s-10); margin-top: var(--s-4); padding-top: var(--s-8); border-top: 1px solid var(--glass-border); width: 100%; justify-content: center; }
+                .telemetry-segment { display: flex; flex-direction: column; gap: 4px; align-items: center; }
+                .t-label { font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim)); opacity: 0.4; letter-spacing: 0.15em; }
+                .t-value { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; color: hsl(var(--text)); }
                 "
             </style>
         </div>

@@ -6,7 +6,7 @@ use base64::{engine::general_purpose, Engine as _};
 use std::error::Error;
 use std::sync::Arc;
 use uuid::Uuid;
-use tracing::info;
+use tracing::{info, warn, error};
 
 pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::UpscaleRecord) -> Result<(), Box<dyn Error + Send + Sync>> {
     // 1. Download original image

@@ -34,8 +34,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         storage,
         db,
         jwks,
-        supabase_jwt_secret: "not-needed-for-worker-test".to_string(),
-        admin_user_id: None,
+        config: upscaler::config::Config {
+            supabase_jwt_secret: "not-needed-for-worker-test".to_string(),
+            admin_user_id: None,
+            ..Default::default()
+        },
     });
 
     // 2. Mock a test user in SQLite

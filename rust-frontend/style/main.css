@@ -71,6 +71,33 @@
   --shadow-xl: 0 32px 64px -16px rgba(0,0,0,0.15);
 }
 
+/* --- Custom Scrollbar --- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--bg));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--surface-raised));
+  border: 3px solid hsl(var(--bg));
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--border));
+}
+
+/* --- Focus States --- */
+:focus-visible {
+  outline: 2px solid hsl(var(--accent));
+  outline-offset: 2px;
+}
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -172,7 +199,13 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   backdrop-filter: blur(10px);
-  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s, box-shadow 0.3s;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  border-color: hsl(var(--accent) / 0.25);
+  box-shadow: var(--shadow-md), 0 0 40px hsl(var(--accent) / 0.05);
 }
 
 .btn {
@@ -201,14 +234,16 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
 .btn-primary { 
   background-color: hsl(var(--text)); 
   color: hsl(var(--bg)); 
+  box-shadow: 0 4px 12px hsl(var(--text) / 0.1);
 }
 .btn-primary:hover { 
-  background-color: hsl(var(--text-muted)); 
-  transform: translateY(-1.5px); 
-  box-shadow: 0 12px 32px hsl(var(--text) / 0.15); 
+  background-color: hsl(var(--accent)); 
+  color: white;
+  transform: translateY(-2px); 
+  box-shadow: 0 12px 32px hsl(var(--accent) / 0.3); 
 }
-.btn-primary:active { transform: translateY(0); }
-.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary:active { transform: translateY(0) scale(0.98); }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
 .btn-secondary { 
   background-color: hsl(var(--surface-raised)); 

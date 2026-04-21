@@ -91,7 +91,7 @@ where
         let decoding_key = match header.alg {
             Algorithm::HS256 => {
                 // HS256: Use the Supabase JWT secret as raw bytes (it's a plain string, NOT base64)
-                let secret = &app_state.supabase_jwt_secret;
+                let secret = &app_state.config.supabase_jwt_secret;
                 trace!("Using HS256 with JWT secret ({} bytes)", secret.len());
                 DecodingKey::from_secret(secret.as_bytes())
             }
@@ -151,7 +151,7 @@ where
 
 impl JwtAuth {
     pub fn is_admin(&self, state: &crate::AppState) -> bool {
-        match &state.admin_user_id {
+        match &state.config.admin_user_id {
             Some(admin_id) => self.user_id == *admin_id,
             None => false,
         }

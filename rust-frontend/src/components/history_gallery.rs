@@ -2,6 +2,7 @@ use leptos::prelude::*;
 use crate::components::icons::{ImageIcon, Download, Calendar, RefreshCw, Zap};
 use crate::auth::use_auth;
 use crate::api::HistoryItem;
+use leptos_router::components::A;
 
 #[component]
 pub fn HistoryGallery() -> impl IntoView {
@@ -42,10 +43,11 @@ pub fn HistoryGallery() -> impl IntoView {
                             let filtered_items: Vec<_> = items.into_iter().filter(|item| item.status != "EXPIRED").collect();
                             if filtered_items.is_empty() {
                                 view! {
-                                    <div class="empty-state">
-                                        <ImageIcon size={48} />
-                                        <h3>"Empty"</h3>
-                                        <p>"Successfully processed images will appear here for 24 hours."</p>
+                                    <div class="empty-state stagger-2">
+                                        <div class="empty-icon"><ImageIcon size={48} /></div>
+                                        <h3>"Gallery Empty"</h3>
+                                        <p>"Successfully processed images will appear here. Records are preserved for 24 hours to ensure privacy and storage efficiency."</p>
+                                        <A href="/" attr:class="btn btn-secondary" attr:style="margin-top: var(--s-8)">"Back to Studio"</A>
                                     </div>
                                 }.into_any()
                             } else {
@@ -68,7 +70,7 @@ pub fn HistoryGallery() -> impl IntoView {
             </Suspense>
 
             <style>
-                ".history-container { width: 100%; max-width: 1200px; margin: 0 auto; }
+                ".history-container { width: 100%; max-width: 1200px; margin: 0 auto; min-height: 60vh; }
                 .history-header { margin-bottom: var(--s-16); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: flex-end; }
                 .vault-subtitle { font-size: 0.875rem; color: hsl(var(--text-dim)); font-weight: 500; }
                 
@@ -84,23 +86,20 @@ pub fn HistoryGallery() -> impl IntoView {
                     flex-direction: column;
                     align-items: center;
                     justify-content: center;
-                    padding: 8rem 2rem;
+                    padding: 10rem 2rem;
                     text-align: center;
-                    background: hsl(var(--surface));
-                    border: 1px solid var(--glass-border);
-                    border-radius: var(--radius-lg);
+                    background: transparent;
                     color: hsl(var(--text-dim));
                 }
-                .empty-state h3 { font-family: var(--font-heading); color: hsl(var(--text)); margin-top: var(--s-4); font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; }
-                .empty-state p { font-size: 0.875rem; max-width: 320px; margin-top: var(--s-2); opacity: 0.8; }
+                .empty-icon { opacity: 0.2; transform: scale(1.2); filter: drop-shadow(0 0 20px hsl(var(--text) / 0.1)); }
+                .empty-state h3 { font-family: var(--font-heading); color: hsl(var(--text)); margin-top: var(--s-8); font-size: 1.5rem; font-weight: 800; letter-spacing: -0.04em; }
+                .empty-state p { font-size: 0.9375rem; max-width: 400px; margin-top: var(--s-3); opacity: 0.6; line-height: 1.6; }
 
                 .loading-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: var(--s-8); }
                 .skeleton-card { height: 320px; background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); position: relative; overflow: hidden; }
-                .skeleton-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, hsl(var(--text) / 0.03), transparent); animation: shimmer 1.5s infinite; }
-                @keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-
+                
                 @media (max-width: 900px) {
-                    .history-header { margin-bottom: var(--s-10); }
+                    .history-header { margin-bottom: var(--s-10); flex-direction: column; align-items: flex-start; gap: var(--s-6); }
                     .header-main h1 { font-size: 1.75rem; }
                     .history-grid, .loading-grid { grid-template-columns: 1fr; }
                 }
@@ -183,8 +182,8 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                                     </button>
                                 }.into_any(),
                                 _ => view! {
-                                    <button class="btn btn-secondary btn-sm" disabled=true style="flex: 1; opacity: 0.35; filter: grayscale(1); cursor: not-allowed; border-color: var(--glass-border);">
-                                        "LOCKED"
+                                    <button class="btn btn-secondary btn-sm" disabled=true style="flex: 1; opacity: 0.4; filter: grayscale(1); cursor: not-allowed; border-color: var(--glass-border);">
+                                        <div style="display: flex; align-items: center; gap: 0.4rem; opacity: 0.5;"><Download size={14} /> "LOCKED"</div>
                                     </button>
                                 }.into_any(),
                             }

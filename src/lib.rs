@@ -1,3 +1,5 @@
+pub mod config;
+pub mod errors;
 pub mod auth;
 pub mod client;
 pub mod credits;
@@ -22,6 +24,5 @@ pub struct AppState {
     pub storage: Arc<dyn StorageProvider>,
     pub db: Arc<dyn DbProvider>,
     pub jwks: JwkSet,
-    pub supabase_jwt_secret: String,
-    pub admin_user_id: Option<String>,
+    pub config: crate::config::Config,
 }

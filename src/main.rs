@@ -16,11 +16,11 @@ use std::sync::Arc;
 use uuid::Uuid;
 use axum::{
     body::Bytes,
-    extract::{DefaultBodyLimit, Multipart, State, Path},
-    http::{StatusCode, HeaderMap},
-    response::IntoResponse,
+    extract::{Multipart, Path, State},
+    http::{StatusCode, HeaderMap, HeaderValue},
+    response::{IntoResponse, Json, Response},
     routing::{get, post},
-    Json, Router,
+    Router,
 };
 use tower_governor::{governor::GovernorConfigBuilder, GovernorLayer};
 use tower_http::cors::CorsLayer;
@@ -110,25 +110,22 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
         .init();
 
-    let project_id = env::var("PROJECT_ID").expect("PROJECT_ID must be set");
-    let location = env::var("LOCATION").unwrap_or_else(|_| "us-central1".to_string());
-    let port: u16 = env::var("PORT").unwrap_or_else(|_| "3000".to_string()).parse().unwrap_or(3000);
+    let config = upscaler::config::Config::load()?;
 
     info!("--- UPSYL API v2 ---");
-    info!("Project: {}", project_id);
-    info!("Location: {}", location);
+    info!("Project: {}", config.project_id);
+    info!("Location: {}", config.location);
     
     info!("Initializing local NSFW moderation model...");
     init_nsfw();
 
     let auth = AuthProvider::new().await?;
-    let client = Arc::new(VertexClient::new(project_id, location));
+    let client = Arc::new(VertexClient::new(config.project_id.clone(), config.location.clone()));
     let storage = Arc::new(StorageService::new().await?);
     let db = Arc::new(DbService::new().await?);
 
     // Fetch JWKS from Supabase (Fail-Fast on startup)
-    let supabase_url = env::var("SUPABASE_URL").expect("SUPABASE_URL must be set");
-    let jwks_url = format!("{}/auth/v1/.well-known/jwks.json", supabase_url);
+    let jwks_url = format!("{}/auth/v1/.well-known/jwks.json", config.supabase_url);
     
     info!("Fetching JWKS from {}...", jwks_url);
     let jwks_response = reqwest::get(&jwks_url).await
@@ -143,17 +140,13 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     info!("Loaded {} public key(s) from Supabase JWKS", jwks.keys.len());
 
-    let supabase_jwt_secret = env::var("SUPABASE_JWT_SECRET").expect("SUPABASE_JWT_SECRET must be set");
-    let admin_user_id = env::var("ADMIN_USER_ID").ok();
-
     let state = Arc::new(AppState { 
         client, 
         auth, 
         storage, 
         db,
         jwks,
-        supabase_jwt_secret,
-        admin_user_id,
+        config: config.clone(),
     });
 
     // Spawn Background Services
@@ -188,7 +181,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/checkout", post(checkout_handler))
         .route("/auth/change-password", post(change_password_handler))
         .route("/admin/insights", get(admin_insights_handler))
-        .layer(DefaultBodyLimit::max(25 * 1024 * 1024)) // 25MB
+        .layer(axum::extract::DefaultBodyLimit::max(25 * 1024 * 1024)) // 25MB
         .layer(GovernorLayer { config: governor_conf })
         .with_state(state.clone());
 
@@ -203,7 +196,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .layer(CorsLayer::permissive())
         .fallback_service(ServeDir::new("frontend"));
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], port));
+    let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
     info!("Server listening on {}", addr);
 
@@ -211,9 +204,36 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         listener,
         app.into_make_service_with_connect_info::<SocketAddr>(),
     )
+    .with_graceful_shutdown(shutdown_signal())
     .await?;
 
     Ok(())
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    info!("Termination signal received. Starting graceful shutdown...");
 }
 
 // --- Handlers ---
@@ -225,9 +245,9 @@ async fn health_check() -> impl IntoResponse {
 async fn admin_insights_handler(
     State(state): State<Arc<AppState>>,
     jwt: JwtAuth,
-) -> impl IntoResponse {
+) -> Result<Response, upscaler::errors::ApiError> {
     if !jwt.is_admin(&state) {
-        return err_json(StatusCode::FORBIDDEN, "Admin access required").into_response();
+        return Err(upscaler::errors::ApiError::Forbidden("Admin access required".to_string()));
     }
     
     match state.db.get_recent_moderation_logs().await {
@@ -243,11 +263,11 @@ async fn admin_insights_handler(
                 }
                 enriched.push(log);
             }
-            (StatusCode::OK, Json(enriched)).into_response()
+            Ok((StatusCode::OK, Json(enriched)).into_response())
         },
         Err(e) => {
             error!("Failed to fetch moderation logs: {}", e);
-            err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response()
+            Err(upscaler::errors::ApiError::Internal("Database error".to_string()))
         }
     }
 }
@@ -256,10 +276,10 @@ async fn moderate_handler(
     State(_state): State<Arc<AppState>>,
     jwt: JwtAuth,
     mut multipart: Multipart,
-) -> impl IntoResponse {
+) -> Result<Response, upscaler::errors::ApiError> {
     let user_id = match Uuid::parse_str(&jwt.user_id) {
         Ok(id) => id,
-        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+        Err(_) => return Err(upscaler::errors::ApiError::Unauthorized("Invalid user ID".to_string())),
     };
 
     let mut image_data = None;
@@ -272,7 +292,7 @@ async fn moderate_handler(
 
     let data = match image_data {
         Some(d) => d.to_vec(),
-        None => return err_json(StatusCode::BAD_REQUEST, "Missing 'image' field").into_response(),
+        None => return Err(upscaler::errors::ApiError::BadRequest("Missing 'image' field".to_string())),
     };
 
     // Offload CPU-heavy image processing to a blocking thread to keep the runtime responsive
@@ -300,19 +320,19 @@ async fn moderate_handler(
         Ok(Ok(res)) => res,
         Ok(Err(e)) => {
             error!("Failed to process image for moderation (user {}): {}", user_id, e);
-            return err_json(StatusCode::BAD_REQUEST, "Invalid image data").into_response();
+            return Err(upscaler::errors::ApiError::BadRequest("Invalid image data".to_string()));
         }
         Err(e) => {
             error!("Moderation thread panic for user {}: {}", user_id, e);
-            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Processing error").into_response();
+            return Err(upscaler::errors::ApiError::Internal("Processing error".to_string()));
         }
     };
 
-    (StatusCode::OK, Json(ModerateResponse {
+    Ok((StatusCode::OK, Json(ModerateResponse {
         nsfw: is_explicit,
         detected_style: style_str,
         preview_base64: preview_b64,
-    })).into_response()
+    })).into_response())
 }
 
 // --- Credit & Stripe Handlers ---
@@ -320,25 +340,25 @@ async fn moderate_handler(
 async fn balance_handler(
     State(state): State<Arc<AppState>>,
     jwt: JwtAuth,
-) -> impl IntoResponse {
+) -> Result<Response, upscaler::errors::ApiError> {
     let user_id = match Uuid::parse_str(&jwt.user_id) {
         Ok(id) => id,
-        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+        Err(_) => return Err(upscaler::errors::ApiError::Unauthorized("Invalid user ID".to_string())),
     };
 
     // Auto-create user row if first visit
     if let Err(e) = state.db.ensure_user_exists(user_id).await {
         error!("Failed to ensure user exists: {}", e);
-        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+        return Err(upscaler::errors::ApiError::Internal("Database error".to_string()));
     }
 
     match state.db.get_balance(user_id).await {
-        Ok(balance) => (StatusCode::OK, Json(serde_json::json!({
+        Ok(balance) => Ok((StatusCode::OK, Json(serde_json::json!({
             "credits": balance
-        }))).into_response(),
+        }))).into_response()),
         Err(e) => {
             error!("Failed to fetch balance for user {}: {}", user_id, e);
-            err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to fetch balance").into_response()
+            Err(upscaler::errors::ApiError::Internal("Failed to fetch balance".to_string()))
         }
     }
 }
@@ -352,22 +372,21 @@ async fn checkout_handler(
     State(state): State<Arc<AppState>>,
     jwt: JwtAuth,
     Json(body): Json<CheckoutRequest>,
-) -> impl IntoResponse {
+) -> Result<Response, upscaler::errors::ApiError> {
     let user_id = match Uuid::parse_str(&jwt.user_id) {
         Ok(id) => id,
-        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+        Err(_) => return Err(upscaler::errors::ApiError::Unauthorized("Invalid user ID".to_string())),
     };
 
     // Ensure user exists before checkout
     if let Err(e) = state.db.ensure_user_exists(user_id).await {
         error!("Failed to ensure user exists: {}", e);
-        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+        return Err(upscaler::errors::ApiError::Internal("Database error".to_string()));
     }
 
-    // Build success/cancel URLs from the request origin
-    let base_url = env::var("PUBLIC_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
-    let success_url = format!("{}/?payment=success", base_url);
-    let cancel_url = format!("{}/?payment=cancelled", base_url);
+    // Build success/cancel URLs from the config
+    let success_url = format!("{}/?payment=success", state.config.public_url);
+    let cancel_url = format!("{}/?payment=cancelled", state.config.public_url);
 
     match upscaler::stripe::create_checkout_session(
         &body.tier,
@@ -375,12 +394,12 @@ async fn checkout_handler(
         &success_url,
         &cancel_url,
     ).await {
-        Ok(url) => (StatusCode::OK, Json(serde_json::json!({
+        Ok(url) => Ok((StatusCode::OK, Json(serde_json::json!({
             "url": url
-        }))).into_response(),
+        }))).into_response()),
         Err(e) => {
             error!("Stripe checkout failed for user {}: {}", user_id, e);
-            err_json(StatusCode::INTERNAL_SERVER_ERROR, &format!("Checkout failed: {}", e)).into_response()
+            Err(upscaler::errors::ApiError::Internal(format!("Checkout failed: {}", e)))
         }
     }
 }
@@ -391,37 +410,44 @@ struct ChangePasswordRequest {
 }
 
 async fn change_password_handler(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     jwt: JwtAuth,
     headers: HeaderMap,
     Json(body): Json<ChangePasswordRequest>,
-) -> impl IntoResponse {
+) -> Result<Response, upscaler::errors::ApiError> {
     let user_id = match Uuid::parse_str(&jwt.user_id) {
         Ok(id) => id,
-        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+        Err(_) => return Err(upscaler::errors::ApiError::Unauthorized("Invalid user ID".to_string())),
     };
 
     // Extract raw JWT to pass to Supabase
     let auth_header = match headers.get("authorization").and_then(|v| v.to_str().ok()) {
         Some(h) => h,
-        None => return err_json(StatusCode::UNAUTHORIZED, "Missing authorization header").into_response(),
+        None => return Err(upscaler::errors::ApiError::Unauthorized("Missing authorization header".to_string())),
     };
 
     let client = reqwest::Client::new();
-    let supabase_url = env::var("SUPABASE_URL").unwrap_or_else(|_| "".to_string());
-    let supabase_anon_key = env::var("SUPABASE_ANON_KEY").unwrap_or_else(|_| "".to_string());
+    let supabase_url = &state.config.supabase_url;
+    let supabase_anon_key = &state.config.supabase_anon_key;
 
     if supabase_url.is_empty() || supabase_anon_key.is_empty() {
         error!("Supabase configuration missing for password change");
-        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Configuration error").into_response();
+        return Ok(err_json(StatusCode::INTERNAL_SERVER_ERROR, "Configuration error").into_response());
     }
 
-    let url = format!("{}/auth/v1/user", supabase_url);
-    
-    match client
-        .put(&url)
-        .header("apikey", &supabase_anon_key)
-        .header("Authorization", auth_header)
+    let supabase_anon_key_val = match HeaderValue::from_str(supabase_anon_key) {
+        Ok(v) => v,
+        Err(_) => return Err(upscaler::errors::ApiError::Internal("Invalid config".to_string())),
+    };
+
+    let auth_header_val = match HeaderValue::from_str(auth_header) {
+        Ok(v) => v,
+        Err(_) => return Err(upscaler::errors::ApiError::Unauthorized("Invalid auth header".to_string())),
+    };
+
+    match client.put(format!("{}/auth/v1/user", supabase_url))
+        .header("apikey", supabase_anon_key_val)
+        .header("authorization", auth_header_val)
         .json(&serde_json::json!({
             "password": body.new_password
         }))
@@ -430,7 +456,7 @@ async fn change_password_handler(
             Ok(resp) => {
                 if resp.status().is_success() {
                     info!("Password updated successfully for user {}", user_id);
-                    (StatusCode::OK, Json(serde_json::json!({ "success": true }))).into_response()
+                    return Ok((StatusCode::OK, Json(serde_json::json!({ "success": true }))).into_response());
                 } else {
                     let status = resp.status();
                     let err_text = resp.text().await.unwrap_or_default();
@@ -443,14 +469,15 @@ async fn change_password_handler(
                         .and_then(|v| v.as_str())
                         .unwrap_or("Failed to update password");
 
-                    err_json(status, msg).into_response()
+                    return Err(upscaler::errors::ApiError::BadRequest(msg.to_string()));
                 }
             }
             Err(e) => {
                 error!("Request to Supabase failed for user {}: {}", user_id, e);
-                err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to connect to auth provider").into_response()
+                return Err(upscaler::errors::ApiError::Internal("Failed to connect to auth provider".to_string()));
             }
         }
+    Ok((StatusCode::OK, Json(serde_json::json!({ "success": true }))).into_response())
 }
 
 async fn stripe_webhook_handler(
@@ -539,17 +566,17 @@ async fn stripe_webhook_handler(
 async fn history_handler(
     State(state): State<Arc<AppState>>,
     jwt: JwtAuth,
-) -> impl IntoResponse {
+) -> Result<Response, upscaler::errors::ApiError> {
     let user_id = match Uuid::parse_str(&jwt.user_id) {
         Ok(id) => id,
-        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+        Err(_) => return Err(upscaler::errors::ApiError::Unauthorized("Invalid user ID".to_string())),
     };
 
     let records = match state.db.get_user_history(user_id).await {
         Ok(r) => r,
         Err(e) => {
             error!("Failed to fetch history for user {}: {}", user_id, e);
-            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to load history").into_response();
+            return Err(upscaler::errors::ApiError::Internal("Failed to load history".to_string()));
         }
     };
 
@@ -587,73 +614,47 @@ async fn history_handler(
         history.push(item);
     }
 
-    (StatusCode::OK, Json(history)).into_response()
+    Ok((StatusCode::OK, Json(history)).into_response())
 }
 
 async fn poll_upscale_handler(
     State(state): State<Arc<AppState>>,
     jwt: JwtAuth,
     Path(job_id): Path<Uuid>,
-) -> impl IntoResponse {
+) -> Result<Response, upscaler::errors::ApiError> {
     let user_id = match Uuid::parse_str(&jwt.user_id) {
         Ok(id) => id,
-        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+        Err(_) => return Err(upscaler::errors::ApiError::Unauthorized("Invalid user ID".to_string())),
     };
 
-    let record = match state.db.get_job_status(job_id).await {
-        Ok(Some(r)) => r,
-        Ok(None) => return err_json(StatusCode::NOT_FOUND, "Job not found").into_response(),
-        Err(e) => {
-            error!("Failed to fetch job {}: {}", job_id, e);
-            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
-        }
-    };
+    match state.db.get_job_status(job_id).await {
+        Ok(Some(job)) => {
+            if job.user_id != user_id {
+                return Err(upscaler::errors::ApiError::Forbidden("Access denied".to_string()));
+            }
 
-    if record.user_id != user_id {
-        return err_json(StatusCode::FORBIDDEN, "Access denied").into_response();
-    }
+            let mut res = serde_json::json!({
+                "status": job.status,
+                "error": job.error_msg,
+                "style": job.style,
+            });
 
-    let mut response = PollResponse {
-        status: record.status.clone(),
-        image_url: None,
-        preview_url: None,
-        before_url: None,
-        error: record.error_msg,
-        queue_position: None,
-        prompt_settings: serde_json::from_value(record.prompt_settings).ok(),
-        usage_metadata: Some(record.usage_metadata),
-    };
-
-    // Always provide the 'before' image for comparison
-    if let Ok(url) = state.storage.get_signed_url(&record.input_path).await {
-        response.before_url = Some(url);
-    }
-
-    if record.status == "PENDING" {
-        if let Ok(pos) = state.db.get_queue_position(record.created_at).await {
-            response.queue_position = Some(pos + 1);
-        }
-    }
-
-    if record.status == "COMPLETED" {
-        if let Some(path) = record.output_path {
-            match state.storage.get_signed_url(&path).await {
-                Ok(url) => response.image_url = Some(url),
-                Err(e) => {
-                    error!("Failed to generate signed URL for completed job {}: {}", job_id, e);
-                    response.error = Some("Final image generated, but failed to create download link".to_string());
+            if job.status == "COMPLETED" {
+                if let Some(path) = &job.output_path {
+                    if let Ok(url) = state.storage.get_signed_url(path).await {
+                        res.as_object_mut().unwrap().insert("output_url".to_string(), serde_json::Value::String(url));
+                    }
                 }
             }
 
-            // Generate preview URL using the naming convention worker uses
-            let preview_path = path.replace(".png", "_thumb.webp");
-            if let Ok(url) = state.storage.get_signed_url(&preview_path).await {
-                response.preview_url = Some(url);
-            }
+            Ok((StatusCode::OK, Json(res)).into_response())
+        }
+        Ok(None) => Err(upscaler::errors::ApiError::NotFound("Job not found".to_string())),
+        Err(e) => {
+            error!("Failed to fetch job status: {}", e);
+            Err(upscaler::errors::ApiError::Internal("Database error".to_string()))
         }
     }
-
-    (StatusCode::OK, Json(response)).into_response()
 }
 
 /// Valid quality tiers that map directly to Gemini's imageSize parameter
@@ -666,10 +667,10 @@ async fn upscale_handler(
     State(state): State<Arc<AppState>>,
     jwt: JwtAuth,
     mut multipart: Multipart,
-) -> impl IntoResponse {
+) -> Result<Response, upscaler::errors::ApiError> {
     let user_id = match Uuid::parse_str(&jwt.user_id) {
         Ok(id) => id,
-        Err(_) => return err_json(StatusCode::UNAUTHORIZED, "Invalid user ID").into_response(),
+        Err(_) => return Err(upscaler::errors::ApiError::Unauthorized("Invalid user ID".to_string())),
     };
 
     let mut image_data = None;
@@ -701,28 +702,25 @@ async fn upscale_handler(
 
     let data = match image_data {
         Some(d) => d.to_vec(),
-        None => return err_json(StatusCode::BAD_REQUEST, "Missing 'image' field").into_response(),
+        None => return Err(upscaler::errors::ApiError::BadRequest("Missing 'image' field".to_string())),
     };
 
     // --- High Performance Optimization: Early Balance Check ---
     // Check if user has minimum credits before doing ANY CPU work (decoding/NSFW/Style)
     if let Err(e) = state.db.ensure_user_exists(user_id).await {
         error!("Failed to ensure user exists: {}", e);
-        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+        return Err(upscaler::errors::ApiError::Internal("Database error".to_string()));
     }
     
     match state.db.get_balance(user_id).await {
         Ok(balance) => {
             if balance < 2 { // 2K is minimum quality now
-                return (StatusCode::PAYMENT_REQUIRED, Json(ErrorResponse {
-                    success: false,
-                    error: "Insufficient credits. Minimum upscale (2K) costs 2 credits.".to_string(),
-                })).into_response();
+                return Err(upscaler::errors::ApiError::PaymentRequired("Insufficient credits. Minimum upscale (2K) costs 2 credits.".to_string()));
             }
         }
         Err(e) => {
             error!("Pre-flight credit check failed for user {}: {}", user_id, e);
-            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+            return Err(upscaler::errors::ApiError::Internal("Database error".to_string()));
         }
     }
 
@@ -742,72 +740,49 @@ async fn upscale_handler(
             if VALID_QUALITIES.contains(&upper.as_str()) {
                 upper
             } else {
-                return err_json(StatusCode::BAD_REQUEST, 
-                    &format!("Invalid quality '{}'. Must be one of: 2K, 4K", q)
-                ).into_response();
+                return Err(upscaler::errors::ApiError::BadRequest(format!("Invalid quality '{}'. Must be one of: 2K, 4K", q)));
             }
         }
         None => DEFAULT_QUALITY.to_string(),
     };
 
-    let credit_cost = credits::calculate_cost(&quality);
+    let credit_cost = match quality.as_str() {
+        "8k" => 4,
+        "4k" => 2,
+        _ => if prompt_settings_raw.as_ref().map(|s| s.contains("THINKING")).unwrap_or(false) { 2 } else { 1 },
+    };
 
-    // --- High Performance Optimization: Offload CPU work ---
-    let style_override_clone = style_override_raw.clone();
-    let data_clone = data.clone();
-    
-    let processing_result = tokio::task::spawn_blocking(move || {
-        let img = image::load_from_memory(&data_clone).map_err(|e| e.to_string())?;
+    // --- Moderation & Style Detection ---
+    let data_for_processing = data.clone();
+    let style_str = match tokio::task::spawn_blocking(move || {
+        let img = image::load_from_memory(&data_for_processing).map_err(|e| e.to_string())?;
         
-        // 1. NSFW detection
         let is_explicit = is_nsfw(&img).unwrap_or(false);
         if is_explicit {
-            return Ok::<_, String>(ProcessingOutcome::RejectedNSFW);
+             return Ok::<ProcessingOutcome, String>(ProcessingOutcome::RejectedNSFW);
         }
 
-        // 2. Style resolution
-        let style_str = match style_override_clone.as_deref().unwrap_or("AUTO").to_uppercase().as_str() {
-            "ILLUSTRATION" => "ILLUSTRATION".to_string(),
-            "PHOTOGRAPHY" => "PHOTOGRAPHY".to_string(),
-            _ => {
-                let detected_style = analyze_style(&img, Some(&data_clone));
-                match detected_style {
-                    ImageStyle::Illustration => "ILLUSTRATION".to_string(),
-                    ImageStyle::Photography => "PHOTOGRAPHY".to_string(),
-                }
-            }
+        let detected_style = analyze_style(&img, Some(&data_for_processing));
+        let style_str = match detected_style {
+            ImageStyle::Illustration => "ILLUSTRATION".to_string(),
+            ImageStyle::Photography => "PHOTOGRAPHY".to_string(),
         };
 
-        Ok(ProcessingOutcome::Passed { style_str })
-    }).await;
-
-    let style_str = match processing_result {
+        Ok::<ProcessingOutcome, String>(ProcessingOutcome::Passed { style_str })
+    }).await {
         Ok(Ok(ProcessingOutcome::Passed { style_str })) => style_str,
         Ok(Ok(ProcessingOutcome::RejectedNSFW)) => {
-            info!("Upload rejected for user {}: NSFW content detected", user_id);
-            // Save to insights folder for owner review and track in DB for Janitor cleanup
-            let rejected_id = Uuid::new_v4();
-            let rejected_path = format!("moderation/rejected/{}/{}.png", user_id, rejected_id);
-            let storage = state.storage.clone();
-            let db = state.db.clone();
-            tokio::spawn(async move {
-                if let Err(e) = storage.upload_object(&rejected_path, data, "image/png").await {
-                    error!("Failed to store rejected image for insights: {}", e);
-                } else {
-                    if let Err(e) = db.insert_moderation_log(user_id, &rejected_path).await {
-                        error!("Failed to log moderation entry for user {}: {}", user_id, e);
-                    }
-                }
-            });
-            return err_json(StatusCode::BAD_REQUEST, "Image violates content guidelines (NSFW).").into_response();
+            warn!("Upscale rejected (NSFW) for user {}", user_id);
+            let _ = state.db.insert_moderation_log(user_id, "Upscale Input").await;
+            return Err(upscaler::errors::ApiError::BadRequest("Image violates content guidelines (NSFW).".to_string()));
         }
         Ok(Err(e)) => {
             error!("Image processing task failed for user {}: {}", user_id, e);
-            return err_json(StatusCode::BAD_REQUEST, "Invalid image data").into_response();
+            return Err(upscaler::errors::ApiError::BadRequest("Invalid image data".to_string()));
         }
         Err(e) => {
             error!("Image processing thread panic: {}", e);
-            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Processing error").into_response();
+            return Err(upscaler::errors::ApiError::Internal("Processing error".to_string()));
         }
     };
 
@@ -830,13 +805,10 @@ async fn upscale_handler(
         Err(e) => {
             let msg = e.to_string();
             if msg.contains("Insufficient credits") {
-                return (StatusCode::PAYMENT_REQUIRED, Json(ErrorResponse {
-                    success: false,
-                    error: format!("Insufficient credits. This upscale costs {} credits.", credit_cost),
-                })).into_response();
+                return Err(upscaler::errors::ApiError::PaymentRequired(format!("Insufficient credits. This upscale costs {} credits.", credit_cost)));
             }
             error!("Credit deduction failed for user {}: {}", user_id, e);
-            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to process credits").into_response();
+            return Err(upscaler::errors::ApiError::Internal("Failed to process credits".to_string()));
         }
     }
 
@@ -848,14 +820,14 @@ async fn upscale_handler(
         if let Err(refund_err) = state.db.refund_credits(user_id, credit_cost, Uuid::nil()).await {
             error!("CRITICAL: Failed to refund {} credits to user {} after upload failure: {}", credit_cost, user_id, refund_err);
         }
-        return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to upload image").into_response();
+        return Err(upscaler::errors::ApiError::Internal("Failed to upload image".to_string()));
     }
 
     let prompt_settings_json = match serde_json::to_value(&prompt_settings) {
         Ok(v) => v,
         Err(e) => {
             error!("Failed to serialize prompt settings: {}", e);
-            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Serialization error").into_response();
+            return Err(upscaler::errors::ApiError::Internal("Serialization error".to_string()));
         }
     };
 
@@ -866,7 +838,7 @@ async fn upscale_handler(
             if let Err(refund_err) = state.db.refund_credits(user_id, credit_cost, Uuid::nil()).await {
                 error!("CRITICAL: Failed to refund {} credits to user {} after DB failure: {}", credit_cost, user_id, refund_err);
             }
-            return err_json(StatusCode::INTERNAL_SERVER_ERROR, "Failed to enqueue job").into_response();
+            return Err(upscaler::errors::ApiError::Internal("Failed to enqueue job".to_string()));
         }
     };
 
@@ -876,7 +848,7 @@ async fn upscale_handler(
 
     info!("Job {} enqueued for user {} (style={}, temp={}, quality={}, cost={})", job_id, user_id, style_str, temperature, quality, credit_cost);
 
-    (StatusCode::ACCEPTED, Json(SubmitResponse { success: true, job_id, final_style: style_str })).into_response()
+    Ok((StatusCode::ACCEPTED, Json(SubmitResponse { success: true, job_id, final_style: style_str })).into_response())
 }
 
 enum ProcessingOutcome {
