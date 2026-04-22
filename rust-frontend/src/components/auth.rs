@@ -126,6 +126,7 @@ pub fn Register() -> impl IntoView {
     let (error_msg, set_error_msg) = signal(Option::<String>::None);
     let (success_msg, set_success_msg) = signal(Option::<String>::None);
     let (loading, set_loading) = signal(false);
+    let (agreed, set_agreed) = signal(false);
 
     let on_submit = move |ev: leptos::web_sys::SubmitEvent| {
         ev.prevent_default();
@@ -217,6 +218,21 @@ pub fn Register() -> impl IntoView {
                                 required
                             />
                         </div>
+
+                        <div class="legal-checkbox-group" style="margin-top: var(--s-6); display: flex; gap: var(--s-3); align-items: flex-start;">
+                            <input 
+                                type="checkbox" 
+                                id="agree-terms"
+                                style="margin-top: 3px;"
+                                on:change=move |ev| set_agreed.set(event_target_checked(&ev))
+                                prop:checked=agreed
+                            />
+                            <label for="agree-terms" style="margin-bottom: 0; font-size: 0.75rem; font-weight: 500; line-height: 1.5; color: hsl(var(--text-muted)); cursor: pointer;">
+                                "I agree to the "
+                                <a href="/terms" style="color: hsl(var(--accent)); text-decoration: none; font-weight: 700;">"Terms of Service"</a> " and "
+                                <a href="/privacy" style="color: hsl(var(--accent)); text-decoration: none; font-weight: 700;">"Privacy Policy"</a>"."
+                            </label>
+                        </div>
                         
                         {move || match error_msg.get() {
                             Some(msg) => Either::Left(view! {
@@ -237,7 +253,7 @@ pub fn Register() -> impl IntoView {
                                     type="submit" 
                                     class="btn btn-primary" 
                                     style="margin-top: var(--s-8); width: 100%;"
-                                    disabled=loading
+                                    disabled=move || loading.get() || !agreed.get()
                                 >
                                     {move || if loading.get() { "Creating Account..." } else { "Create Account" }}
                                 </button>

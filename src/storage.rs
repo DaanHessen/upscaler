@@ -95,6 +95,7 @@ impl StorageProvider for StorageService {
     }
 
     async fn download_object(&self, path: &str) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+        info!("S3: Initiating download for key: '{}' in bucket: '{}'", path, self.bucket);
         let resp = self.client
             .get_object()
             .bucket(&self.bucket)
@@ -107,6 +108,7 @@ impl StorageProvider for StorageService {
             })?;
 
         let data = resp.body.collect().await?.into_bytes();
+        info!("S3: Successfully downloaded {} bytes for key: '{}'", data.len(), path);
         Ok(data.to_vec())
     }
 

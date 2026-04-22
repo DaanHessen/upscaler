@@ -85,11 +85,22 @@ pub trait DbProvider: Send + Sync {
 impl DbService {
     pub async fn new() -> Result<Self, Box<dyn Error + Send + Sync>> {
         let database_url = env::var("DATABASE_URL")?;
-        let pool = PgPool::connect(&database_url).await?;
+        
+        use sqlx::postgres::PgPoolOptions;
+        use std::time::Duration;
+
+        let pool = PgPoolOptions::new()
+            .max_connections(50)
+            .min_connections(5)
+            .acquire_timeout(Duration::from_secs(30))
+            .idle_timeout(Duration::from_secs(600))
+            .max_lifetime(Duration::from_secs(1800))
+            .connect(&database_url)
+            .await?;
         
         // Run migrations
         sqlx::migrate!("./migrations").run(&pool).await?;
-        info!("Database connected and migrations applied");
+        info!("Database connected with optimized pool (max=50) and migrations applied");
 
         Ok(Self { pool })
     }

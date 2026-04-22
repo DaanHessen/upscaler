@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use crate::components::icons::{Zap, CreditCard};
 use crate::auth::use_auth;
+use crate::api::ApiClient;
 
 #[component]
 pub fn Credits() -> impl IntoView {
@@ -12,6 +13,32 @@ pub fn Credits() -> impl IntoView {
     });
 
     let (selected_pack, set_selected_pack) = signal(10); // Default to 10 euro pack
+    let (loading, set_loading) = signal(false);
+
+    let on_buy = move |_| {
+        let auth = auth.clone();
+        let tier = selected_pack.get().to_string();
+        set_loading.set(true);
+
+        leptos::task::spawn_local(async move {
+            let token = auth.token.get();
+            let window = web_sys::window().unwrap();
+            let location = window.location();
+            let origin = location.origin().unwrap();
+            let success_url = format!("{}/settings?success=true", origin);
+            let cancel_url = format!("{}/settings?cancel=true", origin);
+
+            match ApiClient::create_checkout_session(token.as_deref(), &tier, &success_url, &cancel_url).await {
+                Ok(url) => {
+                    let _ = location.set_href(&url);
+                }
+                Err(e) => {
+                    leptos::logging::error!("Checkout failed: {}", e);
+                    set_loading.set(false);
+                }
+            }
+        });
+    };
 
     view! {
         <div class="credits-container fade-in">
@@ -81,9 +108,21 @@ pub fn Credits() -> impl IntoView {
                         </div>
                         
                         <div class="card-actions-row">
-                            <button class="btn btn-primary btn-lg btn-block" on:click=move |_| {}>
-                                "BUY CREDITS"
+                            <button 
+                                class="btn btn-primary btn-lg btn-block" 
+                                class:loading=loading
+                                on:click=on_buy
+                                disabled=loading
+                            >
+                                {move || if loading.get() { "STARTING CHECKOUT..." } else { "BUY CREDITS" }}
                             </button>
+                        </div>
+                        
+                        <div class="legal-disclosure" style="margin-top: var(--s-6); font-size: 0.625rem; color: hsl(var(--text-dim)); line-height: 1.4; text-align: center;">
+                            "By clicking BUY CREDITS, you agree to our "
+                            <a href="/terms" style="color: inherit; text-decoration: underline;">"Terms"</a> " and "
+                            <a href="/refunds" style="color: inherit; text-decoration: underline;">"Refund Policy"</a>". "
+                            "You consent to immediate performance and acknowledge that you lose your right of withdrawal once you begin using any credits."
                         </div>
                     </div>
                 </div>

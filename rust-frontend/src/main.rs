@@ -15,7 +15,7 @@ use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
 use crate::components::configure::Configure;
 use crate::components::view_result::ViewResult;
-use crate::components::legal::{Terms, Contact, Privacy, AUP, CookiePolicy};
+use crate::components::legal::{Terms, Contact, Privacy, AUP, CookiePolicy, RefundPolicy};
 use crate::components::auth_callback::AuthCallback;
 use crate::components::reset_password::ResetPassword;
 use crate::components::profile::AccountSettings;
@@ -251,6 +251,7 @@ fn MainLayout() -> impl IntoView {
                     <Route path=path!("/privacy") view=Privacy />
                     <Route path=path!("/rules") view=AUP />
                     <Route path=path!("/cookies") view=CookiePolicy />
+                    <Route path=path!("/refunds") view=RefundPolicy />
                     <Route path=path!("/contact") view=Contact />
                 </Routes>
             </main>
@@ -286,6 +287,8 @@ fn Footer() -> impl IntoView {
                     <A href="/rules" attr:class="footer-link">"Rules"</A>
                     <span class="divider">"•"</span>
                     <A href="/cookies" attr:class="footer-link">"Cookies"</A>
+                    <span class="divider">"•"</span>
+                    <A href="/refunds" attr:class="footer-link">"Refunds"</A>
                     <span class="divider">"|"</span>
                     <A href="/contact" attr:class="footer-link">"Support"</A>
                 </div>

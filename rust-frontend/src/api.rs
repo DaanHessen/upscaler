@@ -29,8 +29,11 @@ pub struct HistoryItem {
     pub quality: String,
     pub style: Option<String>,
     pub temperature: f32,
+    #[serde(default)]
     pub image_url: Option<String>,
+    #[serde(default)]
     pub preview_url: Option<String>,
+    #[serde(default)]
     pub error: Option<String>,
     pub prompt_settings: serde_json::Value,
     pub usage_metadata: serde_json::Value,
@@ -60,6 +63,11 @@ pub struct PromptSettings {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BalanceResponse {
     pub credits: i32,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct CheckoutResponse {
+    pub url: String,
 }
 
 pub struct ApiClient;
@@ -103,10 +111,9 @@ impl ApiClient {
 
         if resp.ok() {
             let json_text = resp.text().await.map_err(|e| e.to_string())?;
-            leptos::logging::log!("DEBUG: History API Response: {}", json_text);
             
             let data: Vec<HistoryItem> = serde_json::from_str(&json_text).map_err(|e| {
-                let err_msg = format!("History Deserialization Error: {}. Raw: {}", e, json_text);
+                let err_msg = format!("History Deserialization Error: {}. Raw length: {}", e, json_text.len());
                 leptos::logging::error!("{}", err_msg);
                 err_msg
             })?;
@@ -227,6 +234,35 @@ impl ApiClient {
         } else {
             let err_body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
             let msg = err_body["error"].as_str().unwrap_or("Failed to change password");
+            Err(msg.to_string())
+        }
+    }
+
+    pub async fn create_checkout_session(
+        token: Option<&str>,
+        tier: &str,
+        success_url: &str,
+        cancel_url: &str
+    ) -> Result<String, String> {
+        let body = serde_json::json!({
+            "tier": tier,
+            "success_url": success_url,
+            "cancel_url": cancel_url
+        });
+
+        let resp = Self::authenticated_request("POST", "/api/checkout", token)
+            .json(&body)
+            .map_err(|e| e.to_string())?
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if resp.ok() {
+            let data: CheckoutResponse = resp.json().await.map_err(|e| e.to_string())?;
+            Ok(data.url)
+        } else {
+            let err_body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+            let msg = err_body["error"].as_str().unwrap_or("Checkout failed");
             Err(msg.to_string())
         }
     }

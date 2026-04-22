@@ -109,6 +109,18 @@ pub fn CookiePolicy() -> impl IntoView {
 }
 
 #[component]
+pub fn RefundPolicy() -> impl IntoView {
+    let content = include_str!("../../../legal/refund-policy.md");
+    view! {
+        <MarkdownPage 
+            title="Refund Policy" 
+            subtitle="Details on credit purchases and eligibility for refunds."
+            content=content
+        />
+    }
+}
+
+#[component]
 pub fn Contact() -> impl IntoView {
     let (submitted, set_submitted) = signal(false);
 

@@ -1,35 +1,37 @@
 # Terms of Service
 
-**Last Updated:** April 21, 2026
-**Version:** v1.0.0
+**Last Updated:** April 22, 2026
+**Version:** v1.0.0 (Production)
 
-Welcome to **Upsyl**. By accessing or using our services, you agree to be bound by these Terms of Service.
+Welcome to **UPSYL STUDIO** ("the Service"). These Terms of Service ("Terms") govern your access to and use of our AI-powered image upscaling platform. By using the Service, you agree to be bound by these Terms.
 
 ## 1. Description of Service
-Upsyl provides an AI-powered image upscaling service. Our system utilizes third-party artificial intelligence models (specifically Google Cloud Vertex AI) to process, analyze, and enhance user-uploaded images.
+UPSYL STUDIO provides high-fidelity image reconstruction and super-resolution services using advanced artificial intelligence models (including Google Vertex AI Gemini 1.5 Pro). The service allows users to upload digital images, apply enhancement parameters, and download upscaled results.
 
-## 2. User Account and Credits
-- **Registration**: You must create an account via our authentication provider (Supabase) to access professional features.
-- **Credits**: Access to upscaling services requires "Credits." These can be purchased through our payment provider (Stripe).
-- **Refund Policy**: Credits are non-refundable once any portion of a purchased credit pack has been utilized for upscaling tasks. All sales are final.
+## 2. Accounts and Credits
+*   **Authentication**: Access to the Service requires an account managed through our authentication provider (Supabase).
+*   **Credit System**: The Service operates on a pre-paid credit ("Units") basis. One credit typically corresponds to one upscale operation, though complex high-resolution configurations may require additional credits.
+*   **Non-Refundable**: Credits are digital content. Once any portion of a credit pack is spent (even a single credit), the entire transaction becomes non-refundable, as performance of the service has commenced.
 
-## 3. User Obligations and Content
-- You are solely responsible for the images you upload.
-- You represent that you have the legal right to process and modify the images you upload.
-- **Prohibited Use**: You may not use Upsyl to process content that is illegal, harmful, or violates our Acceptable Use Policy (including NSFW content).
+## 3. Data Retention and Privacy
+*   **Temporary Processing**: To maintain privacy and minimize costs, all uploaded and generated images are **automatically deleted after 24 hours**.
+*   **User Responsibility**: Users are responsible for downloading their results before the 24-hour expiration period. We are not liable for data loss occurring after this window.
+*   **Third-Party AI**: We utilize Google Vertex AI for processing. By using the Service, you acknowledge that your images are transmitted to Google for the sole purpose of generating upscaled results. We do not use your images to train our models unless explicitly opted-in for specific "Studio Training" features.
 
-## 4. AI and Output Disclaimer
-- **Processing**: We use advanced AI models to enhance images. We do not guarantee specific results or absolute accuracy.
-- **NSFW Filtering**: We employ automated moderation to reject explicit content. Our system may flag and reject images during processing to ensure compliance with our guidelines.
+## 4. Acceptable Use
+You agree not to use the Service for:
+*   Generating or processing Child Sexual Abuse Material (CSAM).
+*   Processing images that violate the intellectual property rights of others.
+*   Generating content intended to harass, threaten, or incite violence.
+*   Attempting to reverse-engineer or "jailbreak" the underlying AI models.
 
-## 5. Data Retention
-User-uploaded images and generated outputs are stored temporarily for processing and delivery. Our "Janitor Service" automatically deletes processed images after 24 hours. Metadata regarding your usage is retained for account management and history.
+## 5. Limitation of Liability
+*   **AI Output**: AI-generated content is inherently probabilistic. We do not guarantee that the upscaled result will be accurate, aesthetically pleasing, or free from artifacts.
+*   **Safety Filtering**: Our systems (and Google's secondary safety filters) may reject certain images for safety reasons. In such cases, if a process fails due to a safety violation, credits may still be consumed for the attempt.
+*   **Service Availability**: While we strive for 100% uptime, we are not liable for any losses resulting from temporary service interruptions or processing latencies.
 
-## 6. Limitation of Liability
-Upsyl is provided "as is" without warranties of any kind. We are not liable for any damages resulting from the use of our AI upscaling technology or the loss of user data.
+## 6. Governing Law
+These Terms are governed by and construed in accordance with the laws of **The Netherlands**, without regard to its conflict of law principles.
 
-## 7. Governing Law
-These terms are governed by the laws of the European Union (GDPR baseline) and the United States (CCPA baseline) where applicable.
-
----
-*For questions regarding these terms, please contact our support team.*
+## 7. Contact
+For legal inquiries, please contact: **support@upsyl.studio**

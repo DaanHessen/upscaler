@@ -486,8 +486,8 @@ pub fn generate_thumbnail(data: &[u8]) -> Result<Vec<u8>, Box<dyn Error + Send +
     let thumb = img.resize_exact(nw, nh, image::imageops::FilterType::Lanczos3);
     
     let mut buffer = Cursor::new(Vec::new());
-    // Use Optimized JPEG at 60% quality for tiny file sizes (often <20KB)
-    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 60);
+    // Using high-quality JPEG for fast encoding and small preview size
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 90);
     thumb.write_with_encoder(encoder)?;
     
     Ok(buffer.into_inner())

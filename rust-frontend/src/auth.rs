@@ -248,14 +248,20 @@ impl AuthContext {
     }
 
     pub fn sync_telemetry(&self, force: bool) {
-        let token = self.session.get().map(|s| s.access_token);
+        let (token, last, has_credits) = untrack(move || {
+            (
+                self.session.get().map(|s| s.access_token),
+                self.last_fetch.get(),
+                self.credits.get().is_some()
+            )
+        });
+
         if token.is_none() { return; }
 
         let now = js_sys::Date::now();
-        let last = self.last_fetch.get();
         
         // 10 second cache (10,000 ms)
-        if !force && last.is_some() && (now - last.unwrap() < 10_000.0) && self.credits.get().is_some() {
+        if !force && last.is_some() && (now - last.unwrap() < 10_000.0) && has_credits {
             return;
         }
 

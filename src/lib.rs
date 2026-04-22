@@ -10,6 +10,8 @@ pub mod stripe;
 pub mod db;
 pub mod prompts;
 pub mod worker;
+pub mod janitor;
+pub mod handlers;
 
 use crate::client::VertexProvider;
 use crate::auth::AuthProvider;
