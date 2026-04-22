@@ -4,7 +4,6 @@ mod components;
 mod persistence;
 
 use leptos::prelude::*;
-use leptos::either::Either;
 use leptos_router::components::*;
 use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
@@ -366,6 +365,7 @@ fn AuthNav() -> impl IntoView {
                     <div style="display: flex; align-items: center; gap: var(--s-6);">
                         <Suspense>
                             {move || {
+                                let token = auth.session.get().map(|s| s.access_token);
                                 let res = auth.credits.get();
                                 match res {
                                     Some(credits) => view! { 
@@ -466,68 +466,24 @@ fn Home() -> impl IntoView {
     view! {
         <div class="fade-in">
             <div class="hero-section">
-                <h1 class="text-gradient stagger-1">"Pro-Grade Upscaling"</h1>
+                <h1 class="hero-title text-gradient stagger-1">"Pro-Grade Upscaling"</h1>
                 <div class="hero-content stagger-2">
                     <h2 class="hero-subtitle">"Studio-Fidelity Asset Reconstruction"</h2>
                     <p class="hero-description">"Leverage high-performance vision models to enhance details, eliminate artifacts, and upscale to 4K resolution. Pure reconstruction for professional creators."</p>
                 </div>
                 
                 <div class="hybrid-layout stagger-3">
-                    <div class="studio-card hybrid-left">
+                    <div class="card hybrid-left">
                         <ComparisonSlider 
                             images=vec![
-                                ("assets/hero_before_1.svg".to_string(), "assets/hero_after_1.svg".to_string()),
-                                ("assets/hero_before_2.svg".to_string(), "assets/hero_after_2.svg".to_string()),
-                                ("assets/hero_before_3.svg".to_string(), "assets/hero_after_3.svg".to_string()),
-                                ("assets/hero_before_4.svg".to_string(), "assets/hero_after_4.svg".to_string()),
-                                ("assets/hero_before_5.svg".to_string(), "assets/hero_after_5.svg".to_string()),
+                                ("/public/before_1.webp".to_string(), "/public/after_1.webp".to_string()),
                             ]
                         />
                     </div>
-                    <div class="studio-card hybrid-right">
+                    <div class="card hybrid-right">
                         <crate::components::upload_zone::UploadZone />
                     </div>
                 </div>
-
-            <style>
-                ".hero-section { padding: var(--s-10) 0 var(--s-20); }                .hybrid-layout { 
-                    display: grid; 
-                    grid-template-columns: 1fr 1fr; 
-                    gap: var(--s-16); 
-                    margin-top: var(--s-16); 
-                    text-align: left;
-                    align-items: stretch;
-                    max-width: 1300px;
-                    margin-left: auto;
-                    margin-right: auto;
-                }
-                
-                .studio-card { 
-                    background: hsl(var(--surface));
-                    border: 1px solid hsl(var(--accent) / 0.1);
-                    border-radius: var(--radius-lg);
-                    box-shadow: 0 40px 100px -30px rgba(0,0,0,0.8);
-                    overflow: hidden;
-                    position: relative;
-                }
-
-                .hybrid-right { padding: var(--s-10); display: flex; flex-direction: column; justify-content: center; }
-              .h-stat:hover { border-color: hsl(var(--accent) / 0.3); }
-                .h-label { display: block; font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: var(--s-1); }
-                .h-value { font-size: 0.8125rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
-                
-                @media (max-width: 1050px) {
-                    .hero-section { padding: var(--s-6) 0 var(--s-12); }
-                    .hybrid-layout { 
-                        grid-template-columns: 1fr; 
-                        max-width: 600px; 
-                        gap: var(--s-8);
-                    }
-                    .hybrid-left { order: 2; }
-                    .hybrid-right { order: 1; }
-                }
-                "
-            </style>
             </div>
         </div>
     }
