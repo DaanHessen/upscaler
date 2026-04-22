@@ -8,18 +8,9 @@ use axum::{
 use tracing::error;
 use uuid::Uuid;
 use serde::Deserialize;
-use base64::Engine as _;
-
-use crate::AppState;
 use crate::processor::{preprocess_image_internal, ResizeMode, is_nsfw, analyze_style, ImageStyle};
 
 pub mod storage;
-
-// --- Helper Functions ---
-
-fn err_json(status: StatusCode, msg: &str) -> impl IntoResponse {
-    (status, Json(serde_json::json!({ "success": false, "error": msg.to_string() })))
-}
 
 // --- Handlers ---
 
@@ -254,7 +245,7 @@ pub async fn change_password_handler(
     headers: HeaderMap,
     Json(body): Json<ChangePasswordRequest>,
 ) -> Result<Response, crate::errors::ApiError> {
-    let user_id = match Uuid::parse_str(&jwt.user_id) {
+    let _user_id = match Uuid::parse_str(&jwt.user_id) {
         Ok(id) => id,
         Err(_) => return Err(crate::errors::ApiError::Unauthorized("Invalid user ID".to_string())),
     };

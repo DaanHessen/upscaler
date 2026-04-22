@@ -365,7 +365,7 @@ fn AuthNav() -> impl IntoView {
                     <div style="display: flex; align-items: center; gap: var(--s-6);">
                         <Suspense>
                             {move || {
-                                let token = auth.session.get().map(|s| s.access_token);
+                                let _token = auth.session.get().map(|s| s.access_token);
                                 let res = auth.credits.get();
                                 match res {
                                     Some(credits) => view! { 
@@ -466,9 +466,9 @@ fn Home() -> impl IntoView {
     view! {
         <div class="fade-in">
             <div class="hero-section">
-                <h1 class="hero-title text-gradient stagger-1">"Pro-Grade Upscaling"</h1>
+                <h1 class="hero-title text-gradient stagger-1">"Professional Reconstruction"</h1>
                 <div class="hero-content stagger-2">
-                    <h2 class="hero-subtitle">"Studio-Fidelity Asset Reconstruction"</h2>
+                    <h2 class="hero-subtitle">"Studio-Fidelity Asset Enhancement"</h2>
                     <p class="hero-description">"Leverage high-performance vision models to enhance details, eliminate artifacts, and upscale to 4K resolution. Pure reconstruction for professional creators."</p>
                 </div>
                 
@@ -476,7 +476,11 @@ fn Home() -> impl IntoView {
                     <div class="card hybrid-left">
                         <ComparisonSlider 
                             images=vec![
-                                ("/public/before_1.webp".to_string(), "/public/after_1.webp".to_string()),
+                                ("assets/hero_before_1.svg".to_string(), "assets/hero_after_1.svg".to_string()),
+                                ("assets/hero_before_2.svg".to_string(), "assets/hero_after_2.svg".to_string()),
+                                ("assets/hero_before_3.svg".to_string(), "assets/hero_after_3.svg".to_string()),
+                                ("assets/hero_before_4.svg".to_string(), "assets/hero_after_4.svg".to_string()),
+                                ("assets/hero_before_5.svg".to_string(), "assets/hero_after_5.svg".to_string()),
                             ]
                         />
                     </div>

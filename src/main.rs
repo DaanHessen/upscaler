@@ -12,7 +12,6 @@ use upscaler::handlers::{
 };
 
 use dotenvy::dotenv;
-use std::env;
 use std::error::Error;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -98,8 +97,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/admin/insights", get(admin_insights_handler))
         .route("/storage/view/*path", get(get_storage_object))
         .layer(axum::extract::DefaultBodyLimit::max(25 * 1024 * 1024))
-        .layer(GovernorLayer { config: governor_conf })
-        .with_state(state.clone());
+        .layer(GovernorLayer { config: governor_conf });
 
     let app = Router::new()
         .nest("/api", api_routes)
