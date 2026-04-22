@@ -21,10 +21,6 @@ pub fn HistoryGallery() -> impl IntoView {
                     <h1 class="hero-title text-gradient stagger-1">"History"</h1>
                     <p class="muted stagger-2">"Your previously upscaled images."</p>
                 </div>
-                <button class="btn btn-secondary btn-sm stagger-3" on:click=move |_| auth.sync_telemetry(true)>
-                    <RefreshCw size={14} />
-                    "REFRESH"
-                </button>
             </div>
 
             <Suspense fallback=move || {

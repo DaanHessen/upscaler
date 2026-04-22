@@ -4,6 +4,7 @@ mod components;
 mod persistence;
 
 use leptos::prelude::*;
+use leptos::either::Either;
 use leptos_router::components::*;
 use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
@@ -14,7 +15,7 @@ use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
 use crate::components::configure::Configure;
 use crate::components::view_result::ViewResult;
-use crate::components::legal::{Terms, Contact, Privacy, AUP, CookiePolicy, RefundPolicy};
+use crate::components::legal::{Terms, Contact, Privacy, AUP, CookiePolicy};
 use crate::components::auth_callback::AuthCallback;
 use crate::components::reset_password::ResetPassword;
 use crate::components::profile::AccountSettings;
@@ -250,7 +251,6 @@ fn MainLayout() -> impl IntoView {
                     <Route path=path!("/privacy") view=Privacy />
                     <Route path=path!("/rules") view=AUP />
                     <Route path=path!("/cookies") view=CookiePolicy />
-                    <Route path=path!("/refunds") view=RefundPolicy />
                     <Route path=path!("/contact") view=Contact />
                 </Routes>
             </main>
@@ -286,8 +286,6 @@ fn Footer() -> impl IntoView {
                     <A href="/rules" attr:class="footer-link">"Rules"</A>
                     <span class="divider">"•"</span>
                     <A href="/cookies" attr:class="footer-link">"Cookies"</A>
-                    <span class="divider">"•"</span>
-                    <A href="/refunds" attr:class="footer-link">"Refunds"</A>
                     <span class="divider">"|"</span>
                     <A href="/contact" attr:class="footer-link">"Support"</A>
                 </div>
@@ -333,12 +331,6 @@ fn Footer() -> impl IntoView {
                     70% { transform: scale(1); box-shadow: 0 0 0 6px hsl(var(--success) / 0); }
                     100% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--success) / 0); }
                 }
-
-                @keyframes pulse-accent {
-                    0% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--accent) / 0.7); }
-                    70% { transform: scale(1); box-shadow: 0 0 0 6px hsl(var(--accent) / 0); }
-                    100% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--accent) / 0); }
-                }
                 
                 @media (max-width: 768px) {
                     footer { padding: var(--s-8) var(--s-6); }
@@ -354,6 +346,13 @@ fn Footer() -> impl IntoView {
 #[component]
 fn AuthNav() -> impl IntoView {
     let auth = use_auth();
+    
+    // Trigger throttled telemetry sync on mount
+    Effect::new(move |_| {
+        if auth.user.get().is_some() {
+            auth.sync_telemetry(false);
+        }
+    });
 
     let (show_dropdown, set_show_dropdown) = signal(false);
     let theme = use_global_state().theme;
@@ -365,7 +364,6 @@ fn AuthNav() -> impl IntoView {
                     <div style="display: flex; align-items: center; gap: var(--s-6);">
                         <Suspense>
                             {move || {
-                                let _token = auth.session.get().map(|s| s.access_token);
                                 let res = auth.credits.get();
                                 match res {
                                     Some(credits) => view! { 
@@ -380,23 +378,25 @@ fn AuthNav() -> impl IntoView {
                             }}
                         </Suspense>
                         
-                        <div 
-                            class="dropdown-container"
-                            style="display: flex; align-items: center;"
-                            on:mouseenter=move |_| set_show_dropdown.set(true)
-                            on:mouseleave=move |_| set_show_dropdown.set(false)
-                        >
+                        <div class="dropdown-container">
                             <div 
                                 class="avatar-btn"
                                 on:click=move |ev| {
                                     ev.stop_propagation();
-                                    // Toggle for mobile/touch compatibility
                                     set_show_dropdown.update(|v| *v = !*v);
                                 }
                             >
                                 {user.email.clone().unwrap_or_default().chars().next().unwrap_or('?').to_uppercase().to_string()}
                             </div>
                             
+                            // Backdrop for click-outside
+                            {move || show_dropdown.get().then(|| view! {
+                                <div 
+                                    style="position: fixed; inset: 0; z-index: 999; background: transparent; cursor: default;"
+                                    on:click=move |_| set_show_dropdown.set(false)
+                                ></div>
+                            })}
+
                             <div 
                                 class="dropdown-menu"
                                 class:show=show_dropdown
@@ -466,14 +466,14 @@ fn Home() -> impl IntoView {
     view! {
         <div class="fade-in">
             <div class="hero-section">
-                <h1 class="hero-title text-gradient stagger-1">"Professional Reconstruction"</h1>
+                <h1 class="text-gradient stagger-1">"Pro-Grade Upscaling"</h1>
                 <div class="hero-content stagger-2">
-                    <h2 class="hero-subtitle">"Studio-Fidelity Asset Enhancement"</h2>
+                    <h2 class="hero-subtitle">"Studio-Fidelity Asset Reconstruction"</h2>
                     <p class="hero-description">"Leverage high-performance vision models to enhance details, eliminate artifacts, and upscale to 4K resolution. Pure reconstruction for professional creators."</p>
                 </div>
                 
                 <div class="hybrid-layout stagger-3">
-                    <div class="card hybrid-left">
+                    <div class="studio-card hybrid-left">
                         <ComparisonSlider 
                             images=vec![
                                 ("assets/hero_before_1.svg".to_string(), "assets/hero_after_1.svg".to_string()),
@@ -484,10 +484,50 @@ fn Home() -> impl IntoView {
                             ]
                         />
                     </div>
-                    <div class="card hybrid-right">
+                    <div class="studio-card hybrid-right">
                         <crate::components::upload_zone::UploadZone />
                     </div>
                 </div>
+
+            <style>
+                ".hero-section { padding: var(--s-10) 0 var(--s-20); }                .hybrid-layout { 
+                    display: grid; 
+                    grid-template-columns: 1fr 1fr; 
+                    gap: var(--s-16); 
+                    margin-top: var(--s-16); 
+                    text-align: left;
+                    align-items: stretch;
+                    max-width: 1300px;
+                    margin-left: auto;
+                    margin-right: auto;
+                }
+                
+                .studio-card { 
+                    background: hsl(var(--surface));
+                    border: 1px solid hsl(var(--accent) / 0.1);
+                    border-radius: var(--radius-lg);
+                    box-shadow: 0 40px 100px -30px rgba(0,0,0,0.8);
+                    overflow: hidden;
+                    position: relative;
+                }
+
+                .hybrid-right { padding: var(--s-10); display: flex; flex-direction: column; justify-content: center; }
+              .h-stat:hover { border-color: hsl(var(--accent) / 0.3); }
+                .h-label { display: block; font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: var(--s-1); }
+                .h-value { font-size: 0.8125rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
+                
+                @media (max-width: 1050px) {
+                    .hero-section { padding: var(--s-6) 0 var(--s-12); }
+                    .hybrid-layout { 
+                        grid-template-columns: 1fr; 
+                        max-width: 600px; 
+                        gap: var(--s-8);
+                    }
+                    .hybrid-left { order: 2; }
+                    .hybrid-right { order: 1; }
+                }
+                "
+            </style>
             </div>
         </div>
     }

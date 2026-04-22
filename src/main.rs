@@ -100,11 +100,14 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .layer(GovernorLayer { config: governor_conf })
         .with_state(state.clone());
 
+    let frontend_service = ServeDir::new("frontend")
+        .fallback(tower_http::services::ServeFile::new("frontend/index.html"));
+
     let app = Router::new()
         .nest("/api", api_routes)
         .route("/stripe/webhook", post(stripe_webhook_handler))
         .layer(CorsLayer::permissive())
-        .fallback_service(ServeDir::new("frontend"))
+        .fallback_service(frontend_service)
         .with_state(state.clone());
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));

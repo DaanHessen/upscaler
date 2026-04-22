@@ -135,63 +135,80 @@ pub fn Credits() -> impl IntoView {
                         <p class="muted">"History of your previous upscales and credits usage."</p>
                     </div>
                     <div class="telemetry-badge">
-                        <span class="badge-label">"UPSCALED IMAGES:"</span>
-                        <span class="badge-value">{move || auth.history.get().map(|v| v.len().to_string()).unwrap_or_else(|| "0".to_string())}</span>
+                        <span class="badge-label">"UPSCALED IMAGES"</span>
+                        <span class="badge-value"> {move || auth.history.get().map(|v| v.len().to_string()).unwrap_or_else(|| "0".to_string())}</span>
                     </div>
                 </div>
                 
                 <div class="card usage-card">
                     <div class="table-wrapper">
                         <table class="usage-table">
-                            <thead>
-                                <tr>
-                                    <th>"ID"</th>
-                                    <th>"TIMESTAMP"</th>
-                                    <th>"QUALITY"</th>
-                                    <th>"STYLE"</th>
-                                    <th>"CREDITS"</th>
-                                    <th>"STATUS"</th>
-                                    <th>"TIME"</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <Suspense fallback=|| view! { <tr><td colspan="7" style="padding: 6rem; text-align: center; opacity: 0.3;">"Synchronizing telemetry stream..."</td></tr> }>
-                                    {move || {
-                                        let h = auth.history.get();
-                                        match h {
-                                            Some(items) => items.into_iter().map(|item| {
-                                                let id_short = item.id.to_string()[..8].to_string().to_uppercase();
-                                                let status_label = if item.status == "COMPLETED" { "SUCCESS".to_string() } else { item.status.clone() };
-                                                let item_url = item.image_url;
-                                                let item_created = item.created_at;
-                                                let item_quality = item.quality.replace(" RECON", "");
-                                                let item_style = item.style.unwrap_or_else(|| "AUTO".to_string());
-                                                let item_status_lower = item.status.to_lowercase();
-                                                let item_latency = format!("{:.1}S", item.latency_ms as f32 / 1000.0);
-                                                let item_credits = format!("{}C", item.credits_charged);
-                                                
-                                                view! {
-                                                    <tr>
-                                                        <td class="id-cell">
-                                                            {match item_url {
-                                                                Some(url) => view! { <a href=url target="_blank" class="cell-link">{id_short}</a> }.into_any(),
-                                                                None => view! { <span class="dim">{id_short}</span> }.into_any(),
-                                                            }}
-                                                        </td>
-                                                        <td>{item_created}</td>
-                                                        <td>{item_quality}</td>
-                                                        <td>{item_style}</td>
-                                                        <td class="credits-cell">{item_credits}</td>
-                                                        <td><span class=format!("status-chip {}", item_status_lower)>{status_label}</span></td>
-                                                        <td class="latency-cell">{item_latency}</td>
-                                                    </tr>
+                                    <thead>
+                                        <tr>
+                                            <th>"ID"</th>
+                                            <th>"TIMESTAMP"</th>
+                                            <th class="text-center">"QUALITY"</th>
+                                            <th class="text-center">"STYLE"</th>
+                                            <th class="text-center">"CREDITS"</th>
+                                            <th class="text-center">"STATUS"</th>
+                                            <th class="text-right">"TIME"</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <Suspense fallback=|| view! { <tr><td colspan="7" style="padding: 6rem; text-align: center; opacity: 0.3;">"Synchronizing telemetry stream..."</td></tr> }>
+                                            {move || {
+                                                let h = auth.history.get();
+                                                match h {
+                                                    Some(items) => items.into_iter().map(|item| {
+                                                        let id_short = item.id.to_string()[..8].to_string().to_uppercase();
+                                                        let status_label = if item.status == "COMPLETED" { "SUCCESS".to_string() } else { item.status.clone() };
+                                                        let item_url = item.image_url;
+                                                        
+                                                        // Format ISO timestamp: "2026-04-21T11:17:41..." -> "Apr 21, 11:17"
+                                                        let raw_ts = item.created_at.clone();
+                                                        let formatted_ts = if raw_ts.len() > 16 {
+                                                            let parts: Vec<&str> = raw_ts.split('T').collect();
+                                                            let date_p: Vec<&str> = parts[0].split('-').collect();
+                                                            let time_p: Vec<&str> = parts[1].split(':').collect();
+                                                            if date_p.len() >= 3 && time_p.len() >= 2 {
+                                                                let month = match date_p[1] {
+                                                                    "01" => "Jan", "02" => "Feb", "03" => "Mar", "04" => "Apr",
+                                                                    "05" => "May", "06" => "Jun", "07" => "Jul", "08" => "Aug",
+                                                                    "09" => "Sep", "10" => "Oct", "11" => "Nov", "12" => "Dec",
+                                                                    _ => date_p[1]
+                                                                };
+                                                                format!("{} {}, {}:{}", month, date_p[2], time_p[0], time_p[1])
+                                                            } else { raw_ts }
+                                                        } else { raw_ts };
+                                                        
+                                                        let item_quality = item.quality.replace(" RECON", "");
+                                                        let item_style = item.style.unwrap_or_else(|| "AUTO".to_string());
+                                                        let item_status_lower = item.status.to_lowercase();
+                                                        let item_latency = format!("{:.1}S", item.latency_ms as f32 / 1000.0);
+                                                        let item_credits = format!("{}C", item.credits_charged);
+                                                        
+                                                        view! {
+                                                            <tr>
+                                                                <td class="id-cell">
+                                                                    {match item_url {
+                                                                        Some(url) => view! { <a href=url target="_blank" class="cell-link">{id_short}</a> }.into_any(),
+                                                                        None => view! { <span class="dim">{id_short}</span> }.into_any(),
+                                                                    }}
+                                                                </td>
+                                                                <td style="color: hsl(var(--text-dim))">{formatted_ts}</td>
+                                                                <td class="text-center">{item_quality}</td>
+                                                                <td class="text-center">{item_style}</td>
+                                                                <td class="text-center" style="font-weight: 800; color: hsl(var(--accent))">{item_credits}</td>
+                                                                <td class="text-center"><span class=format!("status-chip {}", item_status_lower)>{status_label}</span></td>
+                                                                <td class="text-right" style="color: hsl(var(--success)); font-weight: 800;">{item_latency}</td>
+                                                            </tr>
+                                                        }
+                                                    }).collect_view().into_any(),
+                                                    None => view! { <tr><td colspan="7" style="padding: 6rem; text-align: center; opacity: 0.3;">"Acquiring telemetry data..."</td></tr> }.into_any()
                                                 }
-                                            }).collect_view().into_any(),
-                                            None => view! { <tr><td colspan="7" style="padding: 6rem; text-align: center; opacity: 0.3;">"Acquiring telemetry data..."</td></tr> }.into_any()
-                                        }
-                                    }}
-                                </Suspense>
-                            </tbody>
+                                            }}
+                                        </Suspense>
+                                    </tbody>
                         </table>
                     </div>
                 </div>
