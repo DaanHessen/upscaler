@@ -8,6 +8,7 @@ use axum::{
 use tracing::error;
 use uuid::Uuid;
 use serde::Deserialize;
+use crate::AppState;
 use crate::processor::{preprocess_image_internal, ResizeMode, is_nsfw, analyze_style, ImageStyle};
 
 pub mod storage;

@@ -97,7 +97,8 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/admin/insights", get(admin_insights_handler))
         .route("/storage/view/*path", get(get_storage_object))
         .layer(axum::extract::DefaultBodyLimit::max(25 * 1024 * 1024))
-        .layer(GovernorLayer { config: governor_conf });
+        .layer(GovernorLayer { config: governor_conf })
+        .with_state(state.clone());
 
     let app = Router::new()
         .nest("/api", api_routes)
@@ -109,7 +110,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
     info!("Server listening on {}", addr);
-    axum::serve(listener, app).await?;
+    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>()).await?;
 
     Ok(())
 }
