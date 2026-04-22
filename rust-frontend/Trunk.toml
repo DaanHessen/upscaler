@@ -1,13 +1,15 @@
 [build]
 target = "index.html"
 dist = "../frontend"
+no_reloader = true
 
 #[clean]
 #dist = true
 
 [serve]
-address = "127.0.0.1"
+addresses = ["127.0.0.1"]
 port = 8080
+no_autoreload = true
 rewrite_backend = "http://127.0.0.1:3000"
 
 [[proxy]]
