@@ -20,6 +20,7 @@ pub struct PollResponse {
     pub prompt_settings: Option<PromptSettings>,
     pub usage_metadata: Option<serde_json::Value>,
     pub latency_ms: Option<i32>,
+    pub style: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

@@ -16,6 +16,22 @@ pub fn Configure() -> impl IntoView {
     let (error_msg, set_error_msg) = signal(Option::<String>::None);
     let (is_dragging, set_is_dragging) = signal(false);
 
+    let (before_url, set_before_url) = signal(Option::<String>::None);
+    let (view_mode, set_view_mode) = signal("compare".to_string());
+
+    Effect::new(move |_| {
+        if let Some(file) = global_state.temp_file.get() {
+            if let Ok(url) = web_sys::Url::create_object_url_with_blob(&file) {
+                set_before_url.set(Some(url.clone()));
+                on_cleanup(move || {
+                    let _ = web_sys::Url::revoke_object_url(&url);
+                });
+            }
+        } else {
+            set_before_url.set(None);
+        }
+    });
+
     Effect::new(move |_| {
         if let Some(job_id) = processing_job.get() {
             let token = auth.session.get().map(|s| s.access_token);
@@ -124,10 +140,54 @@ pub fn Configure() -> impl IntoView {
                 // Canvas content
                 {move || {
                     let img_url = global_state.preview_base64.get();
-                    match img_url {
-                        Some(url) => view! {
+                    let b_url = before_url.get();
+                    let mode = view_mode.get();
+
+                    match (img_url, b_url) {
+                        (Some(after), Some(before)) => {
+                            view! {
+                                <div class="canvas-view-container fade-in">
+                                    {match mode.as_str() {
+                                        "original" => view! {
+                                            <div class="asset-wrapper">
+                                                <img src=before class="studio-asset" alt="Original" />
+                                            </div>
+                                        }.into_any(),
+                                        "upscaled" => view! {
+                                            <div class="asset-wrapper">
+                                                <img src=after class="studio-asset" alt="Upscaled" />
+                                            </div>
+                                        }.into_any(),
+                                        _ => view! {
+                                            <div class="slider-fill">
+                                                <crate::components::comparison_slider::ComparisonSlider 
+                                                    images=vec![(before, after)] 
+                                                />
+                                            </div>
+                                        }.into_any(),
+                                    }}
+
+                                    // Viewer Controls
+                                    <div class="viewer-controls">
+                                        <button 
+                                            class:active=move || view_mode.get() == "compare"
+                                            on:click=move |_| set_view_mode.set("compare".to_string())
+                                        >"Compare"</button>
+                                        <button 
+                                            class:active=move || view_mode.get() == "original"
+                                            on:click=move |_| set_view_mode.set("original".to_string())
+                                        >"Original"</button>
+                                        <button 
+                                            class:active=move || view_mode.get() == "upscaled"
+                                            on:click=move |_| set_view_mode.set("upscaled".to_string())
+                                        >"Upscaled"</button>
+                                    </div>
+                                </div>
+                            }.into_any()
+                        },
+                        (None, Some(before)) => view! {
                             <div class="asset-wrapper fade-in">
-                                <img src=url class="studio-asset" alt="Upscale Result" />
+                                <img src=before class="studio-asset" alt="Original" />
                                 <div class="corner-accents">
                                     <div class="corner tl"></div>
                                     <div class="corner tr"></div>
@@ -136,7 +196,7 @@ pub fn Configure() -> impl IntoView {
                                 </div>
                             </div>
                         }.into_any(),
-                        None => view! {
+                        _ => view! {
                             <div class="drop-zone-outer">
                                 <div class="drop-zone-inner" on:click=move |_| {
                                     if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
@@ -450,6 +510,60 @@ pub fn Configure() -> impl IntoView {
                 overflow: hidden;
             }
 
+            .canvas-view-container {
+                width: 100%;
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                gap: var(--s-6);
+                position: relative;
+            }
+
+            .slider-fill {
+                width: 100%;
+                height: calc(100% - 100px);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .viewer-controls {
+                background: var(--glass);
+                backdrop-filter: blur(20px);
+                border: 1px solid var(--glass-border);
+                border-radius: 100px;
+                padding: 4px;
+                display: flex;
+                gap: 4px;
+                z-index: 100;
+                margin-bottom: var(--s-4);
+            }
+
+            .viewer-controls button {
+                background: transparent;
+                border: none;
+                color: hsl(var(--text-dim));
+                padding: 6px 16px;
+                font-size: 0.75rem;
+                font-weight: 700;
+                border-radius: 100px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+
+            .viewer-controls button.active {
+                background: hsl(var(--accent));
+                color: white;
+                box-shadow: 0 4px 12px hsl(var(--accent) / 0.3);
+            }
+
+            .viewer-controls button:hover:not(.active) {
+                background: rgba(255, 255, 255, 0.05);
+                color: white;
+            }
+
             .canvas-grid {
                 position: absolute; inset: 0;
                 background-image:
@@ -553,7 +667,7 @@ pub fn Configure() -> impl IntoView {
 
             /* ── Sidebar ── */
             .editor-sidebar {
-                width: 340px; flex-shrink: 0;
+                width: 400px; flex-shrink: 0;
                 border-left: 1px solid var(--glass-border);
                 background: hsl(var(--surface) / 0.7);
                 backdrop-filter: blur(24px) saturate(160%);

@@ -209,9 +209,9 @@ where F: Fn(()) + 'static + Copy {
                 .stage-title { font-size: 1.5rem; font-weight: 850; letter-spacing: -0.04em; color: hsl(var(--text)); }
                 .stage-desc { font-size: 0.875rem; max-width: 320px; margin: 0 auto; color: hsl(var(--text-dim)); opacity: 0.8; }
 
-                .telemetry-bar { display: flex; gap: var(--s-10); margin-top: var(--s-4); padding-top: var(--s-8); border-top: 1px solid var(--glass-border); width: 100%; justify-content: center; }
+                .telemetry-bar { display: flex; gap: var(--s-10); margin-top: var(--s-4); padding-top: var(--s-8); border-top: 1px solid var(--glass-border); width: 100%; justify-content: center; margin-bottom: var(--s-4); }
                 .telemetry-segment { display: flex; flex-direction: column; gap: 4px; align-items: center; }
-                .t-label { font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim)); opacity: 0.4; letter-spacing: 0.15em; }
+                .t-label { font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim)); opacity: 0.4; letter-spacing: 0.15em; text-transform: uppercase; }
                 .t-value { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; color: hsl(var(--text)); }
                 "
             </style>
@@ -222,7 +222,6 @@ where F: Fn(()) + 'static + Copy {
 #[component]
 fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
     let navigate = use_navigate();
-    let (show_debug, set_show_debug) = signal(false);
     
     view! {
         <div class="result-container fade-in">
@@ -253,55 +252,58 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                 <div class="result-sidebar">
                     <div class="card settings-card">
                         <div class="params-body">
-                            <div class="card-tag">
+                            <div class="card-tag" style="margin-bottom: var(--s-6);">
                                 <Settings size={10} />
                                 <span>"ASSET TELEMETRY"</span>
                             </div>
-                            <div class="settings-list">
-                                <div class="s-item">
-                                    <span class="s-label">"IDENTITY"</span>
-                                    <span class="s-value font-mono">{job_id}</span>
-                                </div>
-                                <div class="s-item">
-                                    <span class="s-label">"STATUS"</span>
-                                    <span class="s-value success">"VERIFIED"</span>
-                                </div>
-                                <div class="s-item">
-                                    <span class="s-label">"VERSION"</span>
-                                    <span class="s-value">"V2.0 STABLE"</span>
-                                </div>
-                            </div>
                             
-                            <div class="card-divider" style="margin: var(--s-8) 0;"></div>
-                            
-                            <button 
-                                class="btn btn-secondary btn-xs btn-block" 
-                                on:click=move |_| set_show_debug.update(|v| *v = !*v)
-                            >
-                                {move || if show_debug.get() { "HIDE SYSTEM LOGS" } else { "SHOW SYSTEM LOGS" }}
-                            </button>
-
-                            {move || show_debug.get().then(|| {
-                                let settings = data.prompt_settings.clone().unwrap_or_default();
-                                let usage = data.usage_metadata.clone().unwrap_or_default();
-                                let prompt_tokens = usage["prompt_token_count"].as_i64().unwrap_or(0);
-                                let candidate_tokens = usage["candidates_token_count"].as_i64().unwrap_or(0);
-                                
-                                view! {
-                                    <div class="debug-panel fade-in">
-                                        <div class="debug-section">
-                                            <span class="d-hdr">"PROMPT BUILDER"</span>
-                                            <div class="d-row"><span>"Lighting"</span><span>{settings.lighting}</span></div>
-                                            <div class="d-row"><span>"Focus Lock"</span><span>{settings.keep_depth_of_field.to_string()}</span></div>
-                                        </div>
-                                        <div class="debug-section">
-                                            <span class="d-hdr">"LLM USAGE (VERTEX)"</span>
-                                            <div class="d-row"><span>"Prompt Tokens"</span><span>{prompt_tokens}</span></div>
-                                            <div class="d-row"><span>"Response Tokens"</span><span>{candidate_tokens}</span></div>
-                                        </div>
+                            <div class="pack-list" style="display: flex; flex-direction: column; gap: var(--s-3);">
+                                <div class="pack-item">
+                                    <div class="pack-info">
+                                        <span class="pack-name">"Identity"</span>
+                                        <span class="pack-credits">"Job Identifier"</span>
                                     </div>
-                                }
-                            })}
+                                    <span class="pack-price" style="font-size: 0.75rem; font-family: var(--font-mono);">{job_id.chars().take(8).collect::<String>()}</span>
+                                </div>
+
+                                <div class="pack-item">
+                                    <div class="pack-info">
+                                        <span class="pack-name">"Status"</span>
+                                        <span class="pack-credits">"Verification"</span>
+                                    </div>
+                                    <span class="pack-price" style="font-size: 0.75rem; color: hsl(var(--success));">"VERIFIED"</span>
+                                </div>
+
+                                <div class="pack-item">
+                                    <div class="pack-info">
+                                        <span class="pack-name">"Engine"</span>
+                                        <span class="pack-credits">"Version"</span>
+                                    </div>
+                                    <span class="pack-price" style="font-size: 0.75rem;">"V2.0 STABLE"</span>
+                                </div>
+
+                                {move || {
+                                    let settings = data.prompt_settings.clone().unwrap_or_default();
+                                    view! {
+                                        <>
+                                            <div class="pack-item">
+                                                <div class="pack-info">
+                                                    <span class="pack-name">"Style"</span>
+                                                    <span class="pack-credits">"Engine Mode"</span>
+                                                </div>
+                                                <span class="pack-price" style="font-size: 0.75rem;">{data.style.clone().unwrap_or_default()}</span>
+                                            </div>
+                                            <div class="pack-item">
+                                                <div class="pack-info">
+                                                    <span class="pack-name">"Lighting"</span>
+                                                    <span class="pack-credits">"Atmosphere"</span>
+                                                </div>
+                                                <span class="pack-price" style="font-size: 0.75rem;">{settings.lighting}</span>
+                                            </div>
+                                        </>
+                                    }
+                                }}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -311,7 +313,7 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                 ".view-result-page { max-width: 1300px; margin: 0 auto; padding: 0 var(--s-4); }                .view-result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-16); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-8); }
                 .header-actions { display: flex; gap: var(--s-4); }
                 
-                .result-main { display: grid; grid-template-columns: 1fr 340px; gap: var(--s-12); align-items: stretch; }
+                .result-main { display: grid; grid-template-columns: 1fr 400px; gap: var(--s-12); align-items: stretch; }
                 .result-slider-box { border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--glass-border); min-height: 500px; background: #000; display: flex; align-items: stretch; }
                 
                 .settings-card { background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); height: 100%; }

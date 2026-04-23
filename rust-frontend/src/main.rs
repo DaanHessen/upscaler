@@ -422,43 +422,47 @@ fn Home() -> impl IntoView {
         <div class="fade-in" style="position: relative;">
             <div class="page-container" style="max-width: 1200px; margin: 0 auto; padding: 0 var(--s-8);">
                 <div class="hero-section stagger-1">
-                    <h1 class="hero-title text-gradient" style="font-size: 2.75rem; margin-bottom: var(--s-3); letter-spacing: -0.05em;">{crate::text::TXT.home_hero_title}</h1>
-                    <p class="hero-subtitle muted" style="font-size: 1rem; max-width: 600px;">{crate::text::TXT.home_hero_subtitle}</p>
+                    <h1 class="hero-title text-gradient" style="font-size: 3.5rem; margin-bottom: var(--s-3); letter-spacing: -0.05em;">{crate::text::TXT.home_hero_title}</h1>
+                    <p class="hero-subtitle muted" style="font-size: 1.0625rem; max-width: 600px;">{crate::text::TXT.home_hero_subtitle}</p>
                 </div>
                 
                 <div class="home-showcase stagger-3">
                     <div class="showcase-frame-wrapper">
-                        <div class="showcase-frame">
-                        <ComparisonSlider 
-                            images=vec![
-                                ("./assets/hero_before_1.svg".to_string(), "./assets/hero_after_1.svg".to_string()),
-                                ("./assets/hero_before_2.svg".to_string(), "./assets/hero_after_2.svg".to_string()),
-                                ("./assets/hero_before_3.svg".to_string(), "./assets/hero_after_3.svg".to_string()),
-                                ("./assets/hero_before_4.svg".to_string(), "./assets/hero_after_4.svg".to_string()),
-                                ("./assets/hero_before_5.svg".to_string(), "./assets/hero_after_5.svg".to_string()),
-                            ]
-                        />
+                        <div class="showcase-frame" style="height: 600px; display: flex; flex-direction: column; position: relative;">
+                            <div class="slider-fill-home" style="flex: 1; min-height: 0;">
+                                <ComparisonSlider 
+                                    images=vec![
+                                        ("./assets/hero_before_1.svg".to_string(), "./assets/hero_after_1.svg".to_string()),
+                                        ("./assets/hero_before_2.svg".to_string(), "./assets/hero_after_2.svg".to_string()),
+                                        ("./assets/hero_before_3.svg".to_string(), "./assets/hero_after_3.svg".to_string()),
+                                        ("./assets/hero_before_4.svg".to_string(), "./assets/hero_after_4.svg".to_string()),
+                                        ("./assets/hero_before_5.svg".to_string(), "./assets/hero_after_5.svg".to_string()),
+                                    ]
+                                />
+                            </div>
+
+                            <div class="showcase-overlay-actions">
+                                <div class="action-meta">
+                                    <h3 class="action-title">"High-Fidelity AI Reconstruction"</h3>
+                                    <p class="action-desc">"Our Gemini-powered engine synthesizes high-frequency details where traditional upscalers fail."</p>
+                                </div>
+                                <div class="action-buttons">
+                                    <A href="/editor" attr:class="btn btn-primary cta-btn-hero">
+                                        <Zap size={18} />
+                                        <span>{crate::text::TXT.home_cta_start}</span>
+                                    </A>
+                                    {move || auth.user.get().is_some().then(|| view! {
+                                        <A href="/history" attr:class="btn btn-secondary cta-btn-hero">
+                                            <ImageIcon size={18} />
+                                            <span>"VIEW GALLERY"</span>
+                                        </A>
+                                    })}
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="showcase-actions stagger-4">
-                        <div class="action-meta">
-                            <h3 class="action-title">"High-Fidelity AI Reconstruction"</h3>
-                            <p class="action-desc">"Our Gemini-powered engine synthesizes high-frequency details where traditional upscalers fail. Experience the next generation of image enhancement."</p>
-                        </div>
-                        <div class="action-buttons">
-                            <A href="/editor" attr:class="btn btn-primary cta-btn-hero">
-                                <Zap size={18} />
-                                <span>{crate::text::TXT.home_cta_start}</span>
-                            </A>
-                            {move || auth.user.get().is_some().then(|| view! {
-                                <A href="/history" attr:class="btn btn-secondary cta-btn-hero">
-                                    <ImageIcon size={18} />
-                                    <span>"VIEW GALLERY"</span>
-                                </A>
-                            })}
-                        </div>
-                    </div>
+
 
                     <div class="feature-grid stagger-5">
                         <div class="feature-item">
@@ -498,7 +502,7 @@ fn Home() -> impl IntoView {
                     padding: 1px;
                     background: linear-gradient(135deg, hsl(var(--accent) / 0.3) 0%, transparent 40%, hsl(var(--accent) / 0.1) 100%);
                     border-radius: calc(var(--radius-lg) + 1px);
-                    box-shadow: 0 40px 100px -30px rgba(0,0,0,0.8);
+                    box-shadow: 0 50px 120px -20px hsl(var(--accent) / 0.2);
                 }
                 
                 .showcase-frame {
@@ -509,17 +513,25 @@ fn Home() -> impl IntoView {
                     position: relative;
                 }
 
-                .showcase-actions {
+                .showcase-overlay-actions {
+                    position: absolute;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    padding: var(--s-8) var(--s-10);
+                    background: linear-gradient(to top, hsl(var(--bg) / 0.9), transparent);
+                    backdrop-filter: blur(10px);
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
                     gap: var(--s-12);
-                    padding: 0 var(--s-4);
+                    z-index: 10;
+                    border-top: 1px solid var(--glass-border);
                 }
 
                 .action-meta { flex: 1; text-align: left; }
-                .action-title { font-size: 1.75rem; font-weight: 800; margin-bottom: var(--s-2); letter-spacing: -0.02em; }
-                .action-desc { font-size: 1rem; color: hsl(var(--text-dim)); line-height: 1.6; max-width: 500px; }
+                .action-title { font-size: 1.5rem; font-weight: 800; margin-bottom: var(--s-1); letter-spacing: -0.02em; }
+                .action-desc { font-size: 0.875rem; color: hsl(var(--text-dim)); line-height: 1.5; max-width: 440px; }
 
                 .action-buttons { display: flex; gap: var(--s-4); align-items: center; }
                 
@@ -530,7 +542,7 @@ fn Home() -> impl IntoView {
                     padding: var(--s-12);
                     background: rgba(255,255,255,0.02);
                     border-radius: var(--radius-lg);
-                    border: 1px solid rgba(255,255,255,0.05);
+                    border: 1px solid hsl(var(--accent) / 0.1);
                     margin-bottom: var(--s-20);
                 }
 
@@ -542,7 +554,7 @@ fn Home() -> impl IntoView {
                 .cta-btn-hero { 
                     height: 56px; padding: 0 var(--s-10); font-weight: 900; letter-spacing: 0.1em;
                     display: flex; align-items: center; gap: var(--s-3); white-space: nowrap;
-                    min-width: 220px;
+                    min-width: fit-content;
                 }
                 
                 @media (max-width: 1050px) {
