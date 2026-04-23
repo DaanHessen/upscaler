@@ -37,7 +37,7 @@ pub fn AccountSettings() -> impl IntoView {
     };
 
     view! {
-        <div class="fade-in container-narrow">
+        <div class="fade-in settings-container">
             <div class="page-header">
                 <div class="header-main">
                     <h1 class="stagger-1 text-gradient">"Account Settings"</h1>
@@ -47,12 +47,12 @@ pub fn AccountSettings() -> impl IntoView {
 
             <div class="settings-grid" style="display: grid; gap: var(--s-8); margin-top: var(--s-8);">
                 /* Identity Section */
-                <div class="card" style="padding: var(--s-8);">
+                <div class="card shadow-lg" style="padding: var(--s-10); border: 1px solid var(--border); background: hsl(var(--surface));">
                     <div style="display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-6);">
-                        <div style="background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); padding: var(--s-3); border-radius: var(--radius-md);">
-                            <UserIcon size={20} />
+                        <div style="color: hsl(var(--text)); padding: 0; display: flex; align-items: center; justify-content: center;">
+                            <UserIcon size={24} />
                         </div>
-                        <h3 style="margin: 0; font-size: 1.125rem;">"Identity"</h3>
+                        <h3 class="text-gradient" style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em;">"Identity"</h3>
                     </div>
                     
                     <div style="display: grid; gap: var(--s-4);">
@@ -68,26 +68,26 @@ pub fn AccountSettings() -> impl IntoView {
                 </div>
 
                 /* Security Section */
-                <div class="card" style="padding: var(--s-8);">
+                <div class="card shadow-lg" style="padding: var(--s-10); border: 1px solid var(--border); background: hsl(var(--surface));">
                     <div style="display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-6);">
-                        <div style="background: hsl(var(--warning) / 0.1); color: hsl(var(--warning)); padding: var(--s-3); border-radius: var(--radius-md);">
-                            <Lock size={20} />
+                        <div style="color: hsl(var(--text)); padding: 0; display: flex; align-items: center; justify-content: center;">
+                            <Lock size={24} />
                         </div>
-                        <h3 style="margin: 0; font-size: 1.125rem;">"Security"</h3>
+                        <h3 class="text-gradient" style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em;">"Security"</h3>
                     </div>
 
                     {move || if success.get() {
                         view! {
-                            <div class="success-panel" style="padding: var(--s-4); background: hsl(var(--success) / 0.05); border-radius: var(--radius-md); border: 1px solid hsl(var(--success) / 0.1); display: flex; align-items: center; gap: var(--s-4);">
-                                <ShieldCheck size={20} custom_style="color: hsl(var(--success));".to_string() />
-                                <span style="font-size: 0.875rem; font-weight: 600;">"Password updated successfully."</span>
+                            <div class="success-panel" style="padding: var(--s-6); background: hsl(var(--success) / 0.05); border-radius: var(--radius-md); border: 1px solid hsl(var(--success) / 0.2); display: flex; align-items: center; gap: var(--s-4);">
+                                <ShieldCheck size={24} custom_style="color: hsl(var(--success));".to_string() />
+                                <span style="font-size: 0.9375rem; font-weight: 700;">"Password updated successfully."</span>
                                 <button class="btn btn-secondary btn-sm" style="margin-left: auto;" on:click=move |_| set_success.set(false)>"DISMISS"</button>
                             </div>
                         }.into_any()
                     } else {
                         view! {
                             <form on:submit=on_update_password>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4);">
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-6);">
                                     <div class="input-group">
                                         <label>"NEW PASSWORD"</label>
                                         <input 
@@ -95,6 +95,7 @@ pub fn AccountSettings() -> impl IntoView {
                                             on:input=move |ev| set_new_password.set(event_target_value(&ev))
                                             prop:value=new_password
                                             required
+                                            style="background: hsl(var(--surface-bright)); width: 100%; border-radius: var(--radius-sm);"
                                         />
                                     </div>
                                     <div class="input-group">
@@ -104,11 +105,12 @@ pub fn AccountSettings() -> impl IntoView {
                                             on:input=move |ev| set_confirm_password.set(event_target_value(&ev))
                                             prop:value=confirm_password
                                             required
+                                            style="background: hsl(var(--surface-bright)); width: 100%; border-radius: var(--radius-sm);"
                                         />
                                     </div>
                                 </div>
-                                {move || error.get().map(|e| view! { <p style="color: hsl(var(--error)); font-size: 0.75rem; margin-top: var(--s-2); font-weight: 700;">{e}</p> })}
-                                <button type="submit" class="btn btn-secondary btn-sm" style="margin-top: var(--s-6);" disabled=loading.get()>
+                                {move || error.get().map(|e| view! { <p style="color: hsl(var(--error)); font-size: 0.8125rem; margin-top: var(--s-3); font-weight: 800;">{e}</p> })}
+                                <button type="submit" class="btn btn-primary" style="margin-top: var(--s-6);" disabled=loading.get()>
                                     {move || if loading.get() { "UPDATING..." } else { "CHANGE PASSWORD" }}
                                 </button>
                             </form>
@@ -117,12 +119,12 @@ pub fn AccountSettings() -> impl IntoView {
                 </div>
 
                 /* Advanced Section */
-                <div class="card" style="padding: var(--s-8); background: hsl(var(--error) / 0.02); border-color: hsl(var(--error) / 0.1);">
+                <div class="card shadow-lg" style="padding: var(--s-10); background: hsl(var(--error) / 0.05); border: 1px solid hsl(var(--error) / 0.2);">
                     <div style="display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-4);">
-                        <h3 class="text-gradient" style="margin: 0; font-size: 1rem;">"Danger Zone"</h3>
+                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: hsl(var(--error)); letter-spacing: -0.02em;">"Danger Zone"</h3>
                     </div>
-                    <p class="muted" style="font-size: 0.8125rem; margin-bottom: var(--s-6);">"Irreversibly delete your Upsyl Studio account and all stored history. This action cannot be undone."</p>
-                    <button class="btn btn-secondary btn-sm" style="color: hsl(var(--error)); border-color: hsl(var(--error) / 0.2);" on:click=move |_| {
+                    <p class="muted" style="font-size: 0.875rem; margin-bottom: var(--s-6); max-width: 600px;">"Irreversibly delete your Upsyl Studio account and all stored history. This action cannot be undone."</p>
+                    <button class="btn btn-secondary" style="color: hsl(var(--error)); border-color: hsl(var(--error) / 0.3);" on:click=move |_| {
                         let win = web_sys::window().unwrap();
                         win.alert_with_message("Account deletion is a manual process. Please contact support@upsyl.com to initiate a deletion request.").unwrap();
                     }>"DELETE ACCOUNT"</button>
@@ -130,11 +132,14 @@ pub fn AccountSettings() -> impl IntoView {
             </div>
 
             <style>
-                ".container-narrow { max-width: 800px; margin: 0 auto; width: 100%; }
-                .data-row { display: flex; justify-content: space-between; padding: var(--s-3) 0; border-bottom: 1px solid var(--glass-border); }
+                ".settings-container { max-width: 1000px; margin: 0 auto; width: 100%; padding-bottom: var(--s-20); }
+                .input-group label { font-size: 0.75rem; font-weight: 850; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(var(--text-dim)); margin-bottom: var(--s-2); display: block; }
+                .input-group input { padding: var(--s-3) var(--s-4); border: 1px solid var(--border); color: hsl(var(--text)); transition: border-color 0.2s, box-shadow 0.2s; }
+                .input-group input:focus { outline: none; border-color: hsl(var(--accent)); box-shadow: 0 0 0 2px hsl(var(--accent) / 0.1); }
+                .data-row { display: flex; justify-content: space-between; padding: var(--s-4) 0; border-bottom: 1px dashed var(--border); }
                 .data-row:last-child { border-bottom: none; }
-                .data-label { font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.1em; }
-                .data-value { font-size: 0.8125rem; font-weight: 600; color: hsl(var(--text)); font-family: var(--font-mono); }
+                .data-label { font-size: 0.6875rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.1em; }
+                .data-value { font-size: 0.875rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
                 "
             </style>
         </div>

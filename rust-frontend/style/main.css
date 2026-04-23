@@ -844,18 +844,3 @@ footer {
   position: relative;
 }
 
-.logo-icon::after {
-  content: '';
-  position: absolute;
-  inset: -5px;
-  background: hsl(var(--accent) / 0.2);
-  border-radius: 50%;
-  filter: blur(8px);
-  animation: logoPulse 4s infinite;
-}
-
-@keyframes logoPulse {
-  0%, 100% { opacity: 0.4; transform: scale(1); }
-  50% { opacity: 0.8; transform: scale(1.2); }
-}
-
