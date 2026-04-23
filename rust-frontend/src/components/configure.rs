@@ -75,7 +75,7 @@ pub fn Configure() -> impl IntoView {
     };
 
     view! {
-        <div class="configure-page fade-in">
+        <div class="studio-container configure-page fade-in">
             <div class="page-header stagger-1">
                 <div class="header-main">
                     <h1 class="text-gradient">"Upscale Settings"</h1>
@@ -84,7 +84,7 @@ pub fn Configure() -> impl IntoView {
             </div>
 
             <div class="config-layout stagger-2">
-                <div class="config-stage shadow-xl">
+                <div class="config-stage">
                     <div class="preview-section">
                         <div class="section-tag">
                             <ImageIcon size={10} />
@@ -239,21 +239,17 @@ pub fn Configure() -> impl IntoView {
             </div>
 
             <style>
-                ".configure-page { max-width: 1200px; margin: 0 auto; padding: 0 var(--s-8) var(--s-8) var(--s-8); min-height: 80vh; display: flex; flex-direction: column; }
-                .page-header { margin-bottom: 3rem; }
-                .page-header h1 { font-size: 2.5rem; font-weight: 900; letter-spacing: -0.05em; margin-bottom: 0.5rem; }
-                .page-header .muted { font-size: 1rem; color: hsl(var(--text-muted)); font-weight: 500; }
-                
-                .config-layout { flex: 1; display: flex; flex-direction: column; }
+                ".configure-page { padding-bottom: var(--s-12); }
+
+                .config-layout { display: flex; flex-direction: column; }
                 .config-stage { 
                     background: hsl(var(--surface)); 
                     border: 1px solid var(--glass-border); 
                     border-radius: var(--radius-lg); 
                     overflow: hidden;
                     display: grid;
-                    grid-template-columns: 420px 1fr;
-                    flex: 1;
-                    min-height: 650px;
+                    grid-template-columns: 380px 1fr;
+                    box-shadow: var(--shadow-md);
                 }
 
                 .section-tag { font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.15em; margin-bottom: 1.5rem; opacity: 0.5; display: flex; align-items: center; gap: 0.5rem; }
@@ -265,6 +261,7 @@ pub fn Configure() -> impl IntoView {
                     padding: 2rem;
                     display: flex;
                     flex-direction: column;
+                    min-height: 520px;
                 }
                 .preview-viewport { 
                     flex: 1;
@@ -276,9 +273,10 @@ pub fn Configure() -> impl IntoView {
                     display: flex;
                     align-items: center;
                     justify-content: center;
+                    min-height: 300px;
                 }
                 .preview-viewport img { width: 100%; height: 100%; object-fit: contain; }
-                .empty-state { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim)); opacity: 0.3; }
+                .preview-viewport .empty-state { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim)); opacity: 0.3; padding: 0; margin: 0; background: none; border: none; box-shadow: none; }
 
                 .viewport-overlay { position: absolute; bottom: 1.5rem; left: 1.5rem; right: 1.5rem; }
                 .badge { 
@@ -297,54 +295,54 @@ pub fn Configure() -> impl IntoView {
                 .pulse-dot { width: 8px; height: 8px; background: hsl(var(--accent)); border-radius: 50%; box-shadow: 0 0 12px hsl(var(--accent)); animation: pulse-accent 2s infinite; }
 
                 /* Right Side: Controls */
-                .controls-section { padding: 3rem; display: flex; flex-direction: column; gap: 2.5rem; }
-                .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; }
-                .control-group { display: flex; flex-direction: column; gap: 1.25rem; }
+                .controls-section { padding: 2.5rem; display: flex; flex-direction: column; gap: 2rem; }
+                .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; }
+                .control-group { display: flex; flex-direction: column; gap: 1rem; }
                 .control-group label { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.15em; }
 
                 /* Resolution Switch */
                 .resolution-switch { display: grid; grid-template-columns: 1fr 1fr; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 5px; gap: 5px; }
-                .res-opt { padding: 1rem; border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; }
+                .res-opt { padding: 0.875rem; border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; }
                 .res-opt.active { background: hsl(var(--accent)); border-color: hsl(var(--accent)); transform: translateY(-2px); box-shadow: 0 8px 24px hsl(var(--accent) / 0.3); }
                 .res-opt.active .res-title { color: white; }
                 .res-opt.active .res-sub { color: rgba(255, 255, 255, 0.7); }
-                .res-title { font-size: 1.25rem; font-weight: 950; color: hsl(var(--text)); letter-spacing: -0.02em; }
+                .res-title { font-size: 1.125rem; font-weight: 950; color: hsl(var(--text)); letter-spacing: -0.02em; }
                 .res-sub { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05rem; }
                 .res-opt:hover:not(.active) { background: hsl(var(--surface-raised)); }
 
                 /* Style Toggle */
-                .style-toggle { display: flex; flex-direction: column; gap: 0.75rem; }
-                .toggle-btn { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1rem; font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-muted)); cursor: pointer; display: flex; align-items: center; gap: 1rem; transition: all 0.2s; }
+                .style-toggle { display: flex; flex-direction: column; gap: 0.625rem; }
+                .toggle-btn { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.875rem; font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-muted)); cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; }
                 .toggle-btn:hover { border-color: hsl(var(--accent) / 0.5); color: hsl(var(--text)); }
                 .toggle-btn.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08); box-shadow: inset 0 0 12px hsl(var(--accent) / 0.05); }
 
                 /* Slider */
-                .slider-container { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1.25rem; }
-                .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; font-size: 0.75rem; font-weight: 800; color: hsl(var(--text-muted)); letter-spacing: 0.02em; }
+                .slider-container { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1.125rem; }
+                .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 0.75rem; font-weight: 800; color: hsl(var(--text-muted)); letter-spacing: 0.02em; }
                 .val-pill { background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); padding: 4px 10px; border-radius: 100px; font-family: var(--font-mono); font-weight: 900; font-size: 0.8125rem; border: 1px solid hsl(var(--accent) / 0.2); }
 
                 /* Pill Toggles */
-                .toggles-row { display: flex; flex-direction: column; gap: 0.75rem; }
-                .pill-toggle { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.875rem 1.25rem; font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-muted)); cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; }
+                .toggles-row { display: flex; flex-direction: column; gap: 0.625rem; }
+                .pill-toggle { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.8rem 1rem; font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-muted)); cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; }
                 .pill-toggle.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08); }
                 .pill-toggle:hover:not(.active) { border-color: hsl(var(--text-dim) / 0.4); }
 
                 /* Lighting */
-                .lighting-group { margin-top: 1rem; display: flex; flex-direction: column; gap: 1.25rem; }
+                .lighting-group { display: flex; flex-direction: column; gap: 1rem; }
                 .lighting-group label { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.15em; }
-                .select-box select { width: 100%; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1.125rem 1.25rem; color: hsl(var(--text)); font-size: 0.875rem; font-weight: 700; appearance: none; cursor: pointer; transition: all 0.2s; }
+                .select-box select { width: 100%; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1rem 1.25rem; color: hsl(var(--text)); font-size: 0.875rem; font-weight: 700; appearance: none; cursor: pointer; transition: all 0.2s; }
                 .select-box select:hover { border-color: hsl(var(--accent) / 0.5); }
                 
                 /* Action Button */
-                .action-footer { margin-top: auto; padding-top: 2rem; }
+                .action-footer { margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--glass-border); }
                 .btn-upscale { 
                     width: 100%; 
                     background: linear-gradient(135deg, hsl(var(--accent)), #6366f1);
                     border: none;
                     border-radius: var(--radius-md);
-                    padding: 1.5rem;
+                    padding: 1.25rem;
                     color: white;
-                    font-size: 1.125rem;
+                    font-size: 1rem;
                     font-weight: 950;
                     letter-spacing: 0.08em;
                     display: flex;
@@ -358,18 +356,23 @@ pub fn Configure() -> impl IntoView {
                     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
                     text-transform: uppercase;
                 }
-                .btn-upscale:hover { transform: translateY(-4px); box-shadow: 0 24px 48px -15px hsl(var(--accent) / 0.7); }
+                .btn-upscale:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -12px hsl(var(--accent) / 0.7); }
                 .btn-upscale:active { transform: translateY(0) scale(0.98); }
                 .btn-upscale:disabled { opacity: 0.5; transform: none; filter: grayscale(1); cursor: not-allowed; }
 
-                .cost-tag { background: rgba(0,0,0,0.25); padding: 5px 12px; border-radius: 100px; font-size: 0.6875rem; font-weight: 950; color: white; letter-spacing: 0.05em; border: 1px solid rgba(255,255,255,0.1); }
+                .cost-tag { background: rgba(0,0,0,0.25); padding: 4px 12px; border-radius: 100px; font-size: 0.6875rem; font-weight: 950; color: white; letter-spacing: 0.05em; border: 1px solid rgba(255,255,255,0.1); }
 
                 @media (max-width: 1100px) {
-                    .config-stage { grid-template-columns: 1fr; min-height: auto; }
-                    .preview-section { border-right: none; border-bottom: 1px solid var(--glass-border); padding: 2rem; }
-                    .preview-viewport { height: 400px; }
+                    .config-stage { grid-template-columns: 1fr; }
+                    .preview-section { border-right: none; border-bottom: 1px solid var(--glass-border); min-height: auto; }
+                    .preview-viewport { height: 320px; min-height: 0; }
                     .controls-section { padding: 2rem; }
-                    .controls-grid { grid-template-columns: 1fr; gap: 2rem; }
+                    .controls-grid { grid-template-columns: 1fr; gap: 1.5rem; }
+                }
+
+                @media (max-width: 640px) {
+                    .controls-section { padding: 1.5rem; }
+                    .preview-viewport { height: 240px; }
                 }
                 "
             </style>

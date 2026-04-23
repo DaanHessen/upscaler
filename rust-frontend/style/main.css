@@ -763,7 +763,6 @@ footer {
   letter-spacing: 0.3em;
   text-transform: uppercase;
   margin-top: var(--s-4);
-  animation: pulse 2s infinite;
 }
 
 /* Glass Auth Prompt */

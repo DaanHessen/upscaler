@@ -243,9 +243,7 @@ pub fn UploadZone() -> impl IntoView {
                     overflow: hidden; 
                     background: hsl(var(--surface)); 
                     border-radius: var(--radius-lg); 
-                    border: 1px solid hsl(var(--accent) / 0.2); 
-                    box-shadow: 0 0 40px hsl(var(--accent) / 0.1);
-                    animation: container-pulse 4s ease-in-out infinite;
+                    border: 1px solid var(--glass-border);
                 }
                 .loading-text { font-size: 0.7rem; font-weight: 800; color: hsl(var(--accent)); letter-spacing: 0.4rem; font-family: var(--font-mono); text-shadow: 0 0 10px hsl(var(--accent) / 0.3); opacity: 0.8; }
                 
