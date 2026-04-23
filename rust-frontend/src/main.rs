@@ -491,73 +491,84 @@ fn Home() -> impl IntoView {
 
             <style>
                 ".home-showcase { 
-                    max-width: 1100px;
-                    margin: var(--s-10) auto 0;
+                    max-width: 1200px;
+                    margin: var(--s-12) auto 0;
                     display: flex;
                     flex-direction: column;
-                    gap: var(--s-12);
+                    gap: var(--s-6);
                 }
 
-                .showcase-frame-wrapper {
-                    padding: 1px;
-                    background: linear-gradient(135deg, hsl(var(--accent) / 0.3) 0%, transparent 40%, hsl(var(--accent) / 0.1) 100%);
-                    border-radius: calc(var(--radius-lg) + 1px);
-                    box-shadow: 0 50px 120px -20px hsl(var(--accent) / 0.2);
-                }
-                
                 .showcase-frame {
                     background: hsl(var(--surface));
-                    border: 1px solid rgba(255,255,255,0.03);
+                    border: 1px solid var(--glass-border);
                     border-radius: var(--radius-lg);
-                    height: 580px;
+                    height: 620px;
                     overflow: hidden;
                     position: relative;
+                    box-shadow: var(--shadow-xl);
                 }
 
                 .showcase-actions-row {
-                    padding: var(--s-10) var(--s-12);
+                    padding: var(--s-8) var(--s-3);
                     display: flex;
                     justify-content: space-between;
-                    align-items: center;
+                    align-items: flex-start;
                     gap: var(--s-12);
-                    background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 100%);
-                    border-top: 1px solid var(--glass-border);
                 }
 
                 .action-meta { flex: 1; text-align: left; }
-                .action-title { font-size: 1.25rem; font-weight: 850; margin-bottom: var(--s-1); letter-spacing: -0.03em; color: hsl(var(--text)); }
-                .action-desc { font-size: 0.9375rem; color: hsl(var(--text-dim)); line-height: 1.6; max-width: 500px; opacity: 0.7; }
+                .action-title { 
+                    font-size: 1.5rem; font-weight: 850; margin-bottom: var(--s-2); 
+                    letter-spacing: -0.04em; color: hsl(var(--text)); 
+                    font-family: var(--font-heading);
+                }
+                .action-desc { 
+                    font-size: 1rem; color: hsl(var(--text-dim)); line-height: 1.6; 
+                    max-width: 540px; opacity: 0.7; font-weight: 500;
+                }
 
-                .action-buttons { display: flex; gap: var(--s-4); align-items: center; }
+                .action-buttons { 
+                    display: flex; gap: var(--s-4); align-items: center; 
+                    padding-top: var(--s-2);
+                }
                 
                 .feature-grid {
                     display: grid;
                     grid-template-columns: repeat(3, 1fr);
                     gap: var(--s-12);
-                    padding: var(--s-12);
-                    background: rgba(255,255,255,0.02);
-                    border-radius: var(--radius-lg);
-                    border: 1px solid hsl(var(--accent) / 0.1);
+                    padding: var(--s-16) var(--s-4);
+                    margin-top: var(--s-12);
+                    border-top: 1px solid var(--glass-border);
                     margin-bottom: var(--s-20);
                 }
 
                 .feature-item { display: flex; gap: var(--s-6); align-items: flex-start; }
-                .feature-icon { width: 48px; height: 48px; min-width: 48px; background: hsl(var(--accent) / 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: hsl(var(--accent)); border: 1px solid hsl(var(--accent) / 0.1); }
-                .feature-text strong { display: block; font-size: 0.875rem; color: white; margin-bottom: 4px; letter-spacing: 0.05em; text-transform: uppercase; }
-                .feature-text p { font-size: 0.75rem; color: hsl(var(--text-dim)); line-height: 1.4; }
+                .feature-icon { 
+                    width: 44px; height: 44px; min-width: 44px; 
+                    background: hsl(var(--accent) / 0.08); border-radius: 12px; 
+                    display: flex; align-items: center; justify-content: center; 
+                    color: hsl(var(--accent)); border: 1px solid hsl(var(--accent) / 0.15); 
+                }
+                .feature-text strong { 
+                    display: block; font-size: 0.75rem; color: white; 
+                    margin-bottom: 4px; letter-spacing: 0.1em; text-transform: uppercase; 
+                    font-weight: 900;
+                }
+                .feature-text p { font-size: 0.8125rem; color: hsl(var(--text-dim)); line-height: 1.5; opacity: 0.6; }
 
                 .cta-btn-hero { 
-                    height: 56px; padding: 0 var(--s-10); font-weight: 900; letter-spacing: 0.1em;
+                    height: 52px; padding: 0 var(--s-10); font-weight: 900; letter-spacing: 0.1em;
                     display: flex; align-items: center; gap: var(--s-3); white-space: nowrap;
                     min-width: fit-content;
                 }
                 
                 @media (max-width: 1050px) {
-                    .home-showcase { gap: var(--s-10); }
-                    .showcase-actions { flex-direction: column; text-align: center; gap: var(--s-8); }
+                    .home-showcase { padding: 0 var(--s-6); }
+                    .showcase-actions-row { flex-direction: column; gap: var(--s-8); }
                     .action-meta { text-align: center; }
                     .action-desc { margin: 0 auto; }
-                    .feature-grid { grid-template-columns: 1fr; gap: var(--s-8); }
+                    .action-buttons { margin: 0 auto; }
+                    .feature-grid { grid-template-columns: 1fr; gap: var(--s-8); padding: var(--s-10) 0; }
                 }
                 "
             </style>

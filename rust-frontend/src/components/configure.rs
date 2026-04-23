@@ -493,7 +493,7 @@ pub fn Configure() -> impl IntoView {
                                                     <option value="Vivid">"Vivid"</option>
                                                     <option value="Natural">"Natural"</option>
                                                 </select>
-                                                <ChevronRight size={14} custom_style="transform:rotate(90deg);position:absolute;right:12px;top:50%;margin-top:-7px;pointer-events:none;opacity:0.35;".to_string() />
+                                                <div class="select-arrow"></div>
                                             </div>
                                         </div>
                                     </div>
@@ -645,7 +645,15 @@ pub fn Configure() -> impl IntoView {
                 overflow: hidden; gap: var(--s-2);
             }
             .sidebar-inner { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-            .sb-scroll { flex: 1; overflow-y: auto; padding: var(--s-6); display: flex; flex-direction: column; gap: var(--s-4); }
+            .sb-scroll { 
+                flex: 1; overflow-y: auto; overflow-x: hidden;
+                padding: var(--s-6); display: flex; flex-direction: column; gap: var(--s-6); 
+            }
+            
+            /* Custom Scrollbar for Sidebar */
+            .sb-scroll::-webkit-scrollbar { width: 4px; }
+            .sb-scroll::-webkit-scrollbar-track { background: transparent; }
+            .sb-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
 
             /* Polling View */
             .polling-view { padding: var(--s-10) var(--s-8); text-align: center; display: flex; flex-direction: column; gap: var(--s-6); }
@@ -757,7 +765,50 @@ pub fn Configure() -> impl IntoView {
             .pack-price { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim) / 0.4); margin-top: 4px; }
             .pack-item.active .pack-price { color: hsl(var(--accent)); opacity: 0.8; }
             
+            .seed-row { display: flex; gap: var(--s-3); align-items: center; }
+            .sb-input { 
+                flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
+                color: white; padding: 12px 14px; border-radius: 8px; font-size: 0.875rem;
+                outline: none; transition: all 0.2s;
+            }
+            .sb-input:focus { border-color: hsl(var(--accent)); }
             
+            .seed-rng-btn {
+                width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;
+                background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border);
+                color: hsl(var(--text-dim)); border-radius: 8px; cursor: pointer; transition: all 0.2s;
+            }
+            .seed-rng-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+            .toggle-track { 
+                width: 38px; height: 22px; background: rgba(255,255,255,0.1); border-radius: 100px; 
+                position: relative; transition: all 0.3s;
+            }
+            .pack-item.active .toggle-track { background: hsl(var(--accent)); }
+            .toggle-thumb { 
+                position: absolute; top: 4px; left: 4px; width: 14px; height: 14px; 
+                background: white; border-radius: 50%; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            .pack-item.active .toggle-thumb { left: calc(100% - 18px); }
+            
+            .dof-row { flex-direction: row; align-items: center; justify-content: space-between; min-height: 0; padding: var(--s-6); }
+
+            .select-wrap { position: relative; width: 100%; }
+            .sb-select {
+                width: 100%; appearance: none; background: rgba(255,255,255,0.04);
+                border: 1px solid var(--glass-border); color: white; padding: 12px 14px;
+                border-radius: 8px; font-size: 0.875rem; font-weight: 700; cursor: pointer;
+                outline: none;
+            }
+            .sb-select option { background: hsl(var(--surface-raised)); color: white; }
+            
+            .select-arrow {
+                position: absolute; right: 14px; top: 50%; width: 8px; height: 8px;
+                border-right: 2px solid hsl(var(--text-dim) / 0.5);
+                border-bottom: 2px solid hsl(var(--text-dim) / 0.5);
+                transform: translateY(-70%) rotate(45deg);
+                pointer-events: none;
+            }
             "
         </style>
     }

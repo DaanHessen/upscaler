@@ -240,7 +240,7 @@ pub fn HistoryGallery() -> impl IntoView {
 #[component]
 fn HistoryCard(item: HistoryItem) -> impl IntoView {
     let status_label = match item.status.as_str() {
-        "COMPLETED" => "VERIFIED",
+        "COMPLETED" => "",
         "FAILED" => "FAILED",
         "PROCESSING" => "ACTIVE",
         "PENDING" => "QUEUED",
@@ -304,10 +304,6 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                 </div>
 
                 <div class="card-meta-v2">
-                    <div class="style-row-v2">
-                        <span class="meta-label-v2">"ENGINE:"</span>
-                        <span class="meta-val-v2">{item.style.unwrap_or_else(|| "AUTO".to_string())}</span>
-                    </div>
                     <div class="date-row-v2">
                         <Calendar size={12} />
                         <span>{item.created_at[..10].to_string()}</span>
