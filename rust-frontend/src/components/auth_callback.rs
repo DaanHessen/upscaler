@@ -31,6 +31,7 @@ pub fn AuthCallback() -> impl IntoView {
                                 }
                             };
                             
+                            let nav_async = navigate.clone();
                             leptos::task::spawn_local(async move {
                                 // Verify token with backend before trusting it
                                 if let Ok(_) = crate::api::ApiClient::get_balance(Some(&access_token)).await {
@@ -41,13 +42,13 @@ pub fn AuthCallback() -> impl IntoView {
                                     
                                     // PROCEED: Handle actual flow based on type
                                     if token_type == "recovery" {
-                                        navigate("/reset-password", Default::default());
+                                        nav_async("/reset-password", Default::default());
                                     } else {
-                                        navigate("/", Default::default());
+                                        nav_async("/", Default::default());
                                     }
                                 } else {
                                     leptos::logging::error!("AuthCallback: Token verification failed.");
-                                    navigate("/login", Default::default());
+                                    nav_async("/login", Default::default());
                                 }
                             });
                             return;
@@ -56,10 +57,10 @@ pub fn AuthCallback() -> impl IntoView {
                 }
                 // Fallback if decoding fails
                 leptos::logging::error!("AuthCallback: Failed to decode security token payload.");
-                navigate("/login", Default::default());
+                navigate.clone()("/login", Default::default());
             }
         } else {
-            navigate("/", Default::default());
+            navigate.clone()("/", Default::default());
         }
     });
 

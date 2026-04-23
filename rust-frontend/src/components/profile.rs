@@ -121,17 +121,7 @@ pub fn AccountSettings() -> impl IntoView {
                 </div>
             </div>
 
-            <style>
-                ".settings-container { max-width: 1200px; margin: 0 auto; width: 100%; padding: 0 var(--s-8) var(--s-20) var(--s-8); }
-                .input-group label { font-size: 0.75rem; font-weight: 850; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(var(--text-dim)); margin-bottom: var(--s-2); display: block; }
-                .input-group input { padding: var(--s-3) var(--s-4); border: 1px solid var(--border); color: hsl(var(--text)); transition: border-color 0.2s, box-shadow 0.2s; }
-                .input-group input:focus { outline: none; border-color: hsl(var(--accent)); box-shadow: 0 0 0 2px hsl(var(--accent) / 0.1); }
-                .data-row { display: flex; justify-content: space-between; padding: var(--s-4) 0; border-bottom: 1px dashed var(--border); }
-                .data-row:last-child { border-bottom: none; }
-                .data-label { font-size: 0.6875rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.1em; }
-                .data-value { font-size: 0.875rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
-                "
-            </style>
+            
         </div>
     }
 }

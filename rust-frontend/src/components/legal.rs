@@ -28,41 +28,7 @@ fn MarkdownPage(title: &'static str, subtitle: &'static str, content: &'static s
                 <div class="markdown-content" inner_html=html_content></div>
             </div>
 
-            <style>
-                ".legal-container { max-width: 1000px; margin: 0 auto; padding-bottom: var(--s-20); }
-                .legal-card { 
-                    padding: var(--s-12); 
-                    background: hsl(var(--surface-raised) / 0.3); 
-                    border: 1px solid var(--glass-border);
-                    box-shadow: var(--shadow-xl);
-                }
-                .markdown-content { 
-                    font-size: 0.9375rem; 
-                    color: hsl(var(--text-muted)); 
-                    line-height: 1.8; 
-                }
-                .markdown-content h1, .markdown-content h2, .markdown-content h3 { 
-                    margin-top: 2.5rem; 
-                    margin-bottom: 1rem;
-                    font-family: var(--font-heading);
-                    font-weight: 800;
-                    letter-spacing: -0.04em;
-                    background: linear-gradient(135deg, hsl(var(--text)) 0%, hsl(var(--text-dim)) 25%, hsl(var(--text)) 50%, hsl(var(--text-dim)) 75%, hsl(var(--text)) 100%);
-                    background-size: 200% auto;
-                    -webkit-background-clip: text;
-                    -webkit-text-fill-color: transparent;
-                    padding-bottom: 0.1em;
-                }
-                .markdown-content h1:first-child { margin-top: 0; }
-                .markdown-content h2 { font-size: 1.25rem; border-bottom: 1px solid var(--glass-border); padding-bottom: 0.5rem; }
-                .markdown-content h3 { font-size: 1rem; }
-                .markdown-content p { margin-bottom: 1.25rem; }
-                .markdown-content ul, .markdown-content ol { margin-bottom: 1.25rem; padding-left: 1.5rem; }
-                .markdown-content li { margin-bottom: 0.5rem; }
-                .markdown-content strong { color: hsl(var(--text)); font-weight: 700; }
-                .markdown-content hr { border: 0; border-top: 1px solid var(--glass-border); margin: 3rem 0; }
-                "
-            </style>
+            
         </div>
     }
 }
@@ -194,13 +160,7 @@ pub fn Contact() -> impl IntoView {
                 }}
             </div>
             
-            <style>
-                ".contact-form-card { border: 1px solid var(--glass-border); background: hsl(var(--surface)); }
-                .input-group label { font-size: 0.75rem; font-weight: 850; letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: var(--s-2); display: block; color: hsl(var(--text-dim)); }
-                .input-group input, .input-group textarea { background: hsl(var(--surface-bright)); border: 1px solid var(--border); border-radius: var(--radius-md); padding: var(--s-3) var(--s-4); color: hsl(var(--text)); font-family: var(--font-sans); }
-                .input-group input:focus, .input-group textarea:focus { outline: none; border-color: hsl(var(--accent)); box-shadow: 0 0 0 2px hsl(var(--accent) / 0.1); }
-                "
-            </style>
+            
         </div>
     }
 }

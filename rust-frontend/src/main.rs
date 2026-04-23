@@ -261,35 +261,7 @@ fn Footer() -> impl IntoView {
                     </Suspense>
                 </div>
             </div>
-            <style>
-                "footer { border-top: 1px solid var(--glass-border); padding: var(--s-12) var(--s-12); margin-top: auto; background: hsl(var(--bg) / 0.8); backdrop-filter: blur(20px); }
-                .footer-content { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%; height: var(--s-12); padding: 0 var(--s-12); }
-                
-                .footer-left { flex: 1; display: flex; align-items: center; }
-                .footer-logo { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text)); display: flex; align-items: center; gap: var(--s-2); letter-spacing: 0.2em; text-transform: uppercase; }
-                
-                .footer-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--s-4); white-space: nowrap; }
-                .footer-meta { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
-                .footer-link { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; transition: color 0.2s; white-space: nowrap; }
-                .footer-link:hover { color: hsl(var(--accent)); }
-                .divider { opacity: 0.1; color: hsl(var(--text-dim)); }
-
-                .footer-right { flex: 1; display: flex; align-items: center; justify-content: flex-end; gap: var(--s-3); }
-                .footer-status-tag { font-size: 0.625rem; font-weight: 850; letter-spacing: 0.1em; }
-                .footer-status-tag.online { color: hsl(var(--success)); }
-                .footer-status-tag.offline { color: hsl(var(--error)); }
-
-                .status-indicator { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-                .status-indicator.online { background: hsl(var(--success)); }
-                .status-indicator.offline { background: hsl(var(--error)); }
-                
-                @media (max-width: 768px) {
-                    footer { padding: var(--s-8) var(--s-6); }
-                    .footer-content { flex-direction: column; height: auto; gap: var(--s-6); }
-                    .footer-left, .footer-center, .footer-right { flex: none; justify-content: center; }
-                }
-                "
-            </style>
+            
         </footer>
     }
 }
@@ -374,30 +346,7 @@ fn AuthNav() -> impl IntoView {
             }.into_any(),
         }}
 
-        <style>
-            ".dropdown-container { position: relative; }
-            .dropdown-menu { 
-                position: absolute; top: calc(100% + 12px); right: 0; width: 220px; 
-                background: hsl(var(--surface-raised)); 
-                border: 1px solid var(--glass-border); border-radius: var(--radius-md);
-                padding: 8px; box-shadow: var(--shadow-xl); z-index: 1000;
-                transform-origin: top right; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-                opacity: 0; transform: translateY(10px) scale(0.95); pointer-events: none;
-            }
-            .dropdown-menu.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
-            .dropdown-header { padding: 12px 16px; }
-            .user-email { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim)); opacity: 0.8; }
-            .dropdown-divider { height: 1px; background: var(--glass-border); margin: 8px 0; }
-            .dropdown-item { 
-                display: flex; align-items: center; gap: 12px; padding: 10px 16px;
-                font-size: 0.8125rem; font-weight: 600; color: hsl(var(--text)); 
-                border-radius: var(--radius-sm); cursor: pointer; transition: background 0.2s;
-            }
-            .dropdown-item:hover { background: rgba(255,255,255,0.05); }
-            .dropdown-item.error { color: hsl(var(--error)); }
-            .dropdown-item.error:hover { background: hsl(var(--error) / 0.1); }
-            "
-        </style>
+        
     }
 }
 
@@ -489,89 +438,7 @@ fn Home() -> impl IntoView {
                     </div>
                 </div>
 
-            <style>
-                ".home-showcase { 
-                    max-width: 1200px;
-                    margin: var(--s-12) auto 0;
-                    display: flex;
-                    flex-direction: column;
-                    gap: var(--s-6);
-                }
-
-                .showcase-frame {
-                    background: hsl(var(--surface));
-                    border: 1px solid var(--glass-border);
-                    border-radius: var(--radius-lg);
-                    height: 620px;
-                    overflow: hidden;
-                    position: relative;
-                    box-shadow: var(--shadow-xl);
-                }
-
-                .showcase-actions-row {
-                    padding: var(--s-8) var(--s-3);
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    gap: var(--s-12);
-                }
-
-                .action-meta { flex: 1; text-align: left; }
-                .action-title { 
-                    font-size: 1.5rem; font-weight: 850; margin-bottom: var(--s-2); 
-                    letter-spacing: -0.04em; color: hsl(var(--text)); 
-                    font-family: var(--font-heading);
-                }
-                .action-desc { 
-                    font-size: 1rem; color: hsl(var(--text-dim)); line-height: 1.6; 
-                    max-width: 540px; opacity: 0.7; font-weight: 500;
-                }
-
-                .action-buttons { 
-                    display: flex; gap: var(--s-4); align-items: center; 
-                    padding-top: var(--s-2);
-                }
-                
-                .feature-grid {
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: var(--s-12);
-                    padding: var(--s-16) var(--s-4);
-                    margin-top: var(--s-12);
-                    border-top: 1px solid var(--glass-border);
-                    margin-bottom: var(--s-20);
-                }
-
-                .feature-item { display: flex; gap: var(--s-6); align-items: flex-start; }
-                .feature-icon { 
-                    width: 44px; height: 44px; min-width: 44px; 
-                    background: hsl(var(--accent) / 0.08); border-radius: 12px; 
-                    display: flex; align-items: center; justify-content: center; 
-                    color: hsl(var(--accent)); border: 1px solid hsl(var(--accent) / 0.15); 
-                }
-                .feature-text strong { 
-                    display: block; font-size: 0.75rem; color: white; 
-                    margin-bottom: 4px; letter-spacing: 0.1em; text-transform: uppercase; 
-                    font-weight: 900;
-                }
-                .feature-text p { font-size: 0.8125rem; color: hsl(var(--text-dim)); line-height: 1.5; opacity: 0.6; }
-
-                .cta-btn-hero { 
-                    height: 52px; padding: 0 var(--s-10); font-weight: 900; letter-spacing: 0.1em;
-                    display: flex; align-items: center; gap: var(--s-3); white-space: nowrap;
-                    min-width: fit-content;
-                }
-                
-                @media (max-width: 1050px) {
-                    .home-showcase { padding: 0 var(--s-6); }
-                    .showcase-actions-row { flex-direction: column; gap: var(--s-8); }
-                    .action-meta { text-align: center; }
-                    .action-desc { margin: 0 auto; }
-                    .action-buttons { margin: 0 auto; }
-                    .feature-grid { grid-template-columns: 1fr; gap: var(--s-8); padding: var(--s-10) 0; }
-                }
-                "
-            </style>
+            
             </div>
         </div>
     }

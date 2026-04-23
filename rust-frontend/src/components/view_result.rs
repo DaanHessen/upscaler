@@ -48,11 +48,7 @@ pub fn ViewResult() -> impl IntoView {
                 })}
             </Suspense>
 
-            <style>
-                ".view-result-page { max-width: 1200px; margin: 0 auto; }
-                .loading-full-page { display: flex; align-items: center; justify-content: center; min-height: 400px; color: var(--accent); }
-                "
-            </style>
+            
         </div>
     }
 }
@@ -144,77 +140,7 @@ where F: Fn(()) + 'static + Copy {
                 </div>
             </div>
             
-            <style>
-                ".polling-container { display: flex; align-items: center; justify-content: center; padding: var(--s-20) 0; min-height: 60vh; }
-                .processing-studio-card { width: 100%; max-width: 500px; background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); padding: var(--s-8); box-shadow: var(--shadow-xl); }
-                
-                .studio-processing-view { display: flex; flex-direction: column; align-items: center; gap: var(--s-10); padding: var(--s-10) 0; }
-                
-                .scanner-visual { position: relative; width: 100%; display: flex; justify-content: center; }
-                .scanner-frame { 
-                    width: 140px; 
-                    height: 140px; 
-                    border: 1px solid var(--glass-border); 
-                    border-radius: var(--radius-md); 
-                    background: #000; 
-                    position: relative; 
-                    display: flex; 
-                    align-items: center; 
-                    justify-content: center; 
-                    overflow: hidden;
-                    box-shadow: 0 0 40px hsl(var(--accent) / 0.15);
-                }
-                .scanner-lens {
-                    width: 60px;
-                    height: 60px;
-                    border-radius: 50%;
-                    border: 1px solid hsl(var(--accent) / 0.3);
-                    background: radial-gradient(circle at center, hsl(var(--accent) / 0.1), transparent);
-                    animation: pulse 2s infinite;
-                }
-                
-                .scanner-line { 
-                    position: absolute; 
-                    top: 0; 
-                    left: 0; 
-                    width: 100%; 
-                    height: 2px; 
-                    background: hsl(var(--accent)); 
-                    box-shadow: 0 0 15px hsl(var(--accent)); 
-                    animation: scan-move 3s ease-in-out infinite; 
-                    z-index: 5;
-                }
-                .scanner-glow {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    width: 100%;
-                    height: 40px;
-                    background: linear-gradient(to bottom, hsl(var(--accent) / 0.2), transparent);
-                    animation: scan-glow-move 3s ease-in-out infinite;
-                    z-index: 4;
-                }
-
-                @keyframes scan-move {
-                    0%, 100% { top: 0; }
-                    50% { top: 100%; }
-                }
-                @keyframes scan-glow-move {
-                    0%, 100% { top: 0; transform: scaleY(1); }
-                    50% { top: calc(100% - 40px); transform: scaleY(-1); }
-                }
-
-                .processing-meta { text-align: center; display: flex; flex-direction: column; gap: var(--s-2); }
-                .stage-tag { font-size: 0.625rem; font-weight: 950; color: hsl(var(--accent)); letter-spacing: 0.25em; text-transform: uppercase; }
-                .stage-title { font-size: 1.5rem; font-weight: 850; letter-spacing: -0.04em; color: hsl(var(--text)); }
-                .stage-desc { font-size: 0.875rem; max-width: 320px; margin: 0 auto; color: hsl(var(--text-dim)); opacity: 0.8; }
-
-                .telemetry-bar { display: flex; gap: var(--s-10); margin-top: var(--s-4); padding-top: var(--s-8); border-top: 1px solid var(--glass-border); width: 100%; justify-content: center; margin-bottom: var(--s-4); }
-                .telemetry-segment { display: flex; flex-direction: column; gap: 4px; align-items: center; }
-                .t-label { font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim)); opacity: 0.4; letter-spacing: 0.15em; text-transform: uppercase; }
-                .t-value { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 700; color: hsl(var(--text)); }
-                "
-            </style>
+            
         </div>
     }
 }
@@ -309,40 +235,7 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                 </div>
             </div>
 
-            <style>
-                ".view-result-page { max-width: 1300px; margin: 0 auto; padding: 0 var(--s-4); }                .view-result-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-16); border-bottom: 1px solid var(--glass-border); padding-bottom: var(--s-8); }
-                .header-actions { display: flex; gap: var(--s-4); }
-                
-                .result-main { display: grid; grid-template-columns: 1fr 400px; gap: var(--s-12); align-items: stretch; }
-                .result-slider-box { border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--glass-border); min-height: 500px; background: #000; display: flex; align-items: stretch; }
-                
-                .settings-card { background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); height: 100%; }
-                .settings-list { flex: 1; display: flex; flex-direction: column; gap: var(--s-4); margin-top: var(--s-4); }
-                .s-item { display: flex; flex-direction: column; gap: 4px; padding: var(--s-3) 0; border-bottom: 1px solid var(--glass-border); }
-                .s-item:last-child { border-bottom: none; }
-                .s-label { font-size: 0.5rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.15em; text-transform: uppercase; opacity: 0.5; }
-                .s-value { font-size: 0.8125rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: hsl(var(--text)); }
-                .s-value.success { color: hsl(var(--accent)); text-shadow: 0 0 10px hsl(var(--accent) / 0.3); }
-                
-                @media (max-width: 1050px) {
-                    .result-main { grid-template-columns: 1fr; }
-                    .page-header { flex-direction: column; align-items: flex-start; gap: var(--s-6); }
-                    .header-actions { width: 100%; }
-                    .header-actions .btn { flex: 1; }
-                }
-
-                .card-divider { height: 1px; background: var(--glass-border); opacity: 0.5; }
-                .btn-xs { font-size: 0.6rem; padding: var(--s-3); }
-
-                /* Debug Panel */
-                .debug-panel { margin-top: var(--s-6); display: flex; flex-direction: column; gap: var(--s-6); background: rgba(0,0,0,0.3); padding: var(--s-4); border-radius: var(--radius-sm); border: 1px solid var(--glass-border); }
-                .debug-section { display: flex; flex-direction: column; gap: 4px; }
-                .d-hdr { font-size: 0.5rem; font-weight: 900; color: hsl(var(--accent)); letter-spacing: 0.1em; margin-bottom: 2px; }
-                .d-row { display: flex; justify-content: space-between; font-size: 0.625rem; font-family: var(--font-mono); }
-                .d-row span:first-child { color: hsl(var(--text-dim)); }
-                .d-row span:last-child { color: hsl(var(--text)); font-weight: 600; }
-                "
-            </style>
+            
         </div>
     }
 }
@@ -356,12 +249,7 @@ fn ErrorView(message: String) -> impl IntoView {
             <h2>"Upscale Error"</h2>
             <p class="muted">{message}</p>
             <button class="btn btn-primary" on:click=move |_| navigate("/", Default::default())>"RETURN HOME"</button>
-            <style>
-                ".error-container { text-align: center; padding: 10rem 0; display: flex; flex-direction: column; align-items: center; gap: 2rem; }
-                .error-container h2 { font-size: 2rem; }
-                .error-container p { max-width: 400px; }
-                "
-            </style>
+            
         </div>
     }
 }
