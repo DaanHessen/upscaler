@@ -506,6 +506,53 @@ footer {
   letter-spacing: 0.05em;
 }
 
+/* Credits & Usage Dashboard */
+.credits-container { max-width: 1000px; margin: 0 auto; }
+.credits-layout { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-8); margin-top: var(--s-8); }
+
+.vault-card, .replenish-card { padding: 0 !important; }
+.params-body { padding: var(--s-8); display: flex; flex-direction: column; gap: var(--s-8); }
+
+.card-tag { display: flex; align-items: center; gap: var(--s-2); color: hsl(var(--accent)); font-weight: 900; font-size: 0.625rem; letter-spacing: 0.2em; }
+
+.balance-display { display: flex; flex-direction: column; gap: var(--s-1); }
+.credit-count { font-size: 3.5rem; font-weight: 800; line-height: 1; font-family: var(--font-heading); letter-spacing: -0.05em; }
+.credit-symbol { font-size: 0.875rem; color: hsl(var(--text-dim)); font-weight: 600; }
+
+.meta-stats { display: flex; gap: var(--s-12); border-top: 1px solid hsl(var(--border-muted)); padding-top: var(--s-6); }
+.stat-box { display: flex; flex-direction: column; gap: var(--s-1); }
+.stat-box .stat-label { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
+.stat-box .stat-value { font-size: 1.125rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
+.stat-value.highlight { color: hsl(var(--success)); }
+
+.pack-list { display: flex; flex-direction: column; gap: var(--s-3); }
+.pack-item { display: flex; justify-content: space-between; align-items: center; padding: var(--s-4); background: hsl(var(--surface-raised)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-md); cursor: pointer; transition: all 0.2s; }
+.pack-item:hover { border-color: hsl(var(--accent) / 0.5); background: hsl(var(--surface-bright)); }
+.pack-item.active { border-color: hsl(var(--accent)); background: hsl(var(--accent) / 0.05); }
+.pack-info { display: flex; flex-direction: column; gap: 2px; }
+.pack-name { font-size: 0.8125rem; font-weight: 700; color: hsl(var(--text)); }
+.pack-credits { font-size: 0.6875rem; font-weight: 800; color: hsl(var(--accent)); letter-spacing: 0.05em; }
+.pack-price { font-family: var(--font-mono); font-weight: 800; font-size: 1.125rem; }
+
+/* History Logs */
+.history-section { margin-top: var(--s-16); }
+.history-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--s-8); }
+.telemetry-badge { background: hsl(var(--surface-bright)); border: 1px solid hsl(var(--border)); padding: var(--s-2) var(--s-4); border-radius: 8px; display: flex; gap: var(--s-4); align-items: center; }
+.badge-label { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.1em; }
+.badge-value { font-weight: 900; font-family: var(--font-mono); color: hsl(var(--accent)); }
+
+.usage-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+.usage-table th { text-align: left; padding: var(--s-4); border-bottom: 2px solid hsl(var(--border)); font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.1em; text-transform: uppercase; }
+.usage-table td { padding: var(--s-4); border-bottom: 1px solid hsl(var(--border-muted)); vertical-align: middle; }
+.id-cell { font-family: var(--font-mono); font-weight: 700; }
+.cell-link { color: hsl(var(--accent)); text-decoration: none; border-bottom: 1px solid transparent; }
+.cell-link:hover { border-bottom-color: currentColor; }
+
+.status-chip { display: inline-flex; padding: 2px 8px; border-radius: 4px; font-size: 0.625rem; font-weight: 900; letter-spacing: 0.05em; background: hsl(var(--surface-raised)); color: hsl(var(--text-dim)); border: 1px solid hsl(var(--border)); text-transform: uppercase; }
+.status-chip.completed, .status-chip.success { background: hsl(var(--success) / 0.1); color: hsl(var(--success)); border-color: hsl(var(--success) / 0.2); }
+.status-chip.failed { background: hsl(var(--error) / 0.1); color: hsl(var(--error)); border-color: hsl(var(--error) / 0.2); }
+.status-chip.processing { background: hsl(var(--warning) / 0.1); color: hsl(var(--warning)); border-color: hsl(var(--warning) / 0.2); }
+
 @media (max-width: 900px) {
   header { padding: 0 var(--s-6); }
   main { padding: var(--s-12) var(--s-4); }
