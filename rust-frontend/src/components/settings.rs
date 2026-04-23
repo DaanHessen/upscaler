@@ -133,10 +133,6 @@ pub fn Credits() -> impl IntoView {
                         <h2 class="text-gradient" style="font-family: var(--font-heading); letter-spacing: -0.04em;">"Logs"</h2>
                         <p class="muted">"History of your previous upscales and credits usage."</p>
                     </div>
-                    <div class="telemetry-badge">
-                        <span class="badge-label">"UPSCALED IMAGES"</span>
-                        <span class="badge-value"> {move || auth.history.get().map(|v| v.len().to_string()).unwrap_or_else(|| "0".to_string())}</span>
-                    </div>
                 </div>
                 
                 <div class="usage-card">
@@ -154,7 +150,7 @@ pub fn Credits() -> impl IntoView {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        <Suspense fallback=|| view! { <tr><td colspan="7" style="padding: 6rem; text-align: center; opacity: 0.3;">"Synchronizing telemetry stream..."</td></tr> }>
+                                        <Suspense fallback=|| view! { <tr><td colspan="7" style="padding: 6rem; text-align: center; opacity: 0.3;">"Loading logs..."</td></tr> }>
                                             {move || {
                                                 let h = auth.history.get();
                                                 match h {

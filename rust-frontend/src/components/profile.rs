@@ -68,10 +68,6 @@ pub fn AccountSettings() -> impl IntoView {
                             <span class="data-label">"ACCOUNT STATUS"</span>
                             <span class="data-value" style="color: hsl(var(--success));">"ACTIVE / VERIFIED"</span>
                         </div>
-                        <div class="data-row">
-                            <span class="data-label">"STORAGE POLICY"</span>
-                            <span class="data-value">"EPHEMERAL (24H)"</span>
-                        </div>
                     </div>
                 </div>
 
@@ -83,15 +79,15 @@ pub fn AccountSettings() -> impl IntoView {
                     
                     <div class="stats-grid-mini" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-8);">
                         <div class="stat-box-mini">
-                            <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Studio Utilization"</span>
+                            <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Processed Images"</span>
                             <span class="stat-value-mini" style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading);">{move || auth.history.get().map(|h| h.len()).unwrap_or(0)} <span style="font-size: 0.75rem; opacity: 0.4;">"IMAGES"</span></span>
                         </div>
                         <div class="stat-box-mini">
-                            <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Neural Investment"</span>
+                            <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Total Credits Used"</span>
                             <span class="stat-value-mini" style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading);">{move || auth.history.get().map(|h| h.iter().map(|i| i.credits_charged).sum::<i32>()).unwrap_or(0)} <span style="font-size: 0.75rem; opacity: 0.4;">"CREDITS"</span></span>
                         </div>
                         <div class="stat-box-mini">
-                            <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Engine Efficiency"</span>
+                            <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Average Speed"</span>
                             <span class="stat-value-mini" style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading);">
                                 {move || {
                                     let h = auth.history.get().unwrap_or_default();
@@ -104,8 +100,8 @@ pub fn AccountSettings() -> impl IntoView {
                             </span>
                         </div>
                         <div class="stat-box-mini">
-                            <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Telemetry Status"</span>
-                            <span class="stat-value-mini" style="font-size: 0.8125rem; font-weight: 800; color: hsl(var(--accent));">"SYNCHRONIZED"</span>
+                            <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"System Status"</span>
+                            <span class="stat-value-mini" style="font-size: 0.8125rem; font-weight: 800; color: hsl(var(--accent));">"SYNCED"</span>
                         </div>
                     </div>
                 </div>

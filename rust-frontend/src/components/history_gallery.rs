@@ -97,8 +97,10 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                                 <img 
                                     src=u 
                                     loading="lazy" 
+                                    decoding="async"
                                     class:loaded=loaded 
                                     on:load=move |_| set_loaded.set(true)
+                                    alt="Upscaled result"
                                 /> 
                             }.into_any()
                         },
@@ -115,7 +117,7 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                     <div class=status_class>{status_label}</div>
                     <div class="meta-date">
                         <Calendar size={12} />
-                        <span>{item.created_at}</span>
+                        <span>{item.created_at[..10].to_string()}</span>
                     </div>
                 </div>
                 

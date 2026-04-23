@@ -540,7 +540,7 @@ footer {
 /* History Logs */
 .history-section { margin-top: var(--s-16); }
 .history-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--s-8); }
-.telemetry-badge { background: hsl(var(--surface-bright)); border: 1px solid hsl(var(--border)); padding: var(--s-2) var(--s-4); border-radius: 8px; display: flex; gap: var(--s-4); align-items: center; }
+.system-badge { background: hsl(var(--surface-bright)); border: 1px solid hsl(var(--border)); padding: var(--s-2) var(--s-4); border-radius: 8px; display: flex; gap: var(--s-4); align-items: center; }
 .badge-label { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.1em; }
 .badge-value { font-weight: 900; font-family: var(--font-mono); color: hsl(var(--accent)); }
 

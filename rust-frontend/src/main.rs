@@ -315,9 +315,9 @@ fn Footer() -> impl IntoView {
                 .hero-subtitle { font-size: 1.25rem; font-weight: 800; color: hsl(var(--text)); margin-bottom: var(--s-4); letter-spacing: -0.02em; }
                 .hero-description { font-size: 1.0625rem; font-weight: 500; color: hsl(var(--text-muted)); line-height: 1.6; }
 
-                .footer-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--s-4); }
-                .footer-meta { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
-                .footer-link { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; transition: color 0.2s; }
+                .footer-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--s-4); white-space: nowrap; }
+                .footer-meta { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
+                .footer-link { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; transition: color 0.2s; white-space: nowrap; }
                 .footer-link:hover { color: hsl(var(--accent)); }
                 .divider { opacity: 0.1; color: hsl(var(--text-dim)); }
 
