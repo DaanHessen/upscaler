@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use crate::{use_global_state, use_auth};
 use crate::api::{ApiClient, PromptSettings, PollResponse};
-use crate::components::icons::{Zap, ImageIcon, Settings, Target, RefreshCw, AlertCircle, LogOut, Download, Info};
+use crate::components::icons::{Zap, ImageIcon, Settings, Target, RefreshCw, AlertCircle, Download, Info, ChevronRight};
 use crate::text::TXT;
 use wasm_bindgen::JsCast;
 
@@ -151,7 +151,6 @@ pub fn Configure() -> impl IntoView {
 
                         <div class="asset-frame">
                             {move || {
-                                let nav = nav_home.clone();
                                 let img_url = global_state.preview_base64.get();
                                 match img_url {
                                     Some(url) => view! {
@@ -476,7 +475,7 @@ pub fn Configure() -> impl IntoView {
             .editor-shell {
                 display: flex;
                 height: calc(100vh - 72px);
-                background: #040404;
+                background: hsl(var(--bg));
                 overflow: hidden;
             }
 
@@ -502,21 +501,22 @@ pub fn Configure() -> impl IntoView {
                 justify-content: center;
                 position: relative;
                 padding: var(--s-12);
-                background: radial-gradient(circle at center, #0a0a0a, #040404);
+                background: radial-gradient(circle at center, hsl(var(--accent) / 0.05), transparent);
             }
 
             .workspace-nav {
-                position: absolute; top: var(--s-4); left: var(--s-12); right: var(--s-12);
-                display: flex; align-items: center; gap: var(--s-6); 
-                padding: 10px 20px; background: rgba(0,0,0,0.4); backdrop-filter: blur(10px);
-                border: 1px solid rgba(255,255,255,0.05); border-radius: 100px;
-                width: fit-content; z-index: 60;
+                position: absolute; top: var(--s-6); left: var(--s-6);
+                display: flex; align-items: center; gap: var(--s-8); 
+                padding: 12px 24px; background: var(--glass); backdrop-filter: blur(20px);
+                border: 1px solid var(--glass-border); border-radius: var(--radius-md);
+                width: auto; z-index: 60;
+                box-shadow: var(--shadow-md);
             }
-            .nav-item { display: flex; align-items: center; gap: 8px; }
-            .nav-label { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim) / 0.5); letter-spacing: 0.05em; }
-            .nav-val { font-size: 0.625rem; font-weight: 900; color: white; letter-spacing: 0.02em; }
+            .nav-item { display: flex; flex-direction: column; gap: 2px; }
+            .nav-label { font-size: 0.5rem; font-weight: 900; color: hsl(var(--text-dim) / 0.4); letter-spacing: 0.15em; text-transform: uppercase; }
+            .nav-val { font-size: 0.6875rem; font-weight: 850; color: hsl(var(--text)); letter-spacing: 0.05em; font-family: var(--font-mono); }
             .nav-val.accent { color: hsl(var(--accent)); }
-            .nav-divider { width: 1px; height: 12px; background: rgba(255,255,255,0.1); }
+            .nav-divider { width: 1px; height: 20px; background: var(--glass-border); }
 
             .canvas-grid {
                 position: absolute;
@@ -591,7 +591,7 @@ pub fn Configure() -> impl IntoView {
             }
 
             .drag-overlay {
-                position: absolute; inset: -40px; background: hsla(240, 10%, 4%, 0.95);
+                position: absolute; inset: -40px; background: hsl(var(--bg) / 0.95);
                 backdrop-filter: blur(20px); z-index: 100; border: 2px dashed hsl(var(--accent));
                 border-radius: var(--radius-xl); display: flex; flex-direction: column; align-items: center; justify-content: center;
                 gap: var(--s-4); color: hsl(var(--accent));
@@ -602,21 +602,26 @@ pub fn Configure() -> impl IntoView {
                 display: flex; gap: var(--s-4); z-index: 30;
             }
             .telemetry-pill {
-                background: #000; border: 1px solid rgba(255,255,255,0.1);
-                padding: 6px 14px; border-radius: 100px;
-                display: flex; gap: 10px; font-size: 0.625rem; font-weight: 850; letter-spacing: 0.08em;
+                background: var(--glass); border: 1px solid var(--glass-border);
+                padding: 6px 16px; border-radius: 100px;
+                display: flex; gap: 10px; font-size: 0.625rem; font-weight: 900; letter-spacing: 0.05em;
+                backdrop-filter: blur(10px);
             }
-            .telemetry-pill .label { color: hsl(var(--text-dim) / 0.4); }
-            .telemetry-pill .value { color: white; }
+            .telemetry-pill .label { color: hsl(var(--text-dim) / 0.4); text-transform: uppercase; }
+            .telemetry-pill .value { color: hsl(var(--text)); font-family: var(--font-mono); }
             .telemetry-pill .value.accent { color: hsl(var(--accent)); }
 
-            /* ─── SIDEBAR V2 ─── */
+            /* ─── SIDEBAR ─── */
             .editor-sidebar-wrapper {
-                width: 380px; position: relative; border-left: 1px solid #111;
-                background: #060606;
+                width: 380px; 
+                position: relative; 
+                border-left: 1px solid hsl(var(--border) / 0.5);
+                background: hsl(var(--surface));
+                box-shadow: -10px 0 50px rgba(0,0,0,0.2);
             }
             .sidebar-backdrop {
-                position: absolute; inset: 0; background: radial-gradient(circle at 100% 0%, #0d0d0d, #060606);
+                position: absolute; inset: 0; 
+                background: linear-gradient(to bottom, hsl(var(--surface-raised) / 0.5), transparent);
             }
             .editor-sidebar {
                 position: relative; height: 100%; display: flex; flex-direction: column; z-index: 10;
@@ -630,14 +635,17 @@ pub fn Configure() -> impl IntoView {
             .sidebar-scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
 
             .sidebar-group-v2 {
-                background: rgba(255,255,255,0.02);
-                border: 1px solid rgba(255,255,255,0.04);
-                border-radius: var(--radius-xl);
+                background: hsl(var(--surface-raised) / 0.3);
+                border: 1px solid var(--glass-border);
+                border-radius: var(--radius-lg);
                 padding: var(--s-6);
                 margin-bottom: var(--s-6);
-                transition: border-color 0.3s;
+                transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             }
-            .sidebar-group-v2:hover { border-color: rgba(255,255,255,0.08); }
+            .sidebar-group-v2:hover { 
+                background: hsl(var(--surface-raised) / 0.5);
+                border-color: hsl(var(--accent) / 0.2); 
+            }
 
             .card-tag-editor-v2 {
                 display: flex; align-items: center; gap: 8px;
@@ -651,35 +659,37 @@ pub fn Configure() -> impl IntoView {
 
             .resolution-grid-v2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
             .res-tile-v2 {
-                background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
-                border-radius: var(--radius-lg); padding: var(--s-4);
+                background: hsl(var(--surface-raised) / 0.5); 
+                border: 1px solid var(--glass-border);
+                border-radius: var(--radius-md); padding: var(--s-4);
                 cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                display: flex; justify-content: space-between; align-items: center;
             }
-            .res-tile-v2:hover { background: rgba(255,255,255,0.06); }
+            .res-tile-v2:hover { background: hsl(var(--surface-bright)); border-color: hsl(var(--accent) / 0.3); }
             .res-tile-v2.active { 
-                background: hsl(var(--accent) / 0.1); 
+                background: hsl(var(--accent) / 0.08); 
                 border-color: hsl(var(--accent)); 
                 box-shadow: 0 0 20px hsl(var(--accent) / 0.1);
             }
-            .res-info-v2 { display: flex; flex-direction: column; }
-            .res-num-v2 { font-size: 1.25rem; font-weight: 950; color: white; }
-            .res-label-v2 { font-size: 0.55rem; font-weight: 800; color: hsl(var(--text-dim) / 0.4); letter-spacing: 0.05em; }
-            .res-cost-v2 { font-size: 0.5rem; font-weight: 900; color: hsl(var(--accent)); margin-top: var(--s-2); opacity: 0.7; }
+            .res-info-v2 { display: flex; flex-direction: column; gap: 2px; }
+            .res-num-v2 { font-size: 1.125rem; font-weight: 850; color: hsl(var(--text)); font-family: var(--font-heading); }
+            .res-label-v2 { font-size: 0.55rem; font-weight: 800; color: hsl(var(--text-dim) / 0.5); letter-spacing: 0.05em; text-transform: uppercase; }
+            .res-cost-v2 { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--accent)); font-family: var(--font-mono); }
 
             .control-card-v2 { margin-bottom: var(--s-8); }
             .control-card-v2:last-child { margin-bottom: 0; }
             .control-label-v2 { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim) / 0.6); letter-spacing: 0.05em; margin-bottom: var(--s-4); display: block; }
             
             .style-switcher-v2 { 
-                display: flex; background: rgba(0,0,0,0.3); padding: 4px; border-radius: var(--radius-md); 
-                border: 1px solid rgba(255,255,255,0.03);
+                display: flex; background: hsl(var(--surface-raised)); padding: 4px; border-radius: var(--radius-md); 
+                border: 1px solid var(--glass-border);
             }
             .style-switcher-v2 button {
-                flex: 1; border: none; background: transparent; color: hsl(var(--text-dim) / 0.5);
+                flex: 1; border: none; background: transparent; color: hsl(var(--text-dim) / 0.6);
                 padding: 10px 0; font-size: 0.625rem; font-weight: 900; border-radius: 6px;
-                cursor: pointer; transition: all 0.2s;
+                cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
             }
-            .style-switcher-v2 button.active { background: #111; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+            .style-switcher-v2 button.active { background: hsl(var(--bg)); color: hsl(var(--text)); box-shadow: var(--shadow-sm); }
 
             .label-row-v2 { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-3); }
             .control-val-v2 { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 900; color: hsl(var(--accent)); }
@@ -727,20 +737,22 @@ pub fn Configure() -> impl IntoView {
                 font-weight: 900; letter-spacing: 0.05em; appearance: none; cursor: pointer; outline: none;
             }
 
-            .sidebar-footer-v2 { padding: var(--s-8); background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.03); }
+            .sidebar-footer-v2 { padding: var(--s-8); background: hsl(var(--surface) / 0.8); border-top: 1px solid var(--glass-border); backdrop-filter: blur(10px); }
             .initiate-btn-v2 {
-                width: 100%; height: 56px; background: hsl(var(--accent)); border: none; border-radius: var(--radius-xl);
+                width: 100%; height: 56px; background: hsl(var(--text)); border: none; border-radius: var(--radius-md);
                 cursor: pointer; position: relative; overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             }
             .initiate-btn-v2:disabled { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
-            .initiate-btn-content { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 12px; color: white; font-weight: 950; letter-spacing: 0.05em; font-size: 0.8125rem; }
-            .initiate-btn-cost { background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 6px; font-size: 0.55rem; font-weight: 900; color: rgba(255,255,255,0.8); }
-            .initiate-btn-shine { position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transform: translateX(-100%); animation: shine 3s infinite; }
+            .initiate-btn-content { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 12px; color: hsl(var(--bg)); font-weight: 900; letter-spacing: 0.1em; font-size: 0.8125rem; text-transform: uppercase; }
+            .initiate-btn-cost { background: hsl(var(--bg) / 0.1); padding: 4px 10px; border-radius: 6px; font-size: 0.625rem; font-weight: 900; color: hsl(var(--bg)); font-family: var(--font-mono); }
+            .initiate-btn-shine { position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); transform: translateX(-100%); animation: shine 3s infinite; }
             @keyframes shine { 100% { transform: translateX(100%); } }
-            .initiate-btn-v2:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 15px 30px hsla(var(--accent-h), var(--accent-s), 50%, 0.4); }
+            .initiate-btn-v2:hover:not(:disabled) { background: hsl(var(--accent)); transform: translateY(-3px); box-shadow: 0 20px 40px hsl(var(--accent) / 0.2); }
+            .initiate-btn-v2:hover:not(:disabled) .initiate-btn-content { color: white; }
+            .initiate-btn-v2:hover:not(:disabled) .initiate-btn-cost { background: rgba(255,255,255,0.2); color: white; }
 
             /* ─── PROCESSING STATE ─── */
-            .processing-state { background: black; }
+            .processing-state { background: hsl(var(--bg)); }
             .processing-vitals { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--s-12); }
             
             .status-icon-box { 
@@ -763,8 +775,8 @@ pub fn Configure() -> impl IntoView {
             }
             .progress-labels { display: flex; justify-content: space-between; font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim) / 0.15); letter-spacing: 0.2em; }
 
-            .latency-telemetry { display: flex; gap: 10px; align-items: center; padding: 12px 20px; background: #0a0a0a; border-radius: 10px; border: 1px solid rgba(255,255,255,0.03); }
-            .latency-label { font-size: 0.625rem; color: hsl(var(--text-dim) / 0.3); font-weight: 850; letter-spacing: 0.05em; }
+            .latency-telemetry { display: flex; gap: 10px; align-items: center; padding: 12px 20px; background: hsl(var(--surface-raised)); border-radius: 10px; border: 1px solid var(--glass-border); }
+            .latency-label { font-size: 0.625rem; color: hsl(var(--text-dim) / 0.4); font-weight: 850; letter-spacing: 0.05em; }
             .latency-value { font-size: 0.6875rem; color: hsl(var(--accent)); font-family: var(--font-mono); font-weight: 950; }
 
             .sidebar-note { padding: var(--s-10); text-align: center; font-size: 0.75rem; color: hsl(var(--text-dim) / 0.4); line-height: 1.6; }
