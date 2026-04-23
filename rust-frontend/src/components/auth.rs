@@ -37,7 +37,7 @@ pub fn Login() -> impl IntoView {
     view! {
         <div class="fade-in auth-container">
             <div class="card auth-card">
-                <h2 class="stagger-1">"Sign In"</h2>
+                <h2 class="stagger-1 text-gradient">"Sign In"</h2>
                 <p class="text-muted stagger-2">"Access your upscaling workspace."</p>
                 
                 <div class="stagger-3">
@@ -160,7 +160,7 @@ pub fn Register() -> impl IntoView {
     view! {
         <div class="fade-in auth-container">
             <div class="card auth-card">
-                <h2 class="stagger-1">"Create Account"</h2>
+                <h2 class="stagger-1 text-gradient">"Create Account"</h2>
                 <p class="text-muted stagger-2">"Join our professional upscaling studio."</p>
 
                 <div class="stagger-3">
@@ -309,7 +309,7 @@ pub fn ForgotPassword() -> impl IntoView {
     view! {
         <div class="fade-in auth-container">
             <div class="card auth-card">
-                <h2>"Reset Password"</h2>
+                <h2 class="text-gradient">"Reset Password"</h2>
                 
                 {move || if submitted.get() {
                     Either::Left(view! {

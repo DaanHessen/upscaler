@@ -614,7 +614,7 @@ footer {
 .stagger-3 { animation: staggerFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
 
 /* History Gallery & Empty State */
-.history-container { max-width: 1200px; margin: 0 auto; min-height: 60vh; }
+.history-container { max-width: 1000px; margin: 0 auto; min-height: 60vh; }
 .history-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--s-6); margin-top: var(--s-8); }
 
 .empty-state {

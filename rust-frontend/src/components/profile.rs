@@ -40,7 +40,7 @@ pub fn AccountSettings() -> impl IntoView {
         <div class="fade-in container-narrow" style="padding: var(--s-12) 0;">
             <div class="page-header">
                 <div class="header-main">
-                    <h1 class="stagger-1">"Account Settings"</h1>
+                    <h1 class="stagger-1 text-gradient">"Account Settings"</h1>
                     <p class="muted stagger-2">"Manage your studio identity and security."</p>
                 </div>
             </div>

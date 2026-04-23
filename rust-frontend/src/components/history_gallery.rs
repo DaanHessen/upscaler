@@ -18,7 +18,7 @@ pub fn HistoryGallery() -> impl IntoView {
         <div class="history-container fade-in">
             <div class="page-header">
                 <div class="header-main">
-                    <h1 class="stagger-1">"History"</h1>
+                    <h1 class="stagger-1 text-gradient">"History"</h1>
                     <p class="muted stagger-2">"Your previously upscaled images."</p>
                 </div>
             </div>

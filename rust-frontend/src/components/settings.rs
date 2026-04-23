@@ -44,41 +44,41 @@ pub fn Credits() -> impl IntoView {
         <div class="credits-container fade-in">
             <div class="page-header">
                 <div class="header-main">
-                    <h1 class="stagger-1">"Credits & Usage"</h1>
+                    <h1 class="stagger-1 text-gradient">"Credits & Usage"</h1>
                     <p class="muted stagger-2">"Manage your credits and view your activity history."</p>
                 </div>
             </div>
 
             <div class="card unified-billing-card shadow-lg" style="margin-top: var(--s-8);">
-                <div class="unified-billing-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+                <div class="unified-billing-grid" style="display: grid; grid-template-columns: 1fr 1fr;">
                     /* Balance Section */
-                    <div class="billing-section balance-section" style="padding: var(--s-10); border-right: 1px solid hsl(var(--border)); display: flex; flex-direction: column;">
+                    <div class="billing-section balance-section" style="padding: var(--s-10) var(--s-12); border-right: 1px solid hsl(var(--border) / 0.5); display: flex; flex-direction: column;">
                         <div class="card-tag">
                             <Zap size={10} />
                             <span>"VAULT BALANCE"</span>
                         </div>
-                        <div class="balance-display" style="margin-top: var(--s-6); flex: 1; display: flex; flex-direction: column; justify-content: center;">
-                            <span class="credit-count" style="font-size: 4rem;">
+                        <div class="balance-display" style="margin-top: var(--s-12); display: flex; flex-direction: column; align-items: flex-start;">
+                            <span class="credit-count" style="font-size: 5.5rem; line-height: 0.9; font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.04em;">
                                 {move || auth.credits.get().map(|c| c.to_string()).unwrap_or_else(|| "---".to_string())}
                             </span>
-                            <span class="credit-symbol">"Credits Available"</span>
+                            <span class="credit-symbol" style="margin-top: var(--s-2); font-size: 0.875rem; font-weight: 600; color: hsl(var(--text-dim));">"Credits Available"</span>
                         </div>
                         
-                        <div class="meta-stats" style="margin-top: auto; padding-top: var(--s-8);">
+                        <div class="meta-stats" style="margin-top: auto; padding-top: var(--s-8); border-top: 1px solid hsl(var(--border-muted));">
                             <div class="stat-box">
                                 <span class="stat-label">"Last Top Up"</span>
-                                <span class="stat-value">"N/A"</span>
+                                <span class="stat-value" style="font-size: 0.9375rem;">"N/A"</span>
                             </div>
                             <div class="stat-box">
                                 <span class="stat-label">"Status"</span>
-                                <span class="stat-value highlight">"SYNCED"</span>
+                                <span class="stat-value highlight" style="font-size: 0.9375rem;">"SYNCED"</span>
                             </div>
                         </div>
                     </div>
 
                     /* Replenish Section */
-                    <div class="billing-section replenish-section" style="padding: var(--s-10); display: flex; flex-direction: column;">
-                        <div class="card-tag" style="margin-bottom: var(--s-6);">
+                    <div class="billing-section replenish-section" style="padding: var(--s-10) var(--s-12); display: flex; flex-direction: column;">
+                        <div class="card-tag" style="margin-bottom: var(--s-8);">
                             <CreditCard size={10} />
                             <span>"BUY CREDITS"</span>
                         </div>
@@ -105,9 +105,10 @@ pub fn Credits() -> impl IntoView {
                             </div>
                         </div>
                         
-                        <div class="card-actions-row centered-actions" style="display: flex; justify-content: center; margin-top: var(--s-8);">
+                        <div class="card-actions-row centered-actions" style="display: flex; justify-content: center; margin-top: var(--s-10);">
                             <button 
                                 class="btn btn-primary btn-lg" 
+                                style="width: 65%; font-size: 0.8125rem; font-weight: 800; padding: var(--s-4) 0;"
                                 class:loading=loading
                                 on:click=on_buy
                                 disabled=loading
@@ -116,7 +117,7 @@ pub fn Credits() -> impl IntoView {
                             </button>
                         </div>
                         
-                        <div class="legal-disclosure" style="margin-top: var(--s-6); font-size: 0.625rem; color: hsl(var(--text-dim)); line-height: 1.4; text-align: center;">
+                        <div class="legal-disclosure" style="margin-top: var(--s-6); font-size: 0.625rem; color: hsl(var(--text-dim) / 0.7); line-height: 1.5; text-align: center; max-width: 90%; margin-left: auto; margin-right: auto;">
                             "By clicking BUY CREDITS, you agree to our "
                             <a href="/terms" style="color: inherit; text-decoration: underline;">"Terms"</a> " and "
                             <a href="/refunds" style="color: inherit; text-decoration: underline;">"Refund Policy"</a>". "
