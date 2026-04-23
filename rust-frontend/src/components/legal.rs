@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 use crate::components::icons::ShieldCheck;
+use crate::auth::use_auth;
 use pulldown_cmark::{Parser, Options, html};
 
 #[component]
@@ -128,6 +129,7 @@ pub fn RefundPolicy() -> impl IntoView {
 
 #[component]
 pub fn Contact() -> impl IntoView {
+    let auth = use_auth();
     let (submitted, set_submitted) = signal(false);
 
     view! {
@@ -161,8 +163,27 @@ pub fn Contact() -> impl IntoView {
                                 <input type="text" placeholder="Billing inquiry, API integration, or bug report" required style="width: 100%;" />
                             </div>
                             <div class="input-group" style="margin-top: var(--s-6);">
+                                <label>"Related Job ID"</label>
+                                <select style="width: 100%;">
+                                    <option value="">"No specific job / General inquiry"</option>
+                                    {move || {
+                                        let auth = auth.clone();
+                                        auth.history.get().into_iter().flatten().map(|item| {
+                                            let id_short = item.id.to_string()[..8].to_string().to_uppercase();
+                                            let ts = item.created_at.clone();
+                                            let style = item.style.clone().unwrap_or_else(|| "AUTO".to_string());
+                                            view! {
+                                                <option value=item.id.to_string()>
+                                                    {format!("[{}] {} - #{}", style, ts, id_short)}
+                                                </option>
+                                            }
+                                        }).collect_view()
+                                    }}
+                                </select>
+                            </div>
+                            <div class="input-group" style="margin-top: var(--s-8);">
                                 <label>"Diagnostic Details"</label>
-                                <textarea placeholder="Please describe the issue in detail, including relevant Job IDs or Timestamps if applicable." rows="6" style="width: 100%; resize: vertical;"></textarea>
+                                <textarea placeholder="Please describe the issue in detail. If you selected a Job ID above, we will automatically attach the technical logs." rows="6" style="width: 100%; resize: vertical;"></textarea>
                             </div>
                             <div style="margin-top: var(--s-8); display: flex; align-items: center; justify-content: space-between;">
                                 <p style="font-size: 0.75rem; color: hsl(var(--text-muted)); margin: 0;">"Expected response time: < 24 hours"</p>
