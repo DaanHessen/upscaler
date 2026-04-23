@@ -4,7 +4,6 @@ mod components;
 mod persistence;
 
 use leptos::prelude::*;
-use leptos::either::Either;
 use leptos_router::components::*;
 use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
@@ -41,6 +40,8 @@ pub struct GlobalState {
     pub set_preview_base64: WriteSignal<Option<String>>,
     pub thinking_level: ReadSignal<String>,
     pub set_thinking_level: WriteSignal<String>,
+    pub seed: ReadSignal<Option<u32>>,
+    pub set_seed: WriteSignal<Option<u32>>,
     pub theme: ReadSignal<String>,
     pub set_theme: WriteSignal<String>,
 }
@@ -56,6 +57,7 @@ pub fn provide_global_state() {
     let (keep_depth_of_field, set_keep_depth_of_field) = signal(initial_settings.as_ref().map(|s| s.keep_depth_of_field).unwrap_or(true));
     let (lighting, set_lighting) = signal(initial_settings.as_ref().map(|s| s.lighting.clone()).unwrap_or_else(|| "Original".to_string()));
     let (thinking_level, set_thinking_level) = signal(initial_settings.as_ref().map(|s| s.thinking_level.clone()).unwrap_or_else(|| "HIGH".to_string()));
+    let (seed, set_seed) = signal(initial_settings.as_ref().and_then(|s| s.seed));
     let (theme, set_theme) = signal(initial_settings.as_ref().map(|s| s.theme.clone()).unwrap_or_else(|| "dark".to_string()));
     let (preview_base64, set_preview_base64) = signal(None);
     
@@ -78,6 +80,8 @@ pub fn provide_global_state() {
         set_preview_base64,
         thinking_level,
         set_thinking_level,
+        seed,
+        set_seed,
         theme,
         set_theme,
     });
@@ -122,6 +126,7 @@ fn App() -> impl IntoView {
             keep_depth_of_field: global_state.keep_depth_of_field.get(),
             lighting: global_state.lighting.get(),
             thinking_level: global_state.thinking_level.get(),
+            seed: global_state.seed.get(),
             theme: global_state.theme.get(),
         });
     });
@@ -152,6 +157,8 @@ fn App() -> impl IntoView {
             gs.set_temperature.set(s.temperature);
             gs.set_keep_depth_of_field.set(s.keep_depth_of_field);
             gs.set_lighting.set(s.lighting);
+            gs.set_thinking_level.set(s.thinking_level);
+            gs.set_seed.set(s.seed);
             gs.set_theme.set(s.theme);
         }
 
@@ -219,7 +226,8 @@ fn MainLayout() -> impl IntoView {
                     <span>"STUDIO"</span>
                 </A>
                 <nav>
-                    <NavLink href="/">"STUDIO"</NavLink>
+                    <NavLink href="/">"HOME"</NavLink>
+                    <NavLink href="/editor">"EDITOR"</NavLink>
                     {move || auth.user.get().is_some().then(|| view! {
                         <>
                             <NavLink href="/history">"HISTORY"</NavLink>

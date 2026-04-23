@@ -18,6 +18,7 @@ pub struct SettingsState {
     pub keep_depth_of_field: bool,
     pub lighting: String,
     pub thinking_level: String,
+    pub seed: Option<u32>,
     pub theme: String,
 }
 

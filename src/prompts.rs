@@ -9,6 +9,8 @@ pub struct PromptSettings {
     pub lighting: String, // "Original", "Studio", "Cinematic", "Vivid", "Natural"
     #[serde(default)]
     pub thinking_level: String, // "MINIMAL", "HIGH"
+    #[serde(default)]
+    pub seed: Option<u32>,
 }
 
 pub fn build_system_prompt(style: &str, settings: &PromptSettings) -> String {

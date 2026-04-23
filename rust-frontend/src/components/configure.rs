@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use crate::{use_global_state, use_auth};
 use crate::api::{ApiClient, PromptSettings, PollResponse};
-use crate::components::icons::{Zap, ImageIcon, Settings, Target, RefreshCw, AlertCircle};
+use crate::components::icons::{Zap, ImageIcon, Settings, Target, RefreshCw, AlertCircle, LogOut};
 
 #[component]
 pub fn Configure() -> impl IntoView {
@@ -19,35 +19,26 @@ pub fn Configure() -> impl IntoView {
     Effect::new(move |_| {
         if let Some(job_id) = processing_job.get() {
             let token = auth.session.get().map(|s| s.access_token);
-            let n = navigate.clone();
+            let state = global_state;
             
+            // Polling task
             leptos::task::spawn_local(async move {
-                let mut attempts = 0;
                 loop {
                     match ApiClient::poll_job(job_id, token.as_deref()).await {
-                        Ok(res) => {
-                            let status = res.status.clone();
-                            set_engine_status.set(Some(res));
-                            
-                            if status == "COMPLETED" {
-                                // Once finished, we move to the final view page
-                                n(&format!("/view/{}", job_id), Default::default());
-                                break;
-                            } else if status == "FAILED" {
-                                set_error_msg.set(Some("Engine failure. Please try again.".to_string()));
-                                set_processing_job.set(None);
+                        Ok(resp) => {
+                            let r: PollResponse = resp.clone();
+                            set_engine_status.set(Some(r.clone()));
+                            if r.status == "COMPLETED" {
+                                if let Some(url) = r.image_url {
+                                    state.set_preview_base64.set(Some(url));
+                                }
                                 break;
                             }
-                        }
-                        Err(e) => {
-                            leptos::logging::error!("Poll error: {}", e);
-                        }
-                    }
-                    attempts += 1;
-                    if attempts > 300 { 
-                        set_error_msg.set(Some("Request timed out.".to_string()));
-                        set_processing_job.set(None);
-                        break; 
+                            if r.status == "FAILED" {
+                                break;
+                            }
+                        },
+                        Err(_) => break,
                     }
                     gloo_timers::future::TimeoutFuture::new(2000).await;
                 }
@@ -77,6 +68,7 @@ pub fn Configure() -> impl IntoView {
                 keep_depth_of_field: global_state.keep_depth_of_field.get(),
                 lighting: global_state.lighting.get(),
                 thinking_level: global_state.thinking_level.get(),
+                seed: global_state.seed.get(),
             };
             
             leptos::task::spawn_local(async move {
@@ -94,63 +86,48 @@ pub fn Configure() -> impl IntoView {
         }
     };
 
-    let preview_src = move || {
-        if let Some(b64) = global_state.preview_base64.get() {
-            format!("data:image/jpeg;base64,{}", b64)
-        } else {
-            global_state.temp_file.get()
-                .map(|f| web_sys::Url::create_object_url_with_blob(&f).unwrap())
-                .unwrap_or_default()
+    let stage_info = move || {
+        match engine_status.get().map(|s| s.status) {
+            Some(s) if s == "PENDING" => ("QUEUE", "System Ready", "Analyzing infrastructure availability..."),
+            Some(s) if s == "PROCESSING" => ("ACTIVE", "Reconstructing", "Gemini Vision is synthesizing high-freq details."),
+            Some(s) if s == "COMPLETED" => ("FINISH", "Studio Export", "Enhancement complete. Ready for download."),
+            _ => ("IDLE", "Standby", "Awaiting engine handshake.")
         }
     };
 
-    let stage_info = move || {
-        if let Some(res) = engine_status.get() {
-            match res.status.as_str() {
-                "PENDING" => {
-                    let pos = res.queue_position.unwrap_or(1);
-                    ("QUEUED", format!("Position #{}", pos), "Waiting for compute node...")
-                },
-                "PROCESSING" => {
-                    ("ACTIVE", "Engaged".to_string(), "Reconstructing details...")
-                },
-                _ => ("STAGING", "Finalizing".to_string(), "Synchronizing asset...")
-            }
-        } else {
-            ("ENGAGING", "Connecting".to_string(), "Initializing Engine...")
-        }
-    };
+    let nav_home = navigate.clone();
+    let nav_history = navigate.clone();
 
     view! {
-        <div class="editor-shell animate-in">
+        <div class="editor-shell fade-in">
+            // --- Primary Canvas ---
             <div class="editor-main">
-                // --- Top Canvas: Main Viewport ---
                 <div class="editor-canvas">
-                    <div class="canvas-background"></div>
-                    <div class="viewport-content">
+                    <div class="canvas-grid"></div>
+                    
+                    <div class="asset-frame">
                         {move || {
-                            if global_state.temp_file.get().is_some() {
-                                view! { 
-                                    <div class="img-wrapper">
-                                        <img src=preview_src() class="editor-img" /> 
-                                        
-                                        // Processing Scan Effect
-                                        {move || processing_job.get().is_some().then(|| view! {
-                                            <div class="engine-scan-overlay">
-                                                <div class="scan-line"></div>
-                                                <div class="scan-shimmer"></div>
-                                            </div>
-                                        })}
+                            let nav = nav_home.clone();
+                            let img_url = global_state.preview_base64.get();
+                            match img_url {
+                                Some(url) => view! {
+                                    <div class="asset-wrapper fade-in">
+                                        <img src=url class="studio-asset" alt="Upscale Result" />
+                                        <div class="laser-scanner"></div>
+                                        <div class="corner-accents">
+                                            <div class="corner tl"></div>
+                                            <div class="corner tr"></div>
+                                            <div class="corner bl"></div>
+                                            <div class="corner br"></div>
+                                        </div>
                                     </div>
-                                }.into_any()
-                            } else {
-                                view! {
-                                    <div class="editor-empty">
-                                        <div class="empty-glow"></div>
+                                }.into_any(),
+                                None => view! {
+                                    <div class="empty-canvas stagger-1">
                                         <ImageIcon size={64} />
                                         <h3>"Studio Canvas Empty"</h3>
                                         <p>"Return to the dashboard to upload an asset."</p>
-                                        <button class="btn btn-secondary" on:click=move |_| navigate("/", Default::default())>"GO TO DASHBOARD"</button>
+                                        <button class="btn btn-secondary" on:click=move |_| nav("/", Default::default())>"GO TO DASHBOARD"</button>
                                     </div>
                                 }.into_any()
                             }
@@ -182,184 +159,250 @@ pub fn Configure() -> impl IntoView {
                 <div class="sidebar-backdrop"></div>
                 <div class="editor-sidebar">
                     
-                    {move || match processing_job.get() {
-                        None => view! {
-                            // --- SETTINGS MODE ---
-                            <div class="sidebar-content fade-in">
-                                <div class="sidebar-header">
-                                    <div class="card-tag">
-                                        <Settings size={12} />
-                                        <span>"UPSCALE PARAMETERS"</span>
-                                    </div>
-                                    <h2 class="sidebar-title">"Configuration"</h2>
-                                </div>
-
-                                <div class="sidebar-scrollable">
-                                    // Error message
-                                    {move || error_msg.get().map(|msg| view! {
-                                        <div class="sidebar-error animate-slide-up">
-                                            <AlertCircle size={14} />
-                                            <span>{msg}</span>
+                    {move || {
+                        let job = processing_job.get();
+                        let nav = nav_history.clone();
+                        match job {
+                            None => view! {
+                                // --- SETTINGS MODE ---
+                                <div class="sidebar-content fade-in">
+                                    <div class="sidebar-header">
+                                        <div class="card-tag">
+                                            <Settings size={12} />
+                                            <span>"UPSCALE PARAMETERS"</span>
                                         </div>
-                                    })}
+                                        <h2 class="sidebar-title">"Configuration"</h2>
+                                    </div>
 
-                                    // Resolution
-                                    <div class="input-group">
-                                        <label class="group-label">"TARGET RESOLUTION"</label>
-                                        <div class="resolution-grid">
+                                    <div class="sidebar-scrollable">
+                                        // Error message
+                                        {move || error_msg.get().map(|msg| view! {
+                                            <div class="sidebar-error animate-slide-up">
+                                                <AlertCircle size={14} />
+                                                <span>{msg}</span>
+                                            </div>
+                                        })}
+
+                                        // Resolution
+                                        <div class="input-group">
+                                            <label class="group-label">"TARGET RESOLUTION"</label>
+                                            <div class="resolution-grid">
+                                                <div 
+                                                    class=move || if global_state.quality.get() == "2K" { "res-tile active" } else { "res-tile" }
+                                                    on:click=move |_| global_state.set_quality.set("2K".to_string())
+                                                >
+                                                    <span class="res-num">"2K"</span>
+                                                    <span class="res-desc">"HD RESTORE"</span>
+                                                    <div class="res-tag">"2C"</div>
+                                                </div>
+                                                <div 
+                                                    class=move || if global_state.quality.get() == "4K" { "res-tile active" } else { "res-tile" }
+                                                    on:click=move |_| global_state.set_quality.set("4K".to_string())
+                                                >
+                                                    <span class="res-num">"4K"</span>
+                                                    <span class="res-desc">"ULTRA HD"</span>
+                                                    <div class="res-tag">"4C"</div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        // Style
+                                        <div class="input-group">
+                                            <label class="group-label">"RECONSTRUCTION STYLE"</label>
+                                            <div class="style-switcher">
+                                                <button 
+                                                    class:active=move || global_state.style.get() == "PHOTOGRAPHY"
+                                                    on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
+                                                >
+                                                    "PHOTOGRAPHY"
+                                                </button>
+                                                <button 
+                                                    class:active=move || global_state.style.get() == "ILLUSTRATION"
+                                                    on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
+                                                >
+                                                    "ILLUSTRATION"
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        // Temperature
+                                        <div class="input-group">
+                                            <div class="label-row">
+                                                <label class="group-label">"CREATIVE DRIFT"</label>
+                                                <span class="drift-val">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                                            </div>
+                                            <div class="slider-wrapper">
+                                                <input 
+                                                    type="range" min="0.0" max="2.0" step="0.1"
+                                                    prop:value=move || global_state.temperature.get().to_string()
+                                                    on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
+                                                />
+                                                <div class="slider-labels">
+                                                    <span>"STRICT"</span>
+                                                    <span>"CREATIVE"</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        // Seed
+                                        <div class="input-group">
+                                            <div class="label-row">
+                                                <label class="group-label">"SEED"</label>
+                                                <span class="drift-val-pill">
+                                                    {move || global_state.seed.get().map(|s| s.to_string()).unwrap_or_else(|| "AUTO".to_string())}
+                                                </span>
+                                            </div>
+                                            <div class="seed-control">
+                                                <input 
+                                                    type="number" 
+                                                    class="studio-input seed-input"
+                                                    placeholder="Automatic"
+                                                    prop:value=move || global_state.seed.get().map(|s| s.to_string()).unwrap_or_default()
+                                                    on:input=move |ev| {
+                                                        let val = event_target_value(&ev);
+                                                        if val.is_empty() {
+                                                            global_state.set_seed.set(None);
+                                                        } else if let Ok(s) = val.parse::<u32>() {
+                                                            global_state.set_seed.set(Some(s));
+                                                        }
+                                                    }
+                                                />
+                                                <div class="seed-actions">
+                                                    <button 
+                                                        class="seed-btn" 
+                                                        on:click=move |_| {
+                                                            let val = (js_sys::Math::random() * (u32::MAX as f64)) as u32;
+                                                            global_state.set_seed.set(Some(val));
+                                                        }
+                                                    >
+                                                        <RefreshCw size={14} />
+                                                    </button>
+                                                    <button 
+                                                        class="seed-btn"
+                                                        on:click=move |_| global_state.set_seed.set(None)
+                                                    >
+                                                        <LogOut size={14} custom_style="transform: rotate(90deg)".to_string() />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p class="input-hint">"Deterministic seed for reproducible detail reconstruction."</p>
+                                        </div>
+
+                                        // Advanced
+                                        <div class="input-group">
+                                            <label class="group-label">"ADVANCED ENGINE LOCKS"</label>
                                             <div 
-                                                class=move || if global_state.quality.get() == "2K" { "res-tile active" } else { "res-tile" }
-                                                on:click=move |_| global_state.set_quality.set("2K".to_string())
+                                                class="advanced-toggle" 
+                                                class:active=move || global_state.keep_depth_of_field.get()
+                                                on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
                                             >
-                                                <span class="res-num">"2K"</span>
-                                                <span class="res-desc">"HD RESTORE"</span>
-                                                <div class="res-tag">"2C"</div>
+                                                <div class="toggle-icon"><Target size={14} /></div>
+                                                <div class="toggle-meta">
+                                                    <span class="toggle-title">"DEPTH OF FIELD LOCK"</span>
+                                                    <span class="toggle-sub">"Preserves original focal planes"</span>
+                                                </div>
+                                                <div class="toggle-check">
+                                                    <div class="check-dot"></div>
+                                                </div>
                                             </div>
-                                            <div 
-                                                class=move || if global_state.quality.get() == "4K" { "res-tile active" } else { "res-tile" }
-                                                on:click=move |_| global_state.set_quality.set("4K".to_string())
+                                        </div>
+
+                                        // Lighting
+                                        <div class="input-group">
+                                            <label class="group-label">"ATMOSPHERIC LIGHTING"</label>
+                                            <select 
+                                                class="studio-select"
+                                                on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
+                                                prop:value=move || global_state.lighting.get()
                                             >
-                                                <span class="res-num">"4K"</span>
-                                                <span class="res-desc">"ULTRA HD"</span>
-                                                <div class="res-tag">"4C"</div>
-                                            </div>
+                                                <option value="Original">"ORIGINAL LIGHTING"</option>
+                                                <option value="Studio">"STUDIO LIGHTING"</option>
+                                                <option value="Cinematic">"CINEMATIC SHADOWS"</option>
+                                                <option value="Vivid">"VIVID DYNAMICS"</option>
+                                                <option value="Natural">"NATURAL OVERCAST"</option>
+                                            </select>
                                         </div>
                                     </div>
 
-                                    // Style
-                                    <div class="input-group">
-                                        <label class="group-label">"RECONSTRUCTION STYLE"</label>
-                                        <div class="style-switcher">
-                                            <button 
-                                                class:active=move || global_state.style.get() == "PHOTOGRAPHY"
-                                                on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
-                                            >
-                                                "PHOTOGRAPHY"
-                                            </button>
-                                            <button 
-                                                class:active=move || global_state.style.get() == "ILLUSTRATION"
-                                                on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
-                                            >
-                                                "ILLUSTRATION"
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    // Temperature
-                                    <div class="input-group">
-                                        <div class="label-row">
-                                            <label class="group-label">"CREATIVE DRIFT"</label>
-                                            <span class="drift-val">{move || format!("{:.1}", global_state.temperature.get())}</span>
-                                        </div>
-                                        <div class="slider-wrapper">
-                                            <input 
-                                                type="range" min="0.0" max="2.0" step="0.1"
-                                                prop:value=move || global_state.temperature.get().to_string()
-                                                on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
-                                            />
-                                            <div class="slider-labels">
-                                                <span>"FAITHFUL"</span>
-                                                <span>"CREATIVE"</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    // Advanced
-                                    <div class="input-group">
-                                        <label class="group-label">"ADVANCED ENGINE LOCKS"</label>
-                                        <div 
-                                            class="advanced-toggle" 
-                                            class:active=move || global_state.keep_depth_of_field.get()
-                                            on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
+                                    <div class="sidebar-footer">
+                                        <button 
+                                            class="editor-submit-btn"
+                                            on:click=handle_upscale
+                                            disabled=move || global_state.temp_file.get().is_none()
                                         >
-                                            <div class="toggle-icon"><Target size={14} /></div>
-                                            <div class="toggle-meta">
-                                                <span class="toggle-title">"DEPTH OF FIELD LOCK"</span>
-                                                <span class="toggle-sub">"Preserves original focal planes"</span>
+                                            <div class="btn-inner">
+                                                <Zap size={18} />
+                                                <span>"INITIATE UPSCALE"</span>
+                                                <div class="btn-cost">
+                                                    {move || if global_state.quality.get() == "4K" { "4C" } else { "2C" }}
+                                                </div>
                                             </div>
-                                            <div class="toggle-check">
-                                                <div class="check-dot"></div>
+                                            <div class="btn-glow"></div>
+                                        </button>
+                                    </div>
+                                </div>
+                            }.into_any(),
+
+                            Some(_) => {
+                                let n = nav.clone();
+                                view! {
+                                    // --- PROCESSING MODE ---
+                                    <div class="sidebar-content processing-state fade-in">
+                                        <div class="sidebar-header">
+                                            <div class="card-tag">
+                                                <RefreshCw size={12} custom_style="animation: spin 2s linear infinite".to_string() />
+                                                <span>"ENGINE ACTIVE"</span>
                                             </div>
+                                            <h2 class="sidebar-title">"Upscaling..."</h2>
                                         </div>
-                                    </div>
 
-                                    // Lighting
-                                    <div class="input-group">
-                                        <label class="group-label">"ATMOSPHERIC LIGHTING"</label>
-                                        <select 
-                                            class="studio-select"
-                                            on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
-                                            prop:value=move || global_state.lighting.get()
-                                        >
-                                            <option value="Original">"ORIGINAL LIGHTING"</option>
-                                            <option value="Studio">"STUDIO LIGHTING"</option>
-                                            <option value="Cinematic">"CINEMATIC SHADOWS"</option>
-                                            <option value="Vivid">"VIVID DYNAMICS"</option>
-                                            <option value="Natural">"NATURAL OVERCAST"</option>
-                                        </select>
-                                    </div>
-                                </div>
-
-                                <div class="sidebar-footer">
-                                    <button 
-                                        class="editor-submit-btn"
-                                        on:click=handle_upscale
-                                        disabled=move || global_state.temp_file.get().is_none()
-                                    >
-                                        <div class="btn-inner">
-                                            <Zap size={18} />
-                                            <span>"INITIATE UPSCALE"</span>
-                                            <div class="btn-cost">
-                                                {move || if global_state.quality.get() == "4K" { "4C" } else { "2C" }}
+                                        <div class="processing-vitals">
+                                            <div class="pulse-ring">
+                                                <div class="ring r1"></div>
+                                                <div class="ring r2"></div>
+                                                <Zap size={32} />
                                             </div>
+                                            
+                                            <div class="status-box">
+                                                <span class="status-tag">{move || stage_info().0}</span>
+                                                <h3 class="status-title">{move || stage_info().1}</h3>
+                                                <p class="status-desc">{move || stage_info().2}</p>
+                                            </div>
+
+                                            <div class="progress-container">
+                                                <div class="progress-bar-rail">
+                                                    <div class="progress-bar-fill active"></div>
+                                                </div>
+                                                <div class="progress-labels">
+                                                    <span>"RECONSTRUCTION"</span>
+                                                    <span class="animate-pulse">"RUNNING"</span>
+                                                </div>
+                                            </div>
+
+                                            {move || engine_status.get().and_then(|s| s.latency_ms).map(|ms| view! {
+                                                <div class="latency-telemetry fade-in">
+                                                    <span class="latency-label">"PROCESSING DURATION:"</span>
+                                                    <span class="latency-value">{format!("{:.1}s", ms as f32 / 1000.0)}</span>
+                                                </div>
+                                            })}
                                         </div>
-                                        <div class="btn-glow"></div>
-                                    </button>
-                                </div>
-                            </div>
-                        }.into_any(),
 
-                        Some(_) => view! {
-                            // --- PROCESSING MODE ---
-                            <div class="sidebar-content processing-state fade-in">
-                                <div class="sidebar-header">
-                                    <div class="card-tag">
-                                        <RefreshCw size={12} custom_style="animation: spin 2s linear infinite".to_string() />
-                                        <span>"ENGINE ACTIVE"</span>
-                                    </div>
-                                    <h2 class="sidebar-title">"Upscaling..."</h2>
-                                </div>
-
-                                <div class="processing-vitals">
-                                    <div class="pulse-ring">
-                                        <div class="ring r1"></div>
-                                        <div class="ring r2"></div>
-                                        <Zap size={32} />
-                                    </div>
-                                    
-                                    <div class="status-box">
-                                        <span class="status-tag">{move || stage_info().0}</span>
-                                        <h3 class="status-title">{move || stage_info().1}</h3>
-                                        <p class="status-desc">{move || stage_info().2}</p>
-                                    </div>
-
-                                    <div class="progress-container">
-                                        <div class="progress-bar-rail">
-                                            <div class="progress-bar-fill active"></div>
-                                        </div>
-                                        <div class="progress-labels">
-                                            <span>"RECONSTRUCTION"</span>
-                                            <span class="animate-pulse">"RUNNING"</span>
+                                        <div class="sidebar-note">
+                                            <p>"Your image is being processed by the Gemini Vision infrastructure."</p>
+                                            {move || if engine_status.get().map(|s| s.status == "COMPLETED").unwrap_or(false) {
+                                                let n2 = n.clone();
+                                                view! {
+                                                    <button class="btn btn-primary" style="margin-top: var(--s-4); width: 100%;" on:click=move |_| n2("/history", Default::default())>"VIEW IN GALLERY"</button>
+                                                }.into_any()
+                                            } else {
+                                                view! { <p style="font-size: 0.75rem; opacity: 0.5;">"Do not close this tab until completion."</p> }.into_any()
+                                            }}
                                         </div>
                                     </div>
-                                </div>
-
-                                <div class="sidebar-note">
-                                    <p>"Your image is being processed by the Gemini Vision infrastructure. Do not close this tab until completion."</p>
-                                </div>
-                            </div>
-                        }.into_any()
-                    }}
+                                }.into_any()
+                            }
+                        }
+                    }.into_any()}
                 </div>
             </aside>
         </div>
@@ -389,257 +432,227 @@ pub fn Configure() -> impl IntoView {
                 padding: var(--s-12);
             }
 
-            .canvas-background {
+            .canvas-grid {
                 position: absolute;
                 inset: 0;
-                background: radial-gradient(circle at center, #111 0%, #050505 100%);
-                opacity: 0.8;
-                z-index: 1;
+                background-image: 
+                    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+                background-size: 40px 40px;
+                mask-image: radial-gradient(circle at center, black, transparent 80%);
             }
 
-            .viewport-content {
+            .asset-frame {
                 position: relative;
-                z-index: 2;
-                max-width: 100%;
-                max-height: 100%;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-            }
-
-            /* ─── IMAGE WRAPPER ─── */
-            .img-wrapper {
-                position: relative;
-                border-radius: var(--radius-sm);
-                overflow: hidden;
-                box-shadow: 0 40px 100px -30px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
-            }
-
-            .editor-img {
-                max-width: 100%;
-                max-height: calc(100vh - 200px);
-                display: block;
-                object-fit: contain;
-            }
-
-            /* ─── SCAN EFFECT ─── */
-            .engine-scan-overlay {
-                position: absolute;
-                inset: 0;
-                pointer-events: none;
-            }
-
-            .scan-line {
-                position: absolute;
-                left: 0;
-                width: 100%;
-                height: 2px;
-                background: hsl(var(--accent));
-                box-shadow: 0 0 20px hsl(var(--accent)), 0 0 40px hsl(var(--accent) / 0.5);
-                animation: scanner-loop 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-            }
-
-            @keyframes scanner-loop {
-                0% { top: 0%; opacity: 0; }
-                10% { opacity: 1; }
-                90% { opacity: 1; }
-                100% { top: 100%; opacity: 0; }
-            }
-
-            .scan-shimmer {
-                position: absolute;
-                inset: 0;
-                background: linear-gradient(to bottom, transparent, hsl(var(--accent) / 0.1), transparent);
-                height: 100px;
-                animation: shimmer-loop 3s cubic-bezier(0.4, 0, 0.2, 1) infinite;
-            }
-
-            @keyframes shimmer-loop {
-                0% { top: -100px; }
-                100% { top: 100%; }
-            }
-
-            /* ─── TELEMETRY ─── */
-            .canvas-telemetry {
-                position: absolute;
-                bottom: var(--s-8);
-                left: 50%;
-                transform: translateX(-50%);
-                display: flex;
-                gap: var(--s-4);
-                z-index: 5;
-            }
-
-            .telemetry-pill {
-                background: rgba(20,20,20,0.7);
-                backdrop-filter: blur(10px);
-                border: 1px solid rgba(255,255,255,0.05);
-                padding: var(--s-2) var(--s-4);
-                border-radius: 100px;
-                display: flex;
-                gap: var(--s-2);
-                font-size: 0.625rem;
-                white-space: nowrap;
-            }
-
-            .telemetry-pill .label { color: hsl(var(--text-dim)); font-weight: 800; }
-            .telemetry-pill .value { color: hsl(var(--text)); font-weight: 700; }
-            .telemetry-pill .value.accent { color: hsl(var(--accent)); }
-            .job-pill { border-color: hsl(var(--accent) / 0.3); }
-
-            /* ─── SIDEBAR ─── */
-            .editor-sidebar-wrapper {
-                width: 380px;
-                position: relative;
-                border-left: 1px solid rgba(255,255,255,0.05);
+                max-width: 90%;
+                max-height: 90%;
                 z-index: 10;
             }
 
-            .sidebar-backdrop {
+            .studio-asset {
+                display: block;
+                max-width: 100%;
+                max-height: 70vh;
+                border-radius: 4px;
+                box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
+            }
+
+            .asset-wrapper { position: relative; }
+
+            .laser-scanner {
                 position: absolute;
-                inset: 0;
-                background: #0a0a0a;
-                opacity: 0.8;
+                top: 0; left: 0; right: 0; height: 2px;
+                background: linear-gradient(90deg, transparent, hsl(var(--accent)), transparent);
+                box-shadow: 0 0 15px hsl(var(--accent));
+                animation: scan 4s ease-in-out infinite;
+                z-index: 20;
             }
 
+            @keyframes scan {
+                0%, 100% { top: 0%; opacity: 0; }
+                10%, 90% { opacity: 1; }
+                50% { top: 100%; }
+            }
+
+            .corner-accents .corner {
+                position: absolute; width: 20px; height: 20px;
+                border: 2px solid hsl(var(--accent) / 0.3);
+                z-index: 25;
+            }
+            .corner.tl { top: -10px; left: -10px; border-right: 0; border-bottom: 0; }
+            .corner.tr { top: -10px; right: -10px; border-left: 0; border-bottom: 0; }
+            .corner.bl { bottom: -10px; left: -10px; border-right: 0; border-top: 0; }
+            .corner.br { bottom: -10px; right: -10px; border-left: 0; border-top: 0; }
+
+            .empty-canvas {
+                text-align: center; color: hsl(var(--text-dim));
+            }
+            .empty-canvas h3 { font-size: 1.5rem; margin: var(--s-4) 0 var(--s-2); color: white; }
+            .empty-canvas p { font-size: 0.875rem; margin-bottom: var(--s-6); }
+
+            .canvas-telemetry {
+                position: absolute; bottom: var(--s-8); left: 50%; transform: translateX(-50%);
+                display: flex; gap: var(--s-4); z-index: 30;
+            }
+            .telemetry-pill {
+                background: rgba(0,0,0,0.6); backdrop-filter: blur(10px);
+                border: 1px solid rgba(255,255,255,0.05);
+                padding: 6px 12px; border-radius: 100px;
+                display: flex; gap: 8px; font-size: 0.625rem; font-weight: 800; letter-spacing: 0.05em;
+            }
+            .telemetry-pill .label { color: hsl(var(--text-dim) / 0.6); }
+            .telemetry-pill .value { color: white; }
+            .telemetry-pill .value.accent { color: hsl(var(--accent)); }
+
+            /* ─── SIDEBAR ─── */
+            .editor-sidebar-wrapper {
+                width: 400px; position: relative; border-left: 1px solid rgba(255,255,255,0.03);
+            }
+            .sidebar-backdrop {
+                position: absolute; inset: 0; background: #080808; opacity: 0.8;
+            }
             .editor-sidebar {
-                position: relative;
-                height: 100%;
-                display: flex;
-                flex-direction: column;
-                padding: var(--s-8);
-                color: hsl(var(--text));
+                position: relative; height: 100%; display: flex; flex-direction: column; z-index: 10;
             }
-
             .sidebar-content {
-                display: flex;
-                flex-direction: column;
-                height: 100%;
+                display: flex; flex-direction: column; height: 100%;
             }
-
-            .sidebar-header { margin-bottom: var(--s-10); }
-            .sidebar-title { font-size: 1.75rem; font-weight: 850; letter-spacing: -0.04em; margin-top: var(--s-2); }
+            .sidebar-header { padding: var(--s-8) var(--s-8) var(--s-6); }
+            .sidebar-title { font-size: 1.75rem; font-weight: 800; margin-top: var(--s-2); letter-spacing: -0.03em; }
 
             .sidebar-scrollable {
-                flex: 1;
-                overflow-y: auto;
-                padding-right: var(--s-2);
-                margin-right: calc(-1 * var(--s-2));
+                flex: 1; overflow-y: auto; padding: 0 var(--s-8) var(--s-8);
+            }
+            
+            .sidebar-scrollable::-webkit-scrollbar { width: 3px; }
+            .sidebar-scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
+
+            .input-group { margin-bottom: var(--s-10); }
+            .group-label { 
+                font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); 
+                letter-spacing: 0.12em; margin-bottom: var(--s-4); display: flex; align-items: center; gap: var(--s-3); 
             }
 
-            .sidebar-scrollable::-webkit-scrollbar { width: 4px; }
-            .sidebar-scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
-
-            .input-group { margin-bottom: var(--s-8); }
-            .group-label { font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.1em; margin-bottom: var(--s-3); display: block; }
-
-            /* ─── TILES ─── */
-            .resolution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); }
+            .resolution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
             .res-tile {
-                background: #151515;
-                border: 1px solid rgba(255,255,255,0.05);
-                border-radius: var(--radius-md);
-                padding: var(--s-6);
-                cursor: pointer;
-                transition: all 0.2s;
-                position: relative;
-                overflow: hidden;
+                background: #0d0d0d; border: 1px solid rgba(255,255,255,0.04);
+                border-radius: var(--radius-lg); padding: var(--s-6);
+                cursor: pointer; transition: all 0.3s; position: relative; overflow: hidden;
+            }
+            .res-tile:hover { background: #111; border-color: rgba(255,255,255,0.1); }
+            .res-tile.active { background: #151515; border-color: hsl(var(--accent)); box-shadow: 0 0 20px hsl(var(--accent) / 0.15); }
+            .res-num { display: block; font-size: 1.25rem; font-weight: 900; color: white; }
+            .res-desc { display: block; font-size: 0.625rem; font-weight: 700; color: hsl(var(--text-dim)); margin-top: 2px; }
+            .res-tag { 
+                position: absolute; top: 0; right: 0; background: rgba(255,255,255,0.03); 
+                padding: 4px 8px; font-size: 0.5rem; font-weight: 900; border-bottom-left-radius: 8px;
             }
 
-            .res-tile:hover { border-color: rgba(255,255,255,0.15); background: #1a1a1a; }
-            .res-tile.active { border-color: hsl(var(--accent)); background: hsl(var(--accent) / 0.1); }
-            .res-num { font-size: 1.5rem; font-weight: 800; display: block; line-height: 1; margin-bottom: 2px; }
-            .res-desc { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 700; text-transform: uppercase; }
-            .res-tag { position: absolute; top: var(--s-3); right: var(--s-4); font-size: 0.625rem; font-weight: 950; opacity: 0.3; }
-            .res-tile.active .res-tag { opacity: 1; color: hsl(var(--accent)); }
-
-            /* ─── SWITCHER ─── */
             .style-switcher { 
-                display: flex; gap: 2px; background: #151515; padding: 2px; border-radius: var(--radius-md); 
-                border: 1px solid rgba(255,255,255,0.05);
+                display: flex; background: #0d0d0d; padding: 4px; border-radius: var(--radius-lg); 
+                border: 1px solid rgba(255,255,255,0.04);
             }
             .style-switcher button {
-                flex: 1; border: none; background: transparent; color: hsl(var(--text-dim));
-                padding: var(--s-3) 0; font-size: 0.6875rem; font-weight: 800; border-radius: calc(var(--radius-md) - 2px);
-                cursor: pointer; transition: all 0.2s;
+                flex: 1; border: none; background: transparent; color: hsl(var(--text-dim) / 0.6);
+                padding: var(--s-3) 0; font-size: 0.625rem; font-weight: 900; border-radius: calc(var(--radius-lg) - 4px);
+                cursor: pointer; transition: all 0.3s; letter-spacing: 0.05em;
             }
-            .style-switcher button.active { background: #252525; color: hsl(var(--text)); font-weight: 900; }
+            .style-switcher button.active { background: #1a1a1a; color: hsl(var(--text)); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
 
-            /* ─── TOGGLE ─── */
+            .label-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--s-1); }
+            .drift-val { background: rgba(255,255,255,0.05); color: white; font-size: 0.75rem; font-weight: 800; font-family: var(--font-mono); padding: 2px 8px; border-radius: 4px; }
+            .drift-val-pill { background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); font-size: 0.75rem; font-weight: 900; font-family: var(--font-mono); padding: 2px 10px; border-radius: 6px; border: 1px solid hsl(var(--accent) / 0.1); }
+
+            .slider-wrapper { padding: var(--s-2) 0; }
+            .slider-wrapper input { width: 100%; height: 6px; background: #111; border-radius: 10px; appearance: none; outline: none; }
+            .slider-wrapper input::-webkit-slider-thumb { 
+                appearance: none; width: 18px; height: 18px; background: white; border-radius: 50%; cursor: pointer;
+                box-shadow: 0 0 10px rgba(255,255,255,0.3);
+            }
+            .slider-labels { display: flex; justify-content: space-between; font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim) / 0.3); letter-spacing: 0.1em; }
+
+            .seed-control { display: flex; gap: var(--s-2); margin-top: var(--s-2); }
+            .seed-input { 
+                flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 0.75rem; text-align: center; 
+                background: #0d0d0d; border: 1px solid rgba(255,255,255,0.04); border-radius: var(--radius-md);
+                color: white; padding: var(--s-2); transition: all 0.2s;
+            }
+            .seed-input:focus { border-color: hsl(var(--accent) / 0.4); outline: none; background: #111; }
+            .seed-actions { display: flex; gap: 4px; }
+            .seed-btn { 
+                background: #0d0d0d; border: 1px solid rgba(255,255,255,0.04); 
+                width: 38px; border-radius: var(--radius-md); color: hsl(var(--text-dim) / 0.5); 
+                cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+            }
+            .seed-btn:hover { background: #111; color: white; border-color: rgba(255,255,255,0.1); }
+            .input-hint { font-size: 0.625rem; color: hsl(var(--text-dim) / 0.4); margin-top: var(--s-3); line-height: 1.4; font-weight: 600; }
+
             .advanced-toggle {
-                background: #151515; border: 1px solid rgba(255,255,255,0.05); border-radius: var(--radius-md);
-                padding: var(--s-4); display: flex; align-items: center; gap: var(--s-4); cursor: pointer; transition: all 0.2s;
+                background: #0d0d0d; border: 1px solid rgba(255,255,255,0.04);
+                padding: var(--s-4); border-radius: var(--radius-lg);
+                display: flex; align-items: center; gap: var(--s-4); cursor: pointer; transition: all 0.3s;
             }
-            .advanced-toggle.active { border-color: hsl(var(--accent) / 0.5); background: hsl(var(--accent) / 0.05); }
-            .toggle-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(255,255,255,0.03); display: flex; align-items: center; justify-content: center; color: hsl(var(--text-dim)); }
-            .advanced-toggle.active .toggle-icon { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.1); }
-            .toggle-meta { flex: 1; display: flex; flex-direction: column; }
-            .toggle-title { font-size: 0.6875rem; font-weight: 850; letter-spacing: 0.02em; }
+            .advanced-toggle.active { border-color: hsl(var(--accent) / 0.5); background: hsl(var(--accent) / 0.02); }
+            .toggle-icon { width: 32px; height: 32px; background: #151515; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: hsl(var(--text-dim)); transition: all 0.3s; }
+            .advanced-toggle.active .toggle-icon { background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); }
+            .toggle-meta { flex: 1; }
+            .toggle-title { display: block; font-size: 0.75rem; font-weight: 800; color: white; }
             .toggle-sub { font-size: 0.625rem; color: hsl(var(--text-dim)); }
-            .toggle-check { width: 32px; height: 16px; background: #252525; border-radius: 100px; position: relative; }
-            .check-dot { position: absolute; left: 3px; top: 3px; width: 10px; height: 10px; background: #555; border-radius: 50%; transition: all 0.2s; }
-            .advanced-toggle.active .check-dot { left: calc(100% - 13px); background: hsl(var(--accent)); }
+            .toggle-check { width: 40px; height: 20px; background: #151515; border-radius: 100px; position: relative; padding: 3px; }
+            .check-dot { width: 14px; height: 14px; background: #333; border-radius: 50%; transition: all 0.3s; }
+            .advanced-toggle.active .check-dot { transform: translateX(20px); background: hsl(var(--accent)); box-shadow: 0 0 8px hsl(var(--accent)); }
 
-            /* ─── SELECT ─── */
             .studio-select {
-                width: 100%; background: #151515; border: 1px solid rgba(255,255,255,0.05);
-                border-radius: var(--radius-md); padding: var(--s-4); color: white;
-                font-size: 0.75rem; font-weight: 800; appearance: none; cursor: pointer;
+                width: 100%; background: #0d0d0d; border: 1px solid rgba(255,255,255,0.04);
+                padding: var(--s-3) var(--s-4); border-radius: var(--radius-md); color: white; font-size: 0.75rem;
+                font-weight: 700; outline: none; appearance: none;
             }
 
-            /* ─── SUBMIT BTN ─── */
-            .sidebar-footer { padding-top: var(--s-8); }
+            .sidebar-footer { padding: var(--s-8); border-top: 1px solid rgba(255,255,255,0.03); }
             .editor-submit-btn {
-                width: 100%; background: transparent; border: none; padding: 0; cursor: pointer;
-                position: relative; overflow: hidden; border-radius: var(--radius-lg);
+                width: 100%; height: 56px; background: hsl(var(--accent)); border: none; border-radius: var(--radius-lg);
+                cursor: pointer; position: relative; overflow: hidden; transition: all 0.3s;
             }
-            .btn-inner {
-                background: linear-gradient(135deg, hsl(var(--accent)) 0%, #6366f1 100%);
-                padding: var(--s-6); display: flex; align-items: center; justify-content: center; gap: var(--s-3);
-                color: white; position: relative; z-index: 2; border-radius: var(--radius-lg);
-            }
-            .btn-inner span { font-family: var(--font-heading); font-weight: 900; font-size: 1rem; letter-spacing: 0.05em; }
-            .btn-cost { background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 100px; font-weight: 950; font-size: 0.625rem; }
-            .btn-glow { position: absolute; inset: -20px; background: radial-gradient(circle, hsl(var(--accent) / 0.5) 0%, transparent 70%); opacity: 0; transition: opacity 0.3s; z-index: 1; }
-            .editor-submit-btn:hover .btn-glow { opacity: 1; }
-            .editor-submit-btn:active { transform: scale(0.98); }
+            .editor-submit-btn:disabled { opacity: 0.3; cursor: not_allowed; filter: grayscale(1); }
+            .btn-inner { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: var(--s-3); color: white; font-weight: 900; letter-spacing: 0.05em; font-size: 0.8125rem; }
+            .btn-cost { background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.625rem; }
+            .btn-glow { position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(255,255,255,0.2), transparent 70%); opacity: 0; transition: opacity 0.3s; }
+            .editor-submit-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 20px hsl(var(--accent) / 0.3); }
+            .editor-submit-btn:hover:not(:disabled) .btn-glow { opacity: 1; }
 
-            /* ─── PROCESSING VITALS ─── */
-            .processing-state { items-align: center; text-align: center; padding-top: var(--s-10); }
-            .pulse-ring { position: relative; width: 120px; height: 120px; margin: 0 auto var(--s-10); display: flex; align-items: center; justify-content: center; color: hsl(var(--accent)); }
-            .ring { position: absolute; border: 2px solid hsl(var(--accent)); border-radius: 50%; animation: ring-pulse 2s infinite; opacity: 0; }
-            .ring.r1 { animation-delay: 0s; }
-            .ring.r2 { animation-delay: 1s; }
-            @keyframes ring-pulse {
-                0% { width: 40px; height: 40px; opacity: 0.6; border-width: 4px; }
-                100% { width: 140px; height: 140px; opacity: 0; border-width: 1px; }
+            /* ─── PROCESSING STATE ─── */
+            .processing-state { background: linear-gradient(180deg, #0a0a0a, #050505); }
+            .processing-vitals { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--s-10); }
+            
+            .pulse-ring { position: relative; width: 120px; height: 120px; display: flex; align-items: center; justify-content: center; color: hsl(var(--accent)); margin-bottom: var(--s-10); }
+            .ring { position: absolute; border: 2px solid hsl(var(--accent) / 0.2); border-radius: 50%; opacity: 0; }
+            .ring.r1 { inset: 0; animation: pulse-ring 2s infinite; }
+            .ring.r2 { inset: 10px; animation: pulse-ring 2s infinite 0.5s; }
+            @keyframes pulse-ring { 
+                0% { transform: scale(0.8); opacity: 0.5; }
+                100% { transform: scale(1.3); opacity: 0; }
             }
 
-            .status-box { margin-bottom: var(--s-10); }
-            .status-tag { font-size: 0.625rem; font-weight: 950; color: hsl(var(--accent)); letter-spacing: 0.2em; display: block; margin-bottom: 4px; }
-            .status-title { font-size: 1.5rem; font-weight: 900; margin-bottom: var(--s-2); }
-            .status-desc { font-size: 0.8125rem; color: hsl(var(--text-dim)); line-height: 1.5; }
+            .status-box { text-align: center; margin-bottom: var(--s-10); }
+            .status-tag { display: inline-block; background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); font-size: 0.625rem; font-weight: 900; padding: 4px 12px; border-radius: 100px; margin-bottom: var(--s-2); }
+            .status-title { font-size: 1.25rem; font-weight: 800; margin-bottom: var(--s-2); }
+            .status-desc { font-size: 0.75rem; color: hsl(var(--text-dim) / 0.6); max-width: 240px; }
 
-            .progress-container { width: 100%; margin-top: var(--s-10); }
-            .progress-bar-rail { width: 100%; height: 6px; background: #151515; border-radius: 100px; overflow: hidden; margin-bottom: var(--s-3); }
-            .progress-bar-fill.active { 
-                width: 30%; height: 100%; background: hsl(var(--accent)); border-radius: 100px; 
-                animation: flow-load 2s linear infinite; 
-            }
-            @keyframes flow-load {
+            .progress-container { width: 100%; max-width: 280px; margin-bottom: var(--s-8); }
+            .progress-bar-rail { height: 4px; background: rgba(255,255,255,0.05); border-radius: 10px; overflow: hidden; margin-bottom: 8px; }
+            .progress-bar-fill { height: 100%; background: hsl(var(--accent)); width: 30%; }
+            .progress-bar-fill.active { width: 100%; transform: translateX(-100%); animation: progress-slide 2s infinite ease-in-out; }
+            @keyframes progress-slide { 
                 0% { transform: translateX(-100%); }
-                100% { transform: translateX(400%); }
+                100% { transform: translateX(100%); }
             }
-            .progress-labels { display: flex; justify-content: space-between; font-size: 0.5625rem; font-weight: 900; color: hsl(var(--text-dim)); opacity: 0.5; }
+            .progress-labels { display: flex; justify-content: space-between; font-size: 0.5rem; font-weight: 900; color: hsl(var(--text-dim) / 0.4); letter-spacing: 0.1em; }
 
-            .sidebar-error { background: hsl(var(--error) / 0.1); border: 1px solid hsl(var(--error) / 0.2); padding: var(--s-4); border-radius: var(--radius-md); color: hsl(var(--error)); display: flex; gap: var(--s-3); align-items: center; font-size: 0.6875rem; font-weight: 700; margin-bottom: var(--s-6); }
+            .latency-telemetry { display: flex; gap: 8px; align-items: center; padding-top: var(--s-4); }
+            .latency-label { font-size: 0.625rem; color: hsl(var(--text-dim) / 0.4); font-weight: 800; }
+            .latency-value { font-size: 0.625rem; color: hsl(var(--accent)); font-family: var(--font-mono); font-weight: 900; }
 
-            /* ─── RESPONSIVE ─── */
-            @media (max-width: 1000px) {
-                .editor-shell { flex-direction: column; height: auto; }
-                .editor-sidebar-wrapper { width: 100%; border-left: none; border-top: 1px solid rgba(255,255,255,0.05); }
-                .editor-img { max-height: 50vh; }
-            }
+            .sidebar-note { padding: var(--s-8); text-align: center; font-size: 0.75rem; color: hsl(var(--text-dim) / 0.5); }
             "
         </style>
     }

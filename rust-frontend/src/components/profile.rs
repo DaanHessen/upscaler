@@ -1,38 +1,38 @@
 use leptos::prelude::*;
 use crate::auth::use_auth;
-use crate::components::icons::{UserIcon, Lock, ShieldCheck};
+use crate::components::icons::UserIcon;
 
 #[component]
 pub fn AccountSettings() -> impl IntoView {
     let auth = use_auth();
-    let (new_password, set_new_password) = signal(String::new());
-    let (confirm_password, set_confirm_password) = signal(String::new());
-    let (error, set_error) = signal(Option::<String>::None);
-    let (loading, set_loading) = signal(false);
-    let (success, set_success) = signal(false);
+    let (new_password, _set_new_password) = signal(String::new());
+    let (confirm_password, _set_confirm_password) = signal(String::new());
+    let (_error, _set_error) = signal(Option::<String>::None);
+    let (_loading, _set_loading) = signal(false);
+    let (_success, _set_success) = signal(false);
 
-    let on_update_password = move |ev: leptos::web_sys::SubmitEvent| {
+    let _on_update_password = move |ev: leptos::web_sys::SubmitEvent| {
         ev.prevent_default();
         if new_password.get() != confirm_password.get() {
-            set_error.set(Some("Passwords do not match".to_string()));
+            _set_error.set(Some("Passwords do not match".to_string()));
             return;
         }
         if new_password.get().len() < 6 {
-            set_error.set(Some("Must be at least 6 characters".to_string()));
+            _set_error.set(Some("Must be at least 6 characters".to_string()));
             return;
         }
 
-        set_loading.set(true);
-        set_error.set(None);
+        _set_loading.set(true);
+        _set_error.set(None);
         let ctx = auth;
         let pw = new_password.get();
 
         leptos::task::spawn_local(async move {
             match ctx.update_password(&pw).await {
-                Ok(_) => set_success.set(true),
-                Err(e) => set_error.set(Some(e)),
+                Ok(_) => _set_success.set(true),
+                Err(e) => _set_error.set(Some(e)),
             }
-            set_loading.set(false);
+            _set_loading.set(false);
         });
     };
 
@@ -111,7 +111,7 @@ pub fn AccountSettings() -> impl IntoView {
                 /* Advanced Section */
                 <div class="card shadow-lg" style="padding: var(--s-10); background: hsl(var(--error) / 0.05); border: 1px solid hsl(var(--error) / 0.2);">
                     <div style="display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-4);">
-                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; color: hsl(var(--error)); letter-spacing: -0.02em;">"Danger Zone"</h3>
+                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; color: hsl(var(--error));">"Danger Zone"</h3>
                     </div>
                     <p class="muted" style="font-size: 0.875rem; margin-bottom: var(--s-6); max-width: 600px;">"Irreversibly delete your Upsyl Studio account and all stored history. This action cannot be undone."</p>
                     <button class="btn btn-secondary" style="color: hsl(var(--error)); border-color: hsl(var(--error) / 0.3);" on:click=move |_| {

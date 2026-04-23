@@ -39,6 +39,8 @@ pub struct GenerationConfig {
     pub temperature: Option<f32>,
     #[serde(rename = "thinkingConfig", skip_serializing_if = "Option::is_none")]
     pub thinking_config: Option<ThinkingConfig>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub seed: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

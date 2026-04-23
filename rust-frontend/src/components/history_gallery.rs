@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use crate::components::icons::{ImageIcon, Download, Calendar, RefreshCw, Zap};
+use crate::components::icons::{ImageIcon, Download, Calendar, Zap};
 use crate::auth::use_auth;
 use crate::api::HistoryItem;
 use leptos_router::components::A;
@@ -115,6 +115,15 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
             <div class="card-details">
                 <div class="details-top">
                     <div class=status_class>{status_label}</div>
+                    {move || if item.latency_ms > 0 {
+                        view! {
+                            <div class="meta-duration">
+                                {format!("{:.1}s", item.latency_ms as f32 / 1000.0)}
+                            </div>
+                        }.into_any()
+                    } else {
+                        view! { <div /> }.into_any()
+                    }}
                     <div class="meta-date">
                         <Calendar size={12} />
                         <span>{item.created_at[..10].to_string()}</span>

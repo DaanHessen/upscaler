@@ -57,6 +57,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             }),
             temperature: Some(job.temperature),
             thinking_config: None,
+            seed: prompt_settings.seed,
         },
     };
 

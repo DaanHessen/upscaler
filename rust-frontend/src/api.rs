@@ -19,6 +19,7 @@ pub struct PollResponse {
     pub queue_position: Option<i64>,
     pub prompt_settings: Option<PromptSettings>,
     pub usage_metadata: Option<serde_json::Value>,
+    pub latency_ms: Option<i32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -56,6 +57,8 @@ pub struct PromptSettings {
     pub lighting: String,
     #[serde(default)]
     pub thinking_level: String,
+    #[serde(default)]
+    pub seed: Option<u32>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

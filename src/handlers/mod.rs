@@ -302,7 +302,12 @@ pub async fn poll_upscale_handler(
             if job.status == "COMPLETED" {
                 if let Some(path) = &job.output_path {
                     res["output_url"] = serde_json::Value::String(format!("/api/storage/view/{}", path));
+                    let preview_path = path.replace(".png", "_thumb.webp");
+                    res["preview_url"] = serde_json::Value::String(format!("/api/storage/view/{}", preview_path));
                 }
+                res["latency_ms"] = serde_json::json!(job.latency_ms);
+                res["usage_metadata"] = job.usage_metadata;
+                res["prompt_settings"] = job.prompt_settings;
             }
 
             Ok((StatusCode::OK, Json(res)).into_response())
