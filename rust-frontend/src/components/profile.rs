@@ -67,56 +67,7 @@ pub fn AccountSettings() -> impl IntoView {
                     </div>
                 </div>
 
-                /* Security Section */
-                <div class="card shadow-lg" style="padding: var(--s-10); border: 1px solid var(--border); background: hsl(var(--surface));">
-                    <div style="display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-6);">
-                        <div style="color: hsl(var(--text)); padding: 0; display: flex; align-items: center; justify-content: center;">
-                            <Lock size={24} />
-                        </div>
-                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; color: hsl(var(--text));">"Security"</h3>
-                    </div>
 
-                    {move || if success.get() {
-                        view! {
-                            <div class="success-panel" style="padding: var(--s-6); background: hsl(var(--success) / 0.05); border-radius: var(--radius-md); border: 1px solid hsl(var(--success) / 0.2); display: flex; align-items: center; gap: var(--s-4);">
-                                <ShieldCheck size={24} custom_style="color: hsl(var(--success));".to_string() />
-                                <span style="font-size: 0.9375rem; font-weight: 700;">"Password updated successfully."</span>
-                                <button class="btn btn-secondary btn-sm" style="margin-left: auto;" on:click=move |_| set_success.set(false)>"DISMISS"</button>
-                            </div>
-                        }.into_any()
-                    } else {
-                        view! {
-                            <form on:submit=on_update_password>
-                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-6);">
-                                    <div class="input-group">
-                                        <label>"NEW PASSWORD"</label>
-                                        <input 
-                                            type="password" 
-                                            on:input=move |ev| set_new_password.set(event_target_value(&ev))
-                                            prop:value=new_password
-                                            required
-                                            style="background: hsl(var(--surface-bright)); width: 100%; border-radius: var(--radius-sm);"
-                                        />
-                                    </div>
-                                    <div class="input-group">
-                                        <label>"CONFIRM PASSWORD"</label>
-                                        <input 
-                                            type="password" 
-                                            on:input=move |ev| set_confirm_password.set(event_target_value(&ev))
-                                            prop:value=confirm_password
-                                            required
-                                            style="background: hsl(var(--surface-bright)); width: 100%; border-radius: var(--radius-sm);"
-                                        />
-                                    </div>
-                                </div>
-                                {move || error.get().map(|e| view! { <p style="color: hsl(var(--error)); font-size: 0.8125rem; margin-top: var(--s-3); font-weight: 800;">{e}</p> })}
-                                <button type="submit" class="btn btn-primary" style="margin-top: var(--s-6);" disabled=loading.get()>
-                                    {move || if loading.get() { "UPDATING..." } else { "CHANGE PASSWORD" }}
-                                </button>
-                            </form>
-                        }.into_any()
-                    }}
-                </div>
 
                 /* Advanced Section */
                 <div class="card shadow-lg" style="padding: var(--s-10); background: hsl(var(--error) / 0.05); border: 1px solid hsl(var(--error) / 0.2);">

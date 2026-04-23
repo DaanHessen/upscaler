@@ -139,7 +139,7 @@ pub fn Contact() -> impl IntoView {
                 </div>
             </div>
 
-            <div class="card shadow-lg stagger-3 contact-form-card" style="padding: var(--s-10) var(--s-12); max-width: 900px; margin: var(--s-8) auto 0 auto;">
+            <div class="card shadow-lg stagger-3 contact-form-card" style="padding: var(--s-10) var(--s-12); max-width: 100%; margin: var(--s-8) auto 0 auto;">
                 {move || if submitted.get() {
                     view! {
                         <div class="success-panel" style="padding: 4rem 2rem; text-align: center;">
