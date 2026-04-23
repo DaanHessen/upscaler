@@ -271,7 +271,7 @@ fn Footer() -> impl IntoView {
             <div class="footer-content">
                 <div class="footer-left">
                     <A href="/" attr:class="logo">
-                        <crate::components::icons::Zap size={24} />
+                        <div class="logo-icon"><crate::components::icons::Zap size={24} /></div>
                         "UPSYL" <span>"STUDIO"</span>
                     </A>
                 </div>
@@ -464,7 +464,11 @@ fn Credits() -> impl IntoView {
 #[component]
 fn Home() -> impl IntoView {
     view! {
-        <div class="fade-in">
+        <div class="fade-in" style="position: relative;">
+            <div class="bg-glow-container">
+                <div class="bg-glow"></div>
+                <div class="bg-glow glow-2"></div>
+            </div>
             <div class="hero-section">
                 <h1 class="text-gradient stagger-1">"Pro-Grade Upscaling"</h1>
                 <div class="hero-content stagger-2">
@@ -474,6 +478,7 @@ fn Home() -> impl IntoView {
                 
                 <div class="hybrid-layout stagger-3">
                     <div class="studio-card hybrid-left">
+                        <div class="scanline-overlay"></div>
                         <ComparisonSlider 
                             images=vec![
                                 ("assets/hero_before_1.svg".to_string(), "assets/hero_after_1.svg".to_string()),
@@ -485,6 +490,7 @@ fn Home() -> impl IntoView {
                         />
                     </div>
                     <div class="studio-card hybrid-right">
+                        <div class="scanline-overlay"></div>
                         <crate::components::upload_zone::UploadZone />
                     </div>
                 </div>
