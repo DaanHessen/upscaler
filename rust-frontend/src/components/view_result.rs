@@ -313,7 +313,7 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                 .header-actions { display: flex; gap: var(--s-4); }
                 
                 .result-main { display: grid; grid-template-columns: 1fr 340px; gap: var(--s-12); align-items: stretch; }
-                .result-slider-box { border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--glass-border); min-height: 500px; background: #000; }
+                .result-slider-box { border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--glass-border); min-height: 500px; background: #000; display: flex; align-items: stretch; }
                 
                 .settings-card { background: hsl(var(--surface)); border: 1px solid var(--glass-border); border-radius: var(--radius-lg); height: 100%; }
                 .settings-list { flex: 1; display: flex; flex-direction: column; gap: var(--s-4); margin-top: var(--s-4); }

@@ -112,9 +112,8 @@ pub fn ComparisonSlider(
                 ".comparison-slider {
                     position: relative;
                     width: 100%;
-                    max-width: 1040px;
-                    aspect-ratio: 16/10;
-                    margin: 0 auto;
+                    height: 100%;
+                    min-height: 480px;
                     overflow: hidden;
                     cursor: ew-resize;
                     user-select: none;
