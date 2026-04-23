@@ -69,7 +69,7 @@ pub trait DbProvider: Send + Sync {
 
     // Moderation & Janitor
     async fn insert_moderation_log(&self, user_id: Uuid, path: &str) -> Result<(), Box<dyn Error + Send + Sync>>;
-    async fn get_expired_jobs(&self) -> Result<Vec<(Uuid, String, Option<String>)>, Box<dyn Error + Send + Sync>>;
+    async fn get_expired_jobs(&self) -> Result<Vec<(Uuid, String, Option<String>, String, Uuid, i32)>, Box<dyn Error + Send + Sync>>;
     async fn mark_job_expired(&self, id: Uuid) -> Result<(), Box<dyn Error + Send + Sync>>;
     async fn get_expired_moderation_logs(&self) -> Result<Vec<(Uuid, String)>, Box<dyn Error + Send + Sync>>;
     async fn delete_moderation_log(&self, id: Uuid) -> Result<(), Box<dyn Error + Send + Sync>>;
@@ -261,9 +261,9 @@ impl DbProvider for DbService {
         Ok(())
     }
 
-    async fn get_expired_jobs(&self) -> Result<Vec<(Uuid, String, Option<String>)>, Box<dyn Error + Send + Sync>> {
-        let records = sqlx::query_as::<sqlx::Postgres, (Uuid, String, Option<String>)>(
-            "SELECT id, input_path, output_path FROM upscales WHERE created_at < NOW() - INTERVAL '24 hours' AND status != 'EXPIRED'"
+    async fn get_expired_jobs(&self) -> Result<Vec<(Uuid, String, Option<String>, String, Uuid, i32)>, Box<dyn Error + Send + Sync>> {
+        let records = sqlx::query_as::<sqlx::Postgres, (Uuid, String, Option<String>, String, Uuid, i32)>(
+            "SELECT id, input_path, output_path, status::text, user_id, credits_charged FROM upscales WHERE created_at < NOW() - INTERVAL '24 hours' AND status != 'EXPIRED'"
         )
         .fetch_all(&self.pool)
         .await?;
@@ -496,9 +496,9 @@ impl DbProvider for SqliteDb {
         Ok(())
     }
 
-    async fn get_expired_jobs(&self) -> Result<Vec<(Uuid, String, Option<String>)>, Box<dyn Error + Send + Sync>> {
-        let records = sqlx::query_as::<sqlx::Sqlite, (Uuid, String, Option<String>)>(
-            "SELECT id, input_path, output_path FROM upscales WHERE created_at < datetime('now', '-24 hours') AND status != 'EXPIRED'"
+    async fn get_expired_jobs(&self) -> Result<Vec<(Uuid, String, Option<String>, String, Uuid, i32)>, Box<dyn Error + Send + Sync>> {
+        let records = sqlx::query_as::<sqlx::Sqlite, (Uuid, String, Option<String>, String, Uuid, i32)>(
+            "SELECT id, input_path, output_path, status, user_id, credits_charged FROM upscales WHERE created_at < datetime('now', '-24 hours') AND status != 'EXPIRED'"
         )
         .fetch_all(&self.pool)
         .await?;

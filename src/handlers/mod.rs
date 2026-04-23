@@ -11,8 +11,6 @@ use serde::Deserialize;
 use crate::AppState;
 use crate::processor::{preprocess_image_internal, ResizeMode, is_nsfw, analyze_style, ImageStyle};
 
-pub mod storage;
-
 // --- Handlers ---
 
 pub async fn health_check() -> impl IntoResponse {
@@ -339,7 +337,7 @@ pub async fn upscale_handler(
 
     let mut image_data = None;
     let mut quality = "2K".to_string();
-    let mut temperature = 0.0;
+    let mut temperature: f32 = 0.0;
     let mut prompt_settings_raw = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {

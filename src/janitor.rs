@@ -15,8 +15,8 @@ pub async fn janitor_service(state: Arc<AppState>) {
         // 1. Clean up physical files for expired upscale jobs
         match state.db.get_expired_jobs().await {
             Ok(jobs) => {
-                for (id, input_path, output_path) in jobs {
-                    info!("Janitor: Expiring job {}", id);
+                for (id, input_path, output_path, status, user_id, credits_charged) in jobs {
+                    info!("Janitor: Expiring job {} (status: {})", id, status);
                     
                     // Delete original
                     if !input_path.is_empty() {
@@ -29,6 +29,17 @@ pub async fn janitor_service(state: Arc<AppState>) {
                         // Also try to delete the thumbnail
                         let thumb = out.replace(".png", "_thumb.webp");
                         let _ = state.storage.delete_object(&thumb).await;
+                    }
+
+                    // If job was stuck pending or processing, issue a refund for the credits charged
+                    if status == "PENDING" || status == "PROCESSING" {
+                        if credits_charged > 0 {
+                            if let Err(e) = state.db.refund_credits(user_id, credits_charged, id).await {
+                                error!("Janitor: Failed to refund {} credits for stuck job {}: {}", credits_charged, id, e);
+                            } else {
+                                info!("Janitor: Refunded {} credits for stuck job {}", credits_charged, id);
+                            }
+                        }
                     }
 
                     // Update DB status to EXPIRED and wipe paths

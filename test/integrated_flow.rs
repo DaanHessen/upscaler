@@ -60,12 +60,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // So we should pick an existing file from history or upload a dummy one.
     
     let job_id = state.db.insert_job(
+        Uuid::new_v4(),
         user_id,
         "test/images/original.png", 
         "PHOTOGRAPHY",
         0.5,
         "2K",
-        &settings_json
+        &settings_json,
+        2
     ).await?;
 
     tracing::info!("Job {} enqueued.", job_id);
