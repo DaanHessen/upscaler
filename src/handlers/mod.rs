@@ -309,10 +309,11 @@ pub async fn poll_upscale_handler(
 
             if job.status == "COMPLETED" {
                 if let Some(path) = &job.output_path {
-                    res["output_url"] = serde_json::Value::String(state.storage.get_signed_url(path).await.unwrap_or_default());
+                    res["image_url"] = serde_json::Value::String(state.storage.get_signed_url(path).await.unwrap_or_default());
                     let preview_path = path.replace(".png", "_thumb.webp");
                     res["preview_url"] = serde_json::Value::String(state.storage.get_signed_url(&preview_path).await.unwrap_or_default());
                 }
+                res["before_url"] = serde_json::Value::String(state.storage.get_signed_url(&job.input_path).await.unwrap_or_default());
                 res["latency_ms"] = serde_json::json!(job.latency_ms);
                 res["usage_metadata"] = job.usage_metadata;
                 res["prompt_settings"] = job.prompt_settings;

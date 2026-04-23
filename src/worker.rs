@@ -111,12 +111,21 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     }
 
     // Google Vertex AI sometimes returns a 64x64 pure black image bypass instead of explicitly tagging SAFETY
-    if let Ok(generated_img) = image::load_from_memory(&image_bytes) {
-        if generated_img.width() == 64 && generated_img.height() == 64 {
-            state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
-            let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
-            return Err("Image rejected by internal safety filters.".into());
+    let is_blocked = tokio::task::spawn_blocking({
+        let bytes = image_bytes.clone();
+        move || {
+            if let Ok(generated_img) = image::load_from_memory(&bytes) {
+                generated_img.width() == 64 && generated_img.height() == 64
+            } else {
+                false
+            }
         }
+    }).await?;
+
+    if is_blocked {
+        state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
+        let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+        return Err("Image rejected by internal safety filters.".into());
     }
 
     // 5. Upload result and generate preview
@@ -128,7 +137,11 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     state.storage.upload_object(&processed_path, image_bytes.clone(), "image/png").await?;
 
     // Generate and upload thumbnail for instant history loading
-    match crate::processor::generate_thumbnail(&image_bytes) {
+    let thumb_res = tokio::task::spawn_blocking(move || {
+        crate::processor::generate_thumbnail(&image_bytes)
+    }).await?;
+
+    match thumb_res {
         Ok(thumb_data) => {
             info!("Uploading thumbnail to storage for job {}", job.id);
             if let Err(e) = state.storage.upload_object(&preview_path, thumb_data, "image/webp").await {
