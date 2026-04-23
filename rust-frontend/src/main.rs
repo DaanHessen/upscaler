@@ -440,24 +440,24 @@ fn Home() -> impl IntoView {
                                     ]
                                 />
                             </div>
+                        </div>
 
-                            <div class="showcase-overlay-actions">
-                                <div class="action-meta">
-                                    <h3 class="action-title">"High-Fidelity AI Reconstruction"</h3>
-                                    <p class="action-desc">"Our Gemini-powered engine synthesizes high-frequency details where traditional upscalers fail."</p>
-                                </div>
-                                <div class="action-buttons">
-                                    <A href="/editor" attr:class="btn btn-primary cta-btn-hero">
-                                        <Zap size={18} />
-                                        <span>{crate::text::TXT.home_cta_start}</span>
+                        <div class="showcase-actions-row">
+                            <div class="action-meta">
+                                <h3 class="action-title">"High-Fidelity AI Reconstruction"</h3>
+                                <p class="action-desc">"Our Gemini-powered engine synthesizes high-frequency details where traditional upscalers fail."</p>
+                            </div>
+                            <div class="action-buttons">
+                                <A href="/editor" attr:class="btn btn-primary cta-btn-hero">
+                                    <Zap size={18} />
+                                    <span>{crate::text::TXT.home_cta_start}</span>
+                                </A>
+                                {move || auth.user.get().is_some().then(|| view! {
+                                    <A href="/history" attr:class="btn btn-secondary cta-btn-hero">
+                                        <ImageIcon size={18} />
+                                        <span>"VIEW GALLERY"</span>
                                     </A>
-                                    {move || auth.user.get().is_some().then(|| view! {
-                                        <A href="/history" attr:class="btn btn-secondary cta-btn-hero">
-                                            <ImageIcon size={18} />
-                                            <span>"VIEW GALLERY"</span>
-                                        </A>
-                                    })}
-                                </div>
+                                })}
                             </div>
                         </div>
                     </div>
@@ -509,29 +509,24 @@ fn Home() -> impl IntoView {
                     background: hsl(var(--surface));
                     border: 1px solid rgba(255,255,255,0.03);
                     border-radius: var(--radius-lg);
+                    height: 580px;
                     overflow: hidden;
                     position: relative;
                 }
 
-                .showcase-overlay-actions {
-                    position: absolute;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;
-                    padding: var(--s-8) var(--s-10);
-                    background: linear-gradient(to top, hsl(var(--bg) / 0.9), transparent);
-                    backdrop-filter: blur(10px);
+                .showcase-actions-row {
+                    padding: var(--s-10) var(--s-12);
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
                     gap: var(--s-12);
-                    z-index: 10;
+                    background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, transparent 100%);
                     border-top: 1px solid var(--glass-border);
                 }
 
                 .action-meta { flex: 1; text-align: left; }
-                .action-title { font-size: 1.5rem; font-weight: 800; margin-bottom: var(--s-1); letter-spacing: -0.02em; }
-                .action-desc { font-size: 0.875rem; color: hsl(var(--text-dim)); line-height: 1.5; max-width: 440px; }
+                .action-title { font-size: 1.25rem; font-weight: 850; margin-bottom: var(--s-1); letter-spacing: -0.03em; color: hsl(var(--text)); }
+                .action-desc { font-size: 0.9375rem; color: hsl(var(--text-dim)); line-height: 1.6; max-width: 500px; opacity: 0.7; }
 
                 .action-buttons { display: flex; gap: var(--s-4); align-items: center; }
                 

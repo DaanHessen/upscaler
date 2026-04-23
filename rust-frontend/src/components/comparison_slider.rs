@@ -5,6 +5,7 @@ use crate::components::icons::{ChevronLeft, ChevronRight};
 #[component]
 pub fn ComparisonSlider(
     images: Vec<(String, String)>,
+    #[prop(default = 1.0)] zoom: f64,
 ) -> impl IntoView {
     let (current_index, set_current_index) = signal(0usize);
     let (position, set_position) = signal(50.0);
@@ -61,14 +62,21 @@ pub fn ComparisonSlider(
             node_ref=slider_ref
             on:mousemove=on_move
             on:touchmove=on_touch
+            style:cursor={move || if zoom > 1.0 { "grab" } else { "ew-resize" }}
         >
-            <div class="image-before" style:background-image=move || format!("url('{}')", current_pair_before()) style:background-color="#e1e1e4"></div>
+            <div 
+                class="image-before" 
+                style:background-image=move || format!("url('{}')", current_pair_before()) 
+                style:background-color="#e1e1e4"
+                style:transform=move || format!("scale({})", zoom)
+            ></div>
             
             <div 
                 class="image-after" 
                 style:background-image=move || format!("url('{}')", current_pair_after())
                 style:background-color="#f0f0f2"
                 style:clip-path=move || format!("inset(0 0 0 {}%)", position.get())
+                style:transform=move || format!("scale({})", zoom)
             ></div>
 
             <span class="label before-label">"BEFORE"</span>
