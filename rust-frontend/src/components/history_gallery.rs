@@ -73,25 +73,6 @@ pub fn HistoryGallery() -> impl IntoView {
 
 #[component]
 fn HistoryCard(item: HistoryItem) -> impl IntoView {
-    let status_label = match item.status.as_str() {
-        "COMPLETED" => "",
-        "FAILED" => "FAILED",
-        "PROCESSING" => "ACTIVE",
-        "PENDING" => "QUEUED",
-        _ => "UNKNOWN",
-    };
-    
-    let status_class = match item.status.as_str() {
-        "COMPLETED" => "success",
-        "FAILED" => "error",
-        _ => "active",
-    };
-
-    let status_icon = match item.status.as_str() {
-        "COMPLETED" => view! { <Zap size={10} /> }.into_any(),
-        _ => view! { <crate::components::icons::RefreshCw size={10} /> }.into_any(),
-    };
-
     view! {
         <div class="card history-card-v2">
             <div class="card-visual-v2">
@@ -122,9 +103,9 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
             
             <div class="card-content-v2">
                 <div class="card-header-v2">
-                    <div class=format!("card-tag-v2 status-{}", status_class)>
-                        {status_icon}
-                        <span>{status_label}</span>
+                    <div class="date-row-v2" style="font-size: 0.75rem; color: hsl(var(--text)); font-weight: 700;">
+                        <Calendar size={14} />
+                        <span>{item.created_at[..10].to_string()}</span>
                     </div>
                     {move || if item.latency_ms > 0 {
                         view! {
@@ -136,15 +117,8 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                         view! { <div /> }.into_any()
                     }}
                 </div>
-
-                <div class="card-meta-v2">
-                    <div class="date-row-v2">
-                        <Calendar size={12} />
-                        <span>{item.created_at[..10].to_string()}</span>
-                    </div>
-                </div>
                 
-                <div class="card-footer-v2">
+                <div class="card-footer-v2" style="margin-top: var(--s-4);">
                     {
                         let status = item.status.clone();
                         match item.image_url.clone() {

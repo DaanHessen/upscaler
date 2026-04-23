@@ -47,7 +47,7 @@ pub fn AccountSettings() -> impl IntoView {
 
             <div class="settings-grid" style="display: grid; gap: var(--s-8); margin-top: var(--s-8);">
                 /* Identity Section */
-                <div class="card shadow-lg" style="padding: var(--s-10); border: 1px solid var(--border); background: hsl(var(--surface));">
+                <div class="card shadow-lg" style="padding: var(--s-10);">
                     <div style="display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-6);">
                         <div style="color: hsl(var(--text)); padding: 0; display: flex; align-items: center; justify-content: center;">
                             <UserIcon size={24} />
@@ -72,7 +72,7 @@ pub fn AccountSettings() -> impl IntoView {
                 </div>
 
                 /* Statistics Section */
-                <div class="card shadow-lg" style="padding: var(--s-10); margin-bottom: var(--s-6);">
+                <div class="card shadow-lg" style="padding: var(--s-10);">
                     <div style="display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-8);">
                         <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; color: hsl(var(--text));">"Usage Statistics"</h3>
                     </div>
@@ -80,23 +80,24 @@ pub fn AccountSettings() -> impl IntoView {
                     <div class="stats-grid-mini" style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-8);">
                         <div class="stat-box-mini">
                             <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Processed Images"</span>
-                            <span class="stat-value-mini" style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading);">{move || auth.history.get().map(|h| h.len()).unwrap_or(0)} <span style="font-size: 0.75rem; opacity: 0.4;">"IMAGES"</span></span>
+                            <span class="stat-value-mini" style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading);">{move || auth.history.get().map(|h| h.len()).unwrap_or(0)} <span style="font-size: 0.75rem; opacity: 0.4; margin-left: 0.5rem;">"IMAGES"</span></span>
                         </div>
                         <div class="stat-box-mini">
                             <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Total Credits Used"</span>
-                            <span class="stat-value-mini" style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading);">{move || auth.history.get().map(|h| h.iter().map(|i| i.credits_charged).sum::<i32>()).unwrap_or(0)} <span style="font-size: 0.75rem; opacity: 0.4;">"CREDITS"</span></span>
+                            <span class="stat-value-mini" style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading);">{move || auth.history.get().map(|h| h.iter().map(|i| i.credits_charged).sum::<i32>()).unwrap_or(0)} <span style="font-size: 0.75rem; opacity: 0.4; margin-left: 0.5rem;">"CREDITS"</span></span>
                         </div>
                         <div class="stat-box-mini">
                             <span class="stat-label-mini" style="font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 4px;">"Average Speed"</span>
                             <span class="stat-value-mini" style="font-size: 1.5rem; font-weight: 800; font-family: var(--font-heading);">
                                 {move || {
                                     let h = auth.history.get().unwrap_or_default();
-                                    if h.is_empty() { "0.0".to_string() } else {
-                                        let total_ms: i32 = h.iter().map(|i| i.latency_ms).sum();
-                                        format!("{:.1}", (total_ms as f32 / h.len() as f32) / 1000.0)
+                                    let valid_h: Vec<_> = h.iter().filter(|i| i.latency_ms > 0).collect();
+                                    if valid_h.is_empty() { "0.0".to_string() } else {
+                                        let total_ms: i32 = valid_h.iter().map(|i| i.latency_ms).sum();
+                                        format!("{:.1}", (total_ms as f32 / valid_h.len() as f32) / 1000.0)
                                     }
                                 }}
-                                <span style="font-size: 0.75rem; opacity: 0.4;">"SEC AVG"</span>
+                                <span style="font-size: 0.75rem; opacity: 0.4; margin-left: 0.5rem;">"SEC AVG"</span>
                             </span>
                         </div>
                         <div class="stat-box-mini">

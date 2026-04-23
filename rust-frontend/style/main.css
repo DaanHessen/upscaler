@@ -539,8 +539,8 @@ footer {
 .pack-item:hover { border-color: hsl(var(--accent) / 0.5); background: hsl(var(--surface-bright)); }
 .pack-item.active { border-color: hsl(var(--accent)); background: hsl(var(--accent) / 0.05); }
 .pack-info { display: flex; flex-direction: column; gap: 2px; }
-.pack-name { font-size: 0.8125rem; font-weight: 700; color: hsl(var(--text)); }
-.pack-credits { font-size: 0.6875rem; font-weight: 800; color: hsl(var(--accent)); letter-spacing: 0.05em; }
+.pack-name { font-size: 1.125rem; font-weight: 850; color: hsl(var(--text)); }
+.pack-credits { font-size: 0.875rem; font-weight: 800; color: hsl(var(--accent)); letter-spacing: 0.05em; }
 .pack-price { font-family: var(--font-mono); font-weight: 800; font-size: 1.125rem; }
 
 /* History Logs */
@@ -642,6 +642,7 @@ footer {
     background: hsl(var(--surface));
     border: 1px solid hsl(var(--border));
     border-radius: var(--radius-lg); margin: var(--s-10) 0; box-shadow: var(--shadow-lg);
+    min-height: 65vh;
 }
 
 .empty-icon { color: hsl(var(--text-dim)); opacity: 0.3; margin-bottom: var(--s-6); }

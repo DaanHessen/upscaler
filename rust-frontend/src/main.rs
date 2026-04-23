@@ -86,6 +86,7 @@ fn App() -> impl IntoView {
     
     // Effects for persisting state
     Effect::new(move |_| {
+        let theme_val = gs.theme.get();
         let settings = persistence::UserSettings {
             quality: gs.quality.get(),
             style: gs.style.get(),
@@ -94,9 +95,15 @@ fn App() -> impl IntoView {
             lighting: gs.lighting.get(),
             thinking_level: gs.thinking_level.get(),
             seed: gs.seed.get(),
-            theme: gs.theme.get(),
+            theme: theme_val.clone(),
         };
         persistence::save_settings(&settings);
+        
+        if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+            if let Some(el) = doc.document_element() {
+                let _ = el.set_attribute("data-theme", &theme_val);
+            }
+        }
     });
 
     // Initial hydration
@@ -301,7 +308,10 @@ fn AuthNav() -> impl IntoView {
                             }}
                         </Suspense>
                         
-                        <div class="dropdown-container">
+                        <div class="dropdown-container"
+                            on:mouseenter=move |_| set_show_dropdown.set(true)
+                            on:mouseleave=move |_| set_show_dropdown.set(false)
+                        >
                             <div 
                                 class="avatar-btn"
                                 on:click=move |ev: ev::MouseEvent| {
@@ -323,13 +333,19 @@ fn AuthNav() -> impl IntoView {
                                     set_theme.set(next.to_string());
                                 }>
                                     {move || if theme.get() == "light" { view! { <Moon size={16} /> }.into_any() } else { view! { <Sun size={16} /> }.into_any() }}
-                                    {move || if theme.get() == "light" { "Dark Mode" } else { "Light Mode" }}
+                                    {move || if theme.get() == "light" { "DARK MODE" } else { "LIGHT MODE" }}
                                 </div>
                                 
                                 <A href="/account" attr:class="dropdown-item" attr:style="text-decoration: none;">
                                     <UserIcon size={16} />
                                     "Profile Settings"
                                 </A>
+                                <div class="dropdown-divider"></div>
+                                <A href="/terms" attr:class="dropdown-item" attr:style="text-decoration: none;">"Terms"</A>
+                                <A href="/privacy" attr:class="dropdown-item" attr:style="text-decoration: none;">"Privacy Rules"</A>
+                                <A href="/cookies" attr:class="dropdown-item" attr:style="text-decoration: none;">"Cookies"</A>
+                                <A href="/contact" attr:class="dropdown-item" attr:style="text-decoration: none;">"Support"</A>
+                                <div class="dropdown-divider"></div>
                                 <div class="dropdown-item error" on:click=move |_| auth.logout()>
                                     <LogOut size={16} />
                                     {crate::text::TXT.action_sign_out}
