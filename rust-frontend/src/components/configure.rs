@@ -75,163 +75,198 @@ pub fn Configure() -> impl IntoView {
     };
 
     view! {
-        <div class="studio-container configure-page fade-in">
-            <div class="page-header stagger-1">
+        <div class="settings-container fade-in">
+            <div class="page-header">
                 <div class="header-main">
-                    <h1 class="text-gradient">"Upscale Settings"</h1>
-                    <p class="muted">"Precision restoration parameters for your assets."</p>
+                    <h1 class="stagger-1 text-gradient">"Upscale Settings"</h1>
+                    <p class="muted stagger-2">"Configure restoration parameters for your asset."</p>
                 </div>
             </div>
 
-            <div class="config-layout stagger-2">
-                <div class="config-stage">
-                    <div class="preview-section">
-                        <div class="section-tag">
+            // ── Main card: two-column grid, same pattern as Credits page ──
+            <div class="card shadow-lg" style="margin-top: var(--s-8);">
+                <div style="display: grid; grid-template-columns: 1fr 1fr;">
+
+                    // ── Left: Preview ────────────────────────────────────
+                    <div style="padding: var(--s-10) var(--s-12); border-right: 1px solid hsl(var(--border) / 0.5); display: flex; flex-direction: column;">
+                        <div class="card-tag">
                             <ImageIcon size={10} />
-                            "ASSET PREVIEW"
+                            <span>"ASSET PREVIEW"</span>
                         </div>
-                        <div class="preview-viewport">
+
+                        <div class="cfg-preview-box" style="margin-top: var(--s-8); flex: 1; display: flex; align-items: center; justify-content: center; background: hsl(var(--surface-raised)); border-radius: var(--radius-md); overflow: hidden; min-height: 300px;">
                             {move || {
-                                let has_file = global_state.temp_file.get().is_some();
-                                if has_file {
-                                    view! { <img src=preview_src() class="fade-in" /> }.into_any()
+                                if global_state.temp_file.get().is_some() {
+                                    view! { <img src=preview_src() style="width: 100%; height: 100%; object-fit: contain; display: block;" /> }.into_any()
                                 } else {
-                                    view! { <div class="empty-state">"No asset detected"</div> }.into_any()
+                                    view! {
+                                        <div style="display: flex; flex-direction: column; align-items: center; gap: var(--s-3); opacity: 0.25; color: hsl(var(--text-dim));">
+                                            <ImageIcon size={40} />
+                                            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">"No asset loaded"</span>
+                                        </div>
+                                    }.into_any()
                                 }
                             }}
-                            <div class="viewport-overlay">
-                                <div class="badge">
-                                    <span class="label">"Status"</span>
-                                    <div class="badge-content">
-                                        <div class="pulse-dot"></div>
-                                        {move || global_state.temp_classification.get().unwrap_or_else(|| "Analyzing...".to_string())}
-                                    </div>
-                                </div>
+                        </div>
+
+                        <div class="meta-stats" style="margin-top: var(--s-8); padding-top: var(--s-6); border-top: 1px solid hsl(var(--border-muted));">
+                            <div class="stat-box">
+                                <span class="stat-label">"Detected Style"</span>
+                                <span class="stat-value" style="font-size: 0.9375rem;">
+                                    {move || global_state.temp_classification.get().unwrap_or_else(|| "—".to_string())}
+                                </span>
+                            </div>
+                            <div class="stat-box">
+                                <span class="stat-label">"Status"</span>
+                                <span class="stat-value highlight" style="font-size: 0.9375rem;">"READY"</span>
                             </div>
                         </div>
                     </div>
 
-                    <div class="controls-section">
-                        <div class="section-tag">
+                    // ── Right: Settings ──────────────────────────────────
+                    <div style="padding: var(--s-10) var(--s-12); display: flex; flex-direction: column;">
+                        <div class="card-tag" style="margin-bottom: var(--s-8);">
                             <Settings size={10} />
-                            "CONFIGURATION"
+                            <span>"PARAMETERS"</span>
                         </div>
 
-                        <div class="controls-grid">
-                            <div class="control-column">
-                                <div class="control-group">
-                                    <label>"Target Resolution"</label>
-                                    <div class="resolution-switch">
-                                        <div 
-                                            class=move || if global_state.quality.get() == "2K" { "res-opt active" } else { "res-opt" }
-                                            on:click=move |_| global_state.set_quality.set("2K".to_string())
-                                        >
-                                            <span class="res-title">"2K"</span>
-                                            <span class="res-sub">"HD RESTORE"</span>
-                                        </div>
-                                        <div 
-                                            class=move || if global_state.quality.get() == "4K" { "res-opt active" } else { "res-opt" }
-                                            on:click=move |_| global_state.set_quality.set("4K".to_string())
-                                        >
-                                            <span class="res-title">"4K"</span>
-                                            <span class="res-sub">"ULTRA HD"</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div class="control-group">
-                                    <label>"Reconstruction Style"</label>
-                                    <div class="style-toggle">
-                                        <button 
-                                            class=move || if global_state.style.get() == "PHOTOGRAPHY" { "toggle-btn active" } else { "toggle-btn" }
-                                            on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
-                                        >
-                                            <Sun size={12} />
-                                            "PHOTOGRAPHY"
-                                        </button>
-                                        <button 
-                                            class=move || if global_state.style.get() == "ILLUSTRATION" { "toggle-btn active" } else { "toggle-btn" }
-                                            on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
-                                        >
-                                            <ImageIcon size={12} />
-                                            "ILLUSTRATION"
-                                        </button>
-                                    </div>
-                                </div>
+                        // Resolution
+                        <div style="display: grid; gap: var(--s-4);">
+                            <div class="data-row">
+                                <span class="data-label">"TARGET RESOLUTION"</span>
                             </div>
-
-                            <div class="control-column">
-                                <div class="control-group">
-                                    <label>"Neural Temperature"</label>
-                                    <div class="slider-container">
-                                        <div class="slider-header">
-                                            <span>"Creative Drift"</span>
-                                            <span class="val-pill">{move || format!("{:.1}", global_state.temperature.get())}</span>
-                                        </div>
-                                        <input 
-                                            type="range" 
-                                            min="0.0" 
-                                            max="2.0" 
-                                            step="0.1" 
-                                            prop:value=move || global_state.temperature.get().to_string()
-                                            on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
-                                        />
-                                    </div>
-                                </div>
-
-                                <div class="control-group">
-                                    <label>"Advanced Preserves"</label>
-                                    <div class="toggles-row">
-                                        <button 
-                                            class=move || if global_state.keep_aspect_ratio.get() { "pill-toggle active" } else { "pill-toggle" }
-                                            on:click=move |_| global_state.set_keep_aspect_ratio.update(|v| *v = !*v)
-                                        >
-                                            <Maximize size={12} />
-                                            "Ratio Lock"
-                                        </button>
-                                        <button 
-                                            class=move || if global_state.keep_depth_of_field.get() { "pill-toggle active" } else { "pill-toggle" }
-                                            on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
-                                        >
-                                            <Target size={12} />
-                                            "Depth Lock"
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="lighting-group">
-                            <label>"Atmospheric Lighting"</label>
-                            <div class="select-box">
-                                <select 
-                                    on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
-                                    prop:value=move || global_state.lighting.get()
+                            <div class="pack-list">
+                                <div
+                                    class=move || if global_state.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
+                                    on:click=move |_| global_state.set_quality.set("2K".to_string())
                                 >
-                                    <option value="Original">"Maintain Original (Default)"</option>
-                                    <option value="Studio">"Studio Lighting"</option>
-                                    <option value="Cinematic">"Cinematic Shadowing"</option>
-                                    <option value="Vivid">"High Vividity"</option>
-                                    <option value="Natural">"Soft Ambient"</option>
-                                </select>
+                                    <div class="pack-info">
+                                        <span class="pack-name">"2K — HD Restore"</span>
+                                        <span class="pack-credits">"STANDARD QUALITY"</span>
+                                    </div>
+                                    <span class="pack-price">"2C"</span>
+                                </div>
+                                <div
+                                    class=move || if global_state.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
+                                    on:click=move |_| global_state.set_quality.set("4K".to_string())
+                                >
+                                    <div class="pack-info">
+                                        <span class="pack-name">"4K — Ultra HD"</span>
+                                        <span class="pack-credits">"MAXIMUM QUALITY"</span>
+                                    </div>
+                                    <span class="pack-price">"4C"</span>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="action-footer">
-                            <button 
-                                class="btn-upscale"
+                        // Style
+                        <div style="display: grid; gap: var(--s-4); margin-top: var(--s-8);">
+                            <div class="data-row">
+                                <span class="data-label">"RECONSTRUCTION STYLE"</span>
+                            </div>
+                            <div class="pack-list">
+                                <div
+                                    class=move || if global_state.style.get() == "PHOTOGRAPHY" { "pack-item active" } else { "pack-item" }
+                                    on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
+                                >
+                                    <div class="pack-info">
+                                        <span class="pack-name">"Photography"</span>
+                                        <span class="pack-credits">"OPTIMIZED FOR PHOTOS"</span>
+                                    </div>
+                                </div>
+                                <div
+                                    class=move || if global_state.style.get() == "ILLUSTRATION" { "pack-item active" } else { "pack-item" }
+                                    on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
+                                >
+                                    <div class="pack-info">
+                                        <span class="pack-name">"Illustration"</span>
+                                        <span class="pack-credits">"OPTIMIZED FOR ART"</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        // Temperature
+                        <div style="margin-top: var(--s-8); padding-top: var(--s-8); border-top: 1px solid hsl(var(--border-muted));">
+                            <div class="data-row" style="margin-bottom: var(--s-4);">
+                                <span class="data-label">"CREATIVE DRIFT"</span>
+                                <span class="data-value" style="color: hsl(var(--accent));">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="0.0"
+                                max="2.0"
+                                step="0.1"
+                                style="width: 100%;"
+                                prop:value=move || global_state.temperature.get().to_string()
+                                on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
+                            />
+                        </div>
+
+                        // Lighting
+                        <div style="margin-top: var(--s-8);">
+                            <div class="data-row" style="margin-bottom: var(--s-4);">
+                                <span class="data-label">"ATMOSPHERIC LIGHTING"</span>
+                            </div>
+                            <select
+                                style="width: 100%; padding: var(--s-3) var(--s-4); background: hsl(var(--surface-raised)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-sm); color: hsl(var(--text)); font-size: 0.875rem; font-weight: 600;"
+                                on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
+                                prop:value=move || global_state.lighting.get()
+                            >
+                                <option value="Original">"Maintain Original"</option>
+                                <option value="Studio">"Studio Lighting"</option>
+                                <option value="Cinematic">"Cinematic Shadowing"</option>
+                                <option value="Vivid">"High Vividity"</option>
+                                <option value="Natural">"Soft Ambient"</option>
+                            </select>
+                        </div>
+
+                        // Preserves
+                        <div style="margin-top: var(--s-8); padding-top: var(--s-8); border-top: 1px solid hsl(var(--border-muted));">
+                            <div class="data-row" style="margin-bottom: var(--s-4);">
+                                <span class="data-label">"ADVANCED PRESERVES"</span>
+                            </div>
+                            <div class="pack-list">
+                                <div
+                                    class=move || if global_state.keep_aspect_ratio.get() { "pack-item active" } else { "pack-item" }
+                                    on:click=move |_| global_state.set_keep_aspect_ratio.update(|v| *v = !*v)
+                                >
+                                    <div class="pack-info">
+                                        <span class="pack-name">"Ratio Lock"</span>
+                                        <span class="pack-credits">"MAINTAIN ORIGINAL ASPECT RATIO"</span>
+                                    </div>
+                                    <span class="pack-price" style="font-size: 0.75rem;">
+                                        {move || if global_state.keep_aspect_ratio.get() { "ON" } else { "OFF" }}
+                                    </span>
+                                </div>
+                                <div
+                                    class=move || if global_state.keep_depth_of_field.get() { "pack-item active" } else { "pack-item" }
+                                    on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
+                                >
+                                    <div class="pack-info">
+                                        <span class="pack-name">"Depth Lock"</span>
+                                        <span class="pack-credits">"PRESERVE DEPTH OF FIELD"</span>
+                                    </div>
+                                    <span class="pack-price" style="font-size: 0.75rem;">
+                                        {move || if global_state.keep_depth_of_field.get() { "ON" } else { "OFF" }}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        // Action
+                        <div style="display: flex; justify-content: center; margin-top: auto; padding-top: var(--s-10);">
+                            <button
+                                class="btn btn-primary btn-lg"
+                                style="width: 100%; font-size: 0.875rem; font-weight: 800; padding: var(--s-5) 0; gap: var(--s-3);"
                                 disabled=move || loading.get() || global_state.temp_file.get().is_none()
                                 on:click=handle_upscale
                             >
-                                <div class="btn-ripple"></div>
-                                <Zap size={18} />
-                                <span>{move || if loading.get() { "STARTING ENGINE..." } else { "INITIATE UPSCALE" }}</span>
-                                <div class="cost-tag">
-                                    {move || {
-                                        let q = global_state.quality.get();
-                                        if q == "4K" { "4 CREDITS" } else { "2 CREDITS" }
-                                    }}
-                                </div>
+                                <Zap size={16} />
+                                {move || if loading.get() { "STARTING ENGINE..." } else { "INITIATE UPSCALE" }}
+                                <span class="user-badge" style="margin-left: var(--s-2);">
+                                    {move || if global_state.quality.get() == "4K" { "4 CREDITS" } else { "2 CREDITS" }}
+                                </span>
                             </button>
                         </div>
                     </div>
@@ -239,140 +274,14 @@ pub fn Configure() -> impl IntoView {
             </div>
 
             <style>
-                ".configure-page { padding-bottom: var(--s-12); }
-
-                .config-layout { display: flex; flex-direction: column; }
-                .config-stage { 
-                    background: hsl(var(--surface)); 
-                    border: 1px solid var(--glass-border); 
-                    border-radius: var(--radius-lg); 
-                    overflow: hidden;
-                    display: grid;
-                    grid-template-columns: 380px 1fr;
-                    box-shadow: var(--shadow-md);
-                }
-
-                .section-tag { font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim)); letter-spacing: 0.15em; margin-bottom: 1.5rem; opacity: 0.5; display: flex; align-items: center; gap: 0.5rem; }
-
-                /* Left Side: Preview */
-                .preview-section { 
-                    background: hsl(var(--surface-raised) / 0.3);
-                    border-right: 1px solid var(--glass-border);
-                    padding: 2rem;
-                    display: flex;
-                    flex-direction: column;
-                    min-height: 520px;
-                }
-                .preview-viewport { 
-                    flex: 1;
-                    background: #000;
-                    border-radius: var(--radius-md);
-                    border: 1px solid var(--glass-border);
-                    position: relative;
-                    overflow: hidden;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 300px;
-                }
-                .preview-viewport img { width: 100%; height: 100%; object-fit: contain; }
-                .preview-viewport .empty-state { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim)); opacity: 0.3; padding: 0; margin: 0; background: none; border: none; box-shadow: none; }
-
-                .viewport-overlay { position: absolute; bottom: 1.5rem; left: 1.5rem; right: 1.5rem; }
-                .badge { 
-                    background: hsl(var(--bg) / 0.85); 
-                    backdrop-filter: blur(12px); 
-                    border: 1px solid var(--glass-border);
-                    padding: 0.625rem 1rem;
-                    border-radius: var(--radius-md);
-                    display: flex;
-                    flex-direction: column;
-                    gap: 4px;
-                    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-                }
-                .badge .label { font-size: 0.55rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.1em; }
-                .badge-content { display: flex; align-items: center; gap: var(--s-3); font-size: 0.8125rem; font-weight: 800; color: hsl(var(--accent)); text-transform: uppercase; letter-spacing: 0.05em; }
-                .pulse-dot { width: 8px; height: 8px; background: hsl(var(--accent)); border-radius: 50%; box-shadow: 0 0 12px hsl(var(--accent)); animation: pulse-accent 2s infinite; }
-
-                /* Right Side: Controls */
-                .controls-section { padding: 2.5rem; display: flex; flex-direction: column; gap: 2rem; }
-                .controls-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5rem; }
-                .control-group { display: flex; flex-direction: column; gap: 1rem; }
-                .control-group label { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.15em; }
-
-                /* Resolution Switch */
-                .resolution-switch { display: grid; grid-template-columns: 1fr 1fr; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 5px; gap: 5px; }
-                .res-opt { padding: 0.875rem; border-radius: var(--radius-sm); display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid transparent; }
-                .res-opt.active { background: hsl(var(--accent)); border-color: hsl(var(--accent)); transform: translateY(-2px); box-shadow: 0 8px 24px hsl(var(--accent) / 0.3); }
-                .res-opt.active .res-title { color: white; }
-                .res-opt.active .res-sub { color: rgba(255, 255, 255, 0.7); }
-                .res-title { font-size: 1.125rem; font-weight: 950; color: hsl(var(--text)); letter-spacing: -0.02em; }
-                .res-sub { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.05rem; }
-                .res-opt:hover:not(.active) { background: hsl(var(--surface-raised)); }
-
-                /* Style Toggle */
-                .style-toggle { display: flex; flex-direction: column; gap: 0.625rem; }
-                .toggle-btn { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.875rem; font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-muted)); cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; }
-                .toggle-btn:hover { border-color: hsl(var(--accent) / 0.5); color: hsl(var(--text)); }
-                .toggle-btn.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08); box-shadow: inset 0 0 12px hsl(var(--accent) / 0.05); }
-
-                /* Slider */
-                .slider-container { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1.125rem; }
-                .slider-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; font-size: 0.75rem; font-weight: 800; color: hsl(var(--text-muted)); letter-spacing: 0.02em; }
-                .val-pill { background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); padding: 4px 10px; border-radius: 100px; font-family: var(--font-mono); font-weight: 900; font-size: 0.8125rem; border: 1px solid hsl(var(--accent) / 0.2); }
-
-                /* Pill Toggles */
-                .toggles-row { display: flex; flex-direction: column; gap: 0.625rem; }
-                .pill-toggle { background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 0.8rem 1rem; font-size: 0.75rem; font-weight: 850; color: hsl(var(--text-muted)); cursor: pointer; display: flex; align-items: center; gap: 0.75rem; transition: all 0.2s; }
-                .pill-toggle.active { border-color: hsl(var(--accent)); color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08); }
-                .pill-toggle:hover:not(.active) { border-color: hsl(var(--text-dim) / 0.4); }
-
-                /* Lighting */
-                .lighting-group { display: flex; flex-direction: column; gap: 1rem; }
-                .lighting-group label { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); text-transform: uppercase; letter-spacing: 0.15em; }
-                .select-box select { width: 100%; background: hsl(var(--bg)); border: 1px solid var(--glass-border); border-radius: var(--radius-md); padding: 1rem 1.25rem; color: hsl(var(--text)); font-size: 0.875rem; font-weight: 700; appearance: none; cursor: pointer; transition: all 0.2s; }
-                .select-box select:hover { border-color: hsl(var(--accent) / 0.5); }
-                
-                /* Action Button */
-                .action-footer { margin-top: auto; padding-top: 1.5rem; border-top: 1px solid var(--glass-border); }
-                .btn-upscale { 
-                    width: 100%; 
-                    background: linear-gradient(135deg, hsl(var(--accent)), #6366f1);
-                    border: none;
-                    border-radius: var(--radius-md);
-                    padding: 1.25rem;
-                    color: white;
-                    font-size: 1rem;
-                    font-weight: 950;
-                    letter-spacing: 0.08em;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    gap: 1.25rem;
-                    cursor: pointer;
-                    position: relative;
-                    overflow: hidden;
-                    box-shadow: 0 12px 32px -12px hsl(var(--accent) / 0.6);
-                    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-                    text-transform: uppercase;
-                }
-                .btn-upscale:hover { transform: translateY(-3px); box-shadow: 0 20px 40px -12px hsl(var(--accent) / 0.7); }
-                .btn-upscale:active { transform: translateY(0) scale(0.98); }
-                .btn-upscale:disabled { opacity: 0.5; transform: none; filter: grayscale(1); cursor: not-allowed; }
-
-                .cost-tag { background: rgba(0,0,0,0.25); padding: 4px 12px; border-radius: 100px; font-size: 0.6875rem; font-weight: 950; color: white; letter-spacing: 0.05em; border: 1px solid rgba(255,255,255,0.1); }
-
-                @media (max-width: 1100px) {
-                    .config-stage { grid-template-columns: 1fr; }
-                    .preview-section { border-right: none; border-bottom: 1px solid var(--glass-border); min-height: auto; }
-                    .preview-viewport { height: 320px; min-height: 0; }
-                    .controls-section { padding: 2rem; }
-                    .controls-grid { grid-template-columns: 1fr; gap: 1.5rem; }
-                }
-
-                @media (max-width: 640px) {
-                    .controls-section { padding: 1.5rem; }
-                    .preview-viewport { height: 240px; }
+                "@media (max-width: 900px) {
+                    .settings-container .card > div[style*='grid-template-columns'] {
+                        grid-template-columns: 1fr !important;
+                    }
+                    .settings-container .card > div > div[style*='border-right'] {
+                        border-right: none !important;
+                        border-bottom: 1px solid hsl(var(--border) / 0.5);
+                    }
                 }
                 "
             </style>
