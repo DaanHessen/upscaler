@@ -2,7 +2,9 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use crate::{use_global_state, use_auth};
 use crate::api::{ApiClient, PromptSettings, PollResponse};
-use crate::components::icons::{Zap, ImageIcon, Settings, Target, RefreshCw, AlertCircle, LogOut};
+use crate::components::icons::{Zap, ImageIcon, Settings, Target, RefreshCw, AlertCircle, LogOut, Download, Info};
+use crate::text::TXT;
+use wasm_bindgen::JsCast;
 
 #[component]
 pub fn Configure() -> impl IntoView {
@@ -14,6 +16,7 @@ pub fn Configure() -> impl IntoView {
     let (processing_job, set_processing_job) = signal(Option::<uuid::Uuid>::None);
     let (engine_status, set_engine_status) = signal(Option::<PollResponse>::None);
     let (error_msg, set_error_msg) = signal(Option::<String>::None);
+    let (is_dragging, set_is_dragging) = signal(false);
 
     // Watch for job creation and start polling
     Effect::new(move |_| {
@@ -45,6 +48,29 @@ pub fn Configure() -> impl IntoView {
             });
         }
     });
+
+    let on_file_input = move |ev: leptos::web_sys::Event| {
+        let input: web_sys::HtmlInputElement = leptos::prelude::event_target(&ev);
+        if let Some(files) = input.files() {
+            if let Some(file) = files.get(0) {
+                global_state.set_temp_file.set(Some(file));
+                global_state.set_preview_base64.set(None);
+            }
+        }
+    };
+
+    let on_drop = move |ev: web_sys::DragEvent| {
+        ev.prevent_default();
+        set_is_dragging.set(false);
+        if let Some(data) = ev.data_transfer() {
+            if let Some(files) = data.files() {
+                if let Some(file) = files.get(0) {
+                    global_state.set_temp_file.set(Some(file));
+                    global_state.set_preview_base64.set(None);
+                }
+            }
+        }
+    };
 
     let handle_upscale = move |_| {
         if let Some(file) = global_state.temp_file.get() {
@@ -101,7 +127,19 @@ pub fn Configure() -> impl IntoView {
     view! {
         <div class="editor-shell fade-in">
             // --- Primary Canvas ---
-            <div class="editor-main">
+            <div class="editor-main"
+                 on:dragover=move |ev| { ev.prevent_default(); set_is_dragging.set(true); }
+                 on:dragleave=move |_| set_is_dragging.set(false)
+                 on:drop=on_drop
+            >
+                // Page Title Header (Matches History/Billing)
+                <div class="page-header" style="position: absolute; top: var(--s-8); left: var(--s-12); z-index: 50; width: auto; background: transparent; padding: 0;">
+                    <div class="header-main">
+                        <h1 class="stagger-1 text-gradient" style="font-size: 2.25rem;">{TXT.editor_page_title}</h1>
+                        <p class="muted stagger-2">{TXT.editor_page_subtitle}</p>
+                    </div>
+                </div>
+
                 <div class="editor-canvas">
                     <div class="canvas-grid"></div>
                     
@@ -124,14 +162,31 @@ pub fn Configure() -> impl IntoView {
                                 }.into_any(),
                                 None => view! {
                                     <div class="empty-canvas stagger-1">
-                                        <ImageIcon size={64} />
-                                        <h3>"Studio Canvas Empty"</h3>
-                                        <p>"Return to the dashboard to upload an asset."</p>
-                                        <button class="btn btn-secondary" on:click=move |_| nav("/", Default::default())>"GO TO DASHBOARD"</button>
+                                        <div class="drop-zone-trigger" on:click=move |_| {
+                                            if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+                                                if let Some(el) = doc.get_element_by_id("hidden_file_input") {
+                                                    let html_el: web_sys::HtmlElement = el.unchecked_into();
+                                                    html_el.click();
+                                                }
+                                            }
+                                        }>
+                                            <ImageIcon size={64} />
+                                            <h3>{TXT.editor_empty_title}</h3>
+                                            <p>{TXT.editor_empty_desc}</p>
+                                        </div>
+                                        <input type="file" id="hidden_file_input" style="display: none;" on:change=on_file_input />
                                     </div>
                                 }.into_any()
                             }
                         }}
+
+                        // Overlay for dragging
+                        {move || is_dragging.get().then(|| view! {
+                            <div class="drag-overlay fade-in">
+                                <Download size={48} />
+                                <h2>"DROP IMAGE TO BEGIN"</h2>
+                            </div>
+                        })}
                     </div>
 
                     // --- Canvas Telemetry ---
@@ -139,10 +194,6 @@ pub fn Configure() -> impl IntoView {
                         <div class="telemetry-pill">
                             <span class="label">"DETECTED:"</span>
                             <span class="value accent">{move || global_state.temp_classification.get().unwrap_or_else(|| "NONE".to_string())}</span>
-                        </div>
-                        <div class="telemetry-pill">
-                            <span class="label">"ENGINE:"</span>
-                            <span class="value">"STUDIO V2.2"</span>
                         </div>
                         {move || processing_job.get().map(|id| view! {
                             <div class="telemetry-pill job-pill">
@@ -171,7 +222,7 @@ pub fn Configure() -> impl IntoView {
                                             <Settings size={12} />
                                             <span>"UPSCALE PARAMETERS"</span>
                                         </div>
-                                        <h2 class="sidebar-title">"Configuration"</h2>
+                                        <h2 class="sidebar-title">{TXT.editor_sidebar_title}</h2>
                                     </div>
 
                                     <div class="sidebar-scrollable">
@@ -185,7 +236,13 @@ pub fn Configure() -> impl IntoView {
 
                                         // Resolution
                                         <div class="input-group">
-                                            <label class="group-label">"TARGET RESOLUTION"</label>
+                                            <div class="label-row">
+                                                <label class="group-label">{TXT.label_resolution}</label>
+                                                <div class="tooltip-wrapper">
+                                                    <Info size={12} />
+                                                    <div class="tooltip">{TXT.desc_resolution}</div>
+                                                </div>
+                                            </div>
                                             <div class="resolution-grid">
                                                 <div 
                                                     class=move || if global_state.quality.get() == "2K" { "res-tile active" } else { "res-tile" }
@@ -193,7 +250,7 @@ pub fn Configure() -> impl IntoView {
                                                 >
                                                     <span class="res-num">"2K"</span>
                                                     <span class="res-desc">"HD RESTORE"</span>
-                                                    <div class="res-tag">"2C"</div>
+                                                    <div class="res-tag">"2 CREDITS"</div>
                                                 </div>
                                                 <div 
                                                     class=move || if global_state.quality.get() == "4K" { "res-tile active" } else { "res-tile" }
@@ -201,14 +258,20 @@ pub fn Configure() -> impl IntoView {
                                                 >
                                                     <span class="res-num">"4K"</span>
                                                     <span class="res-desc">"ULTRA HD"</span>
-                                                    <div class="res-tag">"4C"</div>
+                                                    <div class="res-tag">"4 CREDITS"</div>
                                                 </div>
                                             </div>
                                         </div>
 
                                         // Style
                                         <div class="input-group">
-                                            <label class="group-label">"RECONSTRUCTION STYLE"</label>
+                                            <div class="label-row">
+                                                <label class="group-label">{TXT.label_style}</label>
+                                                <div class="tooltip-wrapper">
+                                                    <Info size={12} />
+                                                    <div class="tooltip">{TXT.desc_style}</div>
+                                                </div>
+                                            </div>
                                             <div class="style-switcher">
                                                 <button 
                                                     class:active=move || global_state.style.get() == "PHOTOGRAPHY"
@@ -225,10 +288,16 @@ pub fn Configure() -> impl IntoView {
                                             </div>
                                         </div>
 
-                                        // Temperature
+                                        // Creativity (was Creative Drift)
                                         <div class="input-group">
                                             <div class="label-row">
-                                                <label class="group-label">"CREATIVE DRIFT"</label>
+                                                <div style="display: flex; gap: var(--s-2); align-items: center;">
+                                                    <label class="group-label">{TXT.label_creativity}</label>
+                                                    <div class="tooltip-wrapper">
+                                                        <Info size={12} />
+                                                        <div class="tooltip">{TXT.desc_creativity}</div>
+                                                    </div>
+                                                </div>
                                                 <span class="drift-val">{move || format!("{:.1}", global_state.temperature.get())}</span>
                                             </div>
                                             <div class="slider-wrapper">
@@ -247,7 +316,13 @@ pub fn Configure() -> impl IntoView {
                                         // Seed
                                         <div class="input-group">
                                             <div class="label-row">
-                                                <label class="group-label">"SEED"</label>
+                                                <div style="display: flex; gap: var(--s-2); align-items: center;">
+                                                    <label class="group-label">{TXT.label_seed}</label>
+                                                    <div class="tooltip-wrapper">
+                                                        <Info size={12} />
+                                                        <div class="tooltip">{TXT.desc_seed}</div>
+                                                    </div>
+                                                </div>
                                                 <span class="drift-val-pill">
                                                     {move || global_state.seed.get().map(|s| s.to_string()).unwrap_or_else(|| "AUTO".to_string())}
                                                 </span>
@@ -285,12 +360,17 @@ pub fn Configure() -> impl IntoView {
                                                     </button>
                                                 </div>
                                             </div>
-                                            <p class="input-hint">"Deterministic seed for reproducible detail reconstruction."</p>
                                         </div>
 
                                         // Advanced
                                         <div class="input-group">
-                                            <label class="group-label">"ADVANCED ENGINE LOCKS"</label>
+                                            <div class="label-row">
+                                                <label class="group-label">{TXT.label_locks}</label>
+                                                <div class="tooltip-wrapper">
+                                                    <Info size={12} />
+                                                    <div class="tooltip">{TXT.desc_locks}</div>
+                                                </div>
+                                            </div>
                                             <div 
                                                 class="advanced-toggle" 
                                                 class:active=move || global_state.keep_depth_of_field.get()
@@ -309,18 +389,27 @@ pub fn Configure() -> impl IntoView {
 
                                         // Lighting
                                         <div class="input-group">
-                                            <label class="group-label">"ATMOSPHERIC LIGHTING"</label>
-                                            <select 
-                                                class="studio-select"
-                                                on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
-                                                prop:value=move || global_state.lighting.get()
-                                            >
-                                                <option value="Original">"ORIGINAL LIGHTING"</option>
-                                                <option value="Studio">"STUDIO LIGHTING"</option>
-                                                <option value="Cinematic">"CINEMATIC SHADOWS"</option>
-                                                <option value="Vivid">"VIVID DYNAMICS"</option>
-                                                <option value="Natural">"NATURAL OVERCAST"</option>
-                                            </select>
+                                            <div class="label-row">
+                                                <label class="group-label">{TXT.label_lighting}</label>
+                                                <div class="tooltip-wrapper">
+                                                    <Info size={12} />
+                                                    <div class="tooltip">{TXT.desc_lighting}</div>
+                                                </div>
+                                            </div>
+                                            <div class="studio-select-wrapper">
+                                                <select 
+                                                    class="studio-select"
+                                                    on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
+                                                    prop:value=move || global_state.lighting.get()
+                                                >
+                                                    <option value="Original">"ORIGINAL LIGHTING"</option>
+                                                    <option value="Studio">"STUDIO LIGHTING"</option>
+                                                    <option value="Cinematic">"CINEMATIC SHADOWS"</option>
+                                                    <option value="Vivid">"VIVID DYNAMICS"</option>
+                                                    <option value="Natural">"NATURAL OVERCAST"</option>
+                                                </select>
+                                                <div class="select-arrow"></div>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -334,7 +423,7 @@ pub fn Configure() -> impl IntoView {
                                                 <Zap size={18} />
                                                 <span>"INITIATE UPSCALE"</span>
                                                 <div class="btn-cost">
-                                                    {move || if global_state.quality.get() == "4K" { "4C" } else { "2C" }}
+                                                    {move || if global_state.quality.get() == "4K" { "4 CREDITS" } else { "2 CREDITS" }}
                                                 </div>
                                             </div>
                                             <div class="btn-glow"></div>
@@ -429,7 +518,7 @@ pub fn Configure() -> impl IntoView {
                 align-items: center;
                 justify-content: center;
                 position: relative;
-                padding: var(--s-12);
+                padding: var(--s-20) var(--s-12) var(--s-12) var(--s-12);
             }
 
             .canvas-grid {
@@ -444,15 +533,16 @@ pub fn Configure() -> impl IntoView {
 
             .asset-frame {
                 position: relative;
-                max-width: 90%;
-                max-height: 90%;
+                max-width: 85%;
+                max-height: 85%;
                 z-index: 10;
+                transition: transform 0.3s;
             }
 
             .studio-asset {
                 display: block;
                 max-width: 100%;
-                max-height: 70vh;
+                max-height: 65vh;
                 border-radius: 4px;
                 box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05);
             }
@@ -487,8 +577,20 @@ pub fn Configure() -> impl IntoView {
             .empty-canvas {
                 text-align: center; color: hsl(var(--text-dim));
             }
+            .drop-zone-trigger {
+                cursor: pointer; padding: var(--s-12); border: 2px dashed rgba(255,255,255,0.05);
+                border-radius: var(--radius-lg); transition: all 0.3s;
+            }
+            .drop-zone-trigger:hover { background: rgba(255,255,255,0.02); border-color: hsl(var(--accent) / 0.3); }
             .empty-canvas h3 { font-size: 1.5rem; margin: var(--s-4) 0 var(--s-2); color: white; }
             .empty-canvas p { font-size: 0.875rem; margin-bottom: var(--s-6); }
+
+            .drag-overlay {
+                position: absolute; inset: -20px; background: hsla(var(--accent-h), var(--accent-s), 5%, 0.9);
+                backdrop-filter: blur(10px); z-index: 100; border: 2px solid hsl(var(--accent));
+                border-radius: var(--radius-lg); display: flex; flex-direction: column; align-items: center; justify-content: center;
+                gap: var(--s-4); color: hsl(var(--accent));
+            }
 
             .canvas-telemetry {
                 position: absolute; bottom: var(--s-8); left: 50%; transform: translateX(-50%);
@@ -530,8 +632,18 @@ pub fn Configure() -> impl IntoView {
             .input-group { margin-bottom: var(--s-10); }
             .group-label { 
                 font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text-dim)); 
-                letter-spacing: 0.12em; margin-bottom: var(--s-4); display: flex; align-items: center; gap: var(--s-3); 
+                letter-spacing: 0.12em; margin-bottom: 0px; display: flex; align-items: center; gap: var(--s-3); 
             }
+
+            .tooltip-wrapper { position: relative; display: flex; align-items: center; color: hsl(var(--text-dim) / 0.4); cursor: help; }
+            .tooltip { 
+                position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(-10px);
+                background: #1a1a1a; color: white; padding: 10px; border-radius: 8px; width: 200px;
+                font-size: 0.6875rem; font-weight: 600; line-height: 1.4; opacity: 0; pointer-events: none;
+                transition: all 0.2s; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+                z-index: 1000; text-align: center;
+            }
+            .tooltip-wrapper:hover .tooltip { opacity: 1; transform: translateX(-50%) translateY(-5px); }
 
             .resolution-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
             .res-tile {
@@ -545,7 +657,7 @@ pub fn Configure() -> impl IntoView {
             .res-desc { display: block; font-size: 0.625rem; font-weight: 700; color: hsl(var(--text-dim)); margin-top: 2px; }
             .res-tag { 
                 position: absolute; top: 0; right: 0; background: rgba(255,255,255,0.03); 
-                padding: 4px 8px; font-size: 0.5rem; font-weight: 900; border-bottom-left-radius: 8px;
+                padding: 4px 8px; font-size: 0.45rem; font-weight: 900; border-bottom-left-radius: 8px; color: hsl(var(--accent) / 0.6);
             }
 
             .style-switcher { 
@@ -559,7 +671,7 @@ pub fn Configure() -> impl IntoView {
             }
             .style-switcher button.active { background: #1a1a1a; color: hsl(var(--text)); box-shadow: 0 4px 12px rgba(0,0,0,0.3); }
 
-            .label-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: var(--s-1); }
+            .label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-4); min-height: 20px; }
             .drift-val { background: rgba(255,255,255,0.05); color: white; font-size: 0.75rem; font-weight: 800; font-family: var(--font-mono); padding: 2px 8px; border-radius: 4px; }
             .drift-val-pill { background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); font-size: 0.75rem; font-weight: 900; font-family: var(--font-mono); padding: 2px 10px; border-radius: 6px; border: 1px solid hsl(var(--accent) / 0.1); }
 
@@ -602,10 +714,17 @@ pub fn Configure() -> impl IntoView {
             .check-dot { width: 14px; height: 14px; background: #333; border-radius: 50%; transition: all 0.3s; }
             .advanced-toggle.active .check-dot { transform: translateX(20px); background: hsl(var(--accent)); box-shadow: 0 0 8px hsl(var(--accent)); }
 
+            .studio-select-wrapper { position: relative; }
             .studio-select {
                 width: 100%; background: #0d0d0d; border: 1px solid rgba(255,255,255,0.04);
                 padding: var(--s-3) var(--s-4); border-radius: var(--radius-md); color: white; font-size: 0.75rem;
-                font-weight: 700; outline: none; appearance: none;
+                font-weight: 700; outline: none; appearance: none; cursor: pointer;
+            }
+            .select-arrow { 
+                position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+                width: 8px; height: 8px; border-right: 2px solid rgba(255,255,255,0.2); 
+                border-bottom: 2px solid rgba(255,255,255,0.2); transform: translateY(-70%) rotate(45deg);
+                pointer-events: none;
             }
 
             .sidebar-footer { padding: var(--s-8); border-top: 1px solid rgba(255,255,255,0.03); }
@@ -615,7 +734,7 @@ pub fn Configure() -> impl IntoView {
             }
             .editor-submit-btn:disabled { opacity: 0.3; cursor: not_allowed; filter: grayscale(1); }
             .btn-inner { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: var(--s-3); color: white; font-weight: 900; letter-spacing: 0.05em; font-size: 0.8125rem; }
-            .btn-cost { background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.625rem; }
+            .btn-cost { background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px; font-size: 0.55rem; font-weight: 900; }
             .btn-glow { position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(255,255,255,0.2), transparent 70%); opacity: 0; transition: opacity 0.3s; }
             .editor-submit-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 20px hsl(var(--accent) / 0.3); }
             .editor-submit-btn:hover:not(:disabled) .btn-glow { opacity: 1; }

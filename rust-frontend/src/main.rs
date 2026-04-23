@@ -2,6 +2,7 @@ mod api;
 mod auth;
 mod components;
 mod persistence;
+mod text;
 
 use leptos::prelude::*;
 use leptos_router::components::*;
@@ -9,7 +10,7 @@ use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
 use crate::api::ApiClient;
 use leptos_router::hooks::use_location;
-use crate::components::icons::{Zap, LogOut, Sun, Moon, UserIcon};
+use crate::components::icons::{Zap, LogOut, Sun, Moon, UserIcon, Target, RefreshCw};
 use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
 use crate::components::configure::Configure;
@@ -222,16 +223,16 @@ fn MainLayout() -> impl IntoView {
             <header class="glass">
                 <A href="/" attr:class="logo" attr:style="text-decoration: none; display: flex; align-items: center; gap: var(--s-3); color: inherit;">
                     <div class="logo-icon"><Zap size={18} /></div>
-                    "UPSYL" 
-                    <span>"STUDIO"</span>
+                    {crate::text::TXT.brand_name}
+                    <span>{crate::text::TXT.brand_suffix}</span>
                 </A>
                 <nav>
-                    <NavLink href="/">"HOME"</NavLink>
-                    <NavLink href="/editor">"EDITOR"</NavLink>
+                    <NavLink href="/">{crate::text::TXT.nav_home}</NavLink>
+                    <NavLink href="/editor">{crate::text::TXT.nav_editor}</NavLink>
                     {move || auth.user.get().is_some().then(|| view! {
                         <>
-                            <NavLink href="/history">"HISTORY"</NavLink>
-                            <NavLink href="/settings">"BILLING"</NavLink>
+                            <NavLink href="/history">{crate::text::TXT.nav_history}</NavLink>
+                            <NavLink href="/settings">{crate::text::TXT.nav_billing}</NavLink>
                         </>
                     })}
                     <AuthNav />
@@ -277,12 +278,12 @@ fn Footer() -> impl IntoView {
                 <div class="footer-left">
                     <A href="/" attr:class="logo">
                         <div class="logo-icon"><crate::components::icons::Zap size={24} /></div>
-                        "UPSYL" <span>"STUDIO"</span>
+                        {crate::text::TXT.brand_name} <span>{crate::text::TXT.brand_suffix}</span>
                     </A>
                 </div>
                 
                 <div class="footer-center">
-                    <span class="footer-meta">"© 2026 UPSYL"</span>
+                    <span class="footer-meta">{format!("© 2026 {}", crate::text::TXT.brand_name)}</span>
                     <span class="divider">"|"</span>
                     <A href="/terms" attr:class="footer-link">"Terms"</A>
                     <span class="divider">"•"</span>
@@ -375,7 +376,7 @@ fn AuthNav() -> impl IntoView {
                                         <div class="balance-pill">
                                             <Zap size={12} />
                                             <strong>{credits}</strong>
-                                            <span>"UNITS"</span>
+                                            <span>{crate::text::TXT.label_credits}</span>
                                         </div>
                                     }.into_any(),
                                     _ => ().into_any(),
@@ -443,7 +444,7 @@ fn AuthNav() -> impl IntoView {
                                 </A>
                                 <div class="dropdown-item error" on:click=move |_| auth.logout()>
                                     <LogOut size={16} />
-                                    "Sign Out"
+                                    {crate::text::TXT.action_sign_out}
                                 </div>
                             </div>
                         </div>
@@ -469,12 +470,10 @@ fn Credits() -> impl IntoView {
 #[component]
 fn Home() -> impl IntoView {
     view! {
-        <div class="fade-in" style="position: relative;">
-            <div class="hero-section">
-                <h1 class="text-gradient stagger-1">"Pro-Grade Upscaling"</h1>
-                <div class="hero-content stagger-2">
-                    <h2 class="hero-subtitle">"Studio-Fidelity Asset Reconstruction"</h2>
-                    <p class="hero-description">"Leverage high-performance vision models to enhance details, eliminate artifacts, and upscale to 4K resolution. Pure reconstruction for professional creators."</p>
+            <div class="page-container" style="max-width: 1300px; margin: 0 auto; padding: 0 var(--s-8);">
+                <div class="hero-section stagger-1">
+                    <h1 class="hero-title text-gradient" style="font-size: 3rem; margin-bottom: var(--s-4);">{crate::text::TXT.home_hero_title}</h1>
+                    <p class="hero-subtitle muted" style="font-size: 1.125rem; max-width: 700px;">{crate::text::TXT.home_hero_subtitle}</p>
                 </div>
                 
                 <div class="hybrid-layout stagger-3">
@@ -490,7 +489,31 @@ fn Home() -> impl IntoView {
                         />
                     </div>
                     <div class="studio-card hybrid-right">
-                        <crate::components::upload_zone::UploadZone />
+                        <div class="cta-card">
+                            <div class="card-glow"></div>
+                            <h3 class="cta-title">"Ready to Transform your Imagery?"</h3>
+                            <p class="cta-desc">"Enter our state-of-the-art studio to begin your high-fidelity reconstruction journey. Instant 4K synthesis at your fingertips."</p>
+                            
+                            <div class="benefit-list">
+                                <div class="benefit-item">
+                                    <div class="benefit-icon"><Zap size={14} /></div>
+                                    <span>"AI Detail Synthesis"</span>
+                                </div>
+                                <div class="benefit-item">
+                                    <div class="benefit-icon"><Target size={14} /></div>
+                                    <span>"Lossless 4K Scaling"</span>
+                                </div>
+                                <div class="benefit-item">
+                                    <div class="benefit-icon"><RefreshCw size={14} /></div>
+                                    <span>"Deterministic Seeds"</span>
+                                </div>
+                            </div>
+
+                            <A href="/editor" attr:class="btn btn-primary cta-btn">
+                                <span>{crate::text::TXT.home_cta_start}</span>
+                                <div class="btn-shine"></div>
+                            </A>
+                        </div>
                     </div>
                 </div>
 
@@ -516,10 +539,30 @@ fn Home() -> impl IntoView {
                     position: relative;
                 }
 
-                .hybrid-right { padding: var(--s-10); display: flex; flex-direction: column; justify-content: center; }
-              .h-stat:hover { border-color: hsl(var(--accent) / 0.3); }
-                .h-label { display: block; font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: var(--s-1); }
-                .h-value { font-size: 0.8125rem; font-weight: 700; color: hsl(var(--text)); font-family: var(--font-mono); }
+                .hybrid-right { padding: var(--s-12); position: relative; overflow: hidden; }
+                
+                .cta-card { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; justify-content: center; }
+                .cta-title { font-size: 1.5rem; font-weight: 800; margin-bottom: var(--s-3); letter-spacing: -0.02em; }
+                .cta-desc { font-size: 0.875rem; color: hsl(var(--text-dim)); line-height: 1.6; margin-bottom: var(--s-8); }
+                
+                .benefit-list { display: flex; flex-direction: column; gap: var(--s-4); margin-bottom: var(--s-10); }
+                .benefit-item { display: flex; align-items: center; gap: var(--s-4); }
+                .benefit-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.03); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: hsl(var(--accent)); border: 1px solid rgba(255,255,255,0.05); }
+                .benefit-item span { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim) / 0.8); letter-spacing: 0.02em; }
+                
+                .cta-btn { 
+                    width: 100%; height: 56px; font-size: 0.875rem; letter-spacing: 0.1em; font-weight: 900; 
+                    display: flex; align-items: center; justify-content: center; text-decoration: none;
+                    background: hsl(var(--accent)); color: white; border-radius: var(--radius-lg);
+                    position: relative; overflow: hidden; transition: all 0.3s;
+                }
+                .cta-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 30px hsla(var(--accent-h), var(--accent-s), 50%, 0.3); }
+                
+                .card-glow { 
+                    position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; 
+                    background: radial-gradient(circle at center, hsla(var(--accent-h), var(--accent-s), 50%, 0.05), transparent 70%);
+                    pointer-events: none;
+                }
                 
                 @media (max-width: 1050px) {
                     .hero-section { padding: var(--s-6) 0 var(--s-12); }
@@ -534,7 +577,6 @@ fn Home() -> impl IntoView {
                 "
             </style>
             </div>
-        </div>
     }
 }
 

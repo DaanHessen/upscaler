@@ -1,4 +1,3 @@
-pub mod upload_zone;
 pub mod history_gallery;
 pub mod settings;
 pub mod icons;
