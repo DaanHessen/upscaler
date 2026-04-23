@@ -158,6 +158,17 @@ main {
   padding: var(--s-16) var(--s-8);
 }
 
+/* Studio Editor Mode - Breaks out of main constraints */
+main:has(.editor-shell) {
+  max-width: 100%;
+  padding: 0;
+  margin: 0;
+}
+
+body:has(.editor-shell) footer {
+  display: none;
+}
+
 .logo { 
   font-family: var(--font-heading);
   font-weight: 900; 

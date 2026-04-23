@@ -44,7 +44,7 @@ pub fn UploadZone() -> impl IntoView {
                         });
                         g_state.set_temp_classification.set(Some(res.detected_style));
                         g_state.set_preview_base64.set(res.preview_base64);
-                        nav("/configure", Default::default());
+                        nav("/editor", Default::default());
                     }
                 }
                 Err(e) => {

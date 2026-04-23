@@ -239,7 +239,7 @@ fn MainLayout() -> impl IntoView {
                     <Route path=path!("/reset-password") view=ResetPassword />
                     <Route path=path!("/auth/callback") view=AuthCallback />
                     
-                    <Route path=path!("/configure") view=|| view! { <AuthGuard><Configure /></AuthGuard> } />
+                    <Route path=path!("/editor") view=|| view! { <AuthGuard><Configure /></AuthGuard> } />
                     <Route path=path!("/view/:job_id") view=|| view! { <AuthGuard><ViewResult /></AuthGuard> } />
                     <Route path=path!("/history") view=|| view! { <AuthGuard><History /></AuthGuard> } />
                     <Route path=path!("/settings") view=|| view! { <AuthGuard><Credits /></AuthGuard> } />

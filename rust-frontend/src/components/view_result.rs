@@ -232,7 +232,7 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                     <p class="muted stagger-2">"Your asset has been successfully reconstructed."</p>
                 </div>
                 <div class="header-actions stagger-3">
-                    <button class="btn btn-secondary" on:click=move |_| navigate("/configure", Default::default())>"NEW UPSCALE"</button>
+                    <button class="btn btn-secondary" on:click=move |_| navigate("/editor", Default::default())>"NEW UPSCALE"</button>
                     <a href=data.image_url.clone().unwrap_or_default() target="_blank" class="btn btn-primary" style="text-decoration: none;">
                         <Download size={14} />
                         "DOWNLOAD"
