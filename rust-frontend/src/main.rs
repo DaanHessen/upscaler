@@ -214,7 +214,11 @@ fn MainLayout() -> impl IntoView {
     let auth = use_auth();
     
     view! {
-        <div class="app-wrapper">
+        <div class="app-wrapper" style="position: relative;">
+            <div class="bg-glow-container">
+                <div class="bg-glow"></div>
+                <div class="bg-glow glow-2"></div>
+            </div>
             <header class="glass stagger-1">
                 <A href="/" attr:class="logo" attr:style="text-decoration: none; display: flex; align-items: center; gap: var(--s-3); color: inherit;">
                     <div class="logo-icon"><Zap size={18} /></div>
@@ -465,10 +469,6 @@ fn Credits() -> impl IntoView {
 fn Home() -> impl IntoView {
     view! {
         <div class="fade-in" style="position: relative;">
-            <div class="bg-glow-container">
-                <div class="bg-glow"></div>
-                <div class="bg-glow glow-2"></div>
-            </div>
             <div class="hero-section">
                 <h1 class="text-gradient stagger-1">"Pro-Grade Upscaling"</h1>
                 <div class="hero-content stagger-2">
@@ -481,11 +481,11 @@ fn Home() -> impl IntoView {
                         <div class="scanline-overlay"></div>
                         <ComparisonSlider 
                             images=vec![
-                                ("assets/hero_before_1.svg".to_string(), "assets/hero_after_1.svg".to_string()),
-                                ("assets/hero_before_2.svg".to_string(), "assets/hero_after_2.svg".to_string()),
-                                ("assets/hero_before_3.svg".to_string(), "assets/hero_after_3.svg".to_string()),
-                                ("assets/hero_before_4.svg".to_string(), "assets/hero_after_4.svg".to_string()),
-                                ("assets/hero_before_5.svg".to_string(), "assets/hero_after_5.svg".to_string()),
+                                ("./assets/hero_before_1.svg".to_string(), "./assets/hero_after_1.svg".to_string()),
+                                ("./assets/hero_before_2.svg".to_string(), "./assets/hero_after_2.svg".to_string()),
+                                ("./assets/hero_before_3.svg".to_string(), "./assets/hero_after_3.svg".to_string()),
+                                ("./assets/hero_before_4.svg".to_string(), "./assets/hero_after_4.svg".to_string()),
+                                ("./assets/hero_before_5.svg".to_string(), "./assets/hero_after_5.svg".to_string()),
                             ]
                         />
                     </div>

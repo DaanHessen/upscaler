@@ -667,33 +667,31 @@ footer {
 }
 
 .bg-glow-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  overflow: hidden;
+  position: fixed;
+  inset: 0;
   pointer-events: none;
   z-index: -1;
 }
 
 .bg-glow {
   position: absolute;
-  top: 20%;
-  left: 10%;
-  width: 40vw;
-  height: 40vw;
-  background: radial-gradient(circle, hsl(var(--accent) / 0.15) 0%, transparent 70%);
-  filter: blur(100px);
-  animation: glowFloat 20s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
+  top: 15%;
+  left: 5%;
+  width: 50vw;
+  height: 50vw;
+  background: radial-gradient(circle, hsl(var(--accent) / 0.12) 0%, transparent 70%);
+  filter: blur(120px);
+  animation: glowFloat 25s infinite alternate cubic-bezier(0.4, 0, 0.2, 1);
   border-radius: 50%;
 }
 
 .bg-glow.glow-2 {
-  top: 40%;
-  left: 60%;
-  background: radial-gradient(circle, hsl(var(--accent) / 0.1) 0%, transparent 70%);
-  animation-duration: 25s;
+  top: 50%;
+  left: 55%;
+  width: 60vw;
+  height: 60vw;
+  background: radial-gradient(circle, hsl(260 100% 60% / 0.08) 0%, transparent 70%);
+  animation-duration: 35s;
   animation-direction: alternate-reverse;
 }
 
@@ -713,7 +711,7 @@ footer {
   );
   background-size: 100% 4px;
   pointer-events: none;
-  z-index: 10;
+  z-index: 1;
   opacity: 0.5;
 }
 
