@@ -10,7 +10,7 @@ use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
 use crate::api::ApiClient;
 use leptos_router::hooks::use_location;
-use crate::components::icons::{Zap, LogOut, Sun, Moon, UserIcon, Target, RefreshCw};
+use crate::components::icons::{Zap, LogOut, Sun, Moon, UserIcon, Target, RefreshCw, ImageIcon};
 use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
 use crate::components::configure::Configure;
@@ -18,15 +18,12 @@ use crate::components::view_result::ViewResult;
 use crate::components::legal::{Terms, Contact, Privacy, AUP, CookiePolicy};
 use crate::components::auth_callback::AuthCallback;
 use crate::components::reset_password::ResetPassword;
+use leptos::ev;
+use leptos_router::hooks::use_navigate;
 use crate::components::profile::AccountSettings;
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct GlobalState {
-    pub temp_file: ReadSignal<Option<web_sys::File>>,
-    pub set_temp_file: WriteSignal<Option<web_sys::File>>,
-    pub temp_classification: ReadSignal<Option<String>>,
-    pub set_temp_classification: WriteSignal<Option<String>>,
-    // Persistent settings
     pub quality: ReadSignal<String>,
     pub set_quality: WriteSignal<String>,
     pub style: ReadSignal<String>,
@@ -37,54 +34,45 @@ pub struct GlobalState {
     pub set_keep_depth_of_field: WriteSignal<bool>,
     pub lighting: ReadSignal<String>,
     pub set_lighting: WriteSignal<String>,
-    pub preview_base64: ReadSignal<Option<String>>,
-    pub set_preview_base64: WriteSignal<Option<String>>,
     pub thinking_level: ReadSignal<String>,
     pub set_thinking_level: WriteSignal<String>,
     pub seed: ReadSignal<Option<u32>>,
     pub set_seed: WriteSignal<Option<u32>>,
+    pub temp_file: ReadSignal<Option<web_sys::File>>,
+    pub set_temp_file: WriteSignal<Option<web_sys::File>>,
+    pub temp_classification: ReadSignal<Option<String>>,
+    pub set_temp_classification: WriteSignal<Option<String>>,
+    pub preview_base64: ReadSignal<Option<String>>,
+    pub set_preview_base64: WriteSignal<Option<String>>,
     pub theme: ReadSignal<String>,
     pub set_theme: WriteSignal<String>,
 }
 
 pub fn provide_global_state() {
-    let (temp_file, set_temp_file) = signal(None);
-    let (temp_classification, set_temp_classification) = signal(None);
-    let initial_settings = crate::persistence::load_settings();
-    
-    let (quality, set_quality) = signal(initial_settings.as_ref().map(|s| s.quality.clone()).unwrap_or_else(|| "2K".to_string()));
+    let (quality, set_quality) = signal("2K".to_string());
     let (style, set_style) = signal("PHOTOGRAPHY".to_string());
-    let (temperature, set_temperature) = signal(initial_settings.as_ref().map(|s| s.temperature).unwrap_or(0.0f32));
-    let (keep_depth_of_field, set_keep_depth_of_field) = signal(initial_settings.as_ref().map(|s| s.keep_depth_of_field).unwrap_or(true));
-    let (lighting, set_lighting) = signal(initial_settings.as_ref().map(|s| s.lighting.clone()).unwrap_or_else(|| "Original".to_string()));
-    let (thinking_level, set_thinking_level) = signal(initial_settings.as_ref().map(|s| s.thinking_level.clone()).unwrap_or_else(|| "HIGH".to_string()));
-    let (seed, set_seed) = signal(initial_settings.as_ref().and_then(|s| s.seed));
-    let (theme, set_theme) = signal(initial_settings.as_ref().map(|s| s.theme.clone()).unwrap_or_else(|| "dark".to_string()));
-    let (preview_base64, set_preview_base64) = signal(None);
-    
-    provide_context(GlobalState { 
-        temp_file, 
-        set_temp_file, 
-        temp_classification, 
-        set_temp_classification,
-        quality,
-        set_quality,
-        style,
-        set_style,
-        temperature,
-        set_temperature,
-        keep_depth_of_field,
-        set_keep_depth_of_field,
-        lighting,
-        set_lighting,
-        preview_base64,
-        set_preview_base64,
-        thinking_level,
-        set_thinking_level,
-        seed,
-        set_seed,
-        theme,
-        set_theme,
+    let (temperature, set_temperature) = signal(0.1);
+    let (keep_depth_of_field, set_keep_depth_of_field) = signal(false);
+    let (lighting, set_lighting) = signal("Original".to_string());
+    let (thinking_level, set_thinking_level) = signal("MINIMAL".to_string());
+    let (seed, set_seed) = signal(None::<u32>);
+    let (temp_file, set_temp_file) = signal(None::<web_sys::File>);
+    let (temp_classification, set_temp_classification) = signal(None::<String>);
+    let (preview_base64, set_preview_base64) = signal(None::<String>);
+    let (theme, set_theme) = signal("dark".to_string());
+
+    provide_context(GlobalState {
+        quality, set_quality,
+        style, set_style,
+        temperature, set_temperature,
+        keep_depth_of_field, set_keep_depth_of_field,
+        lighting, set_lighting,
+        thinking_level, set_thinking_level,
+        seed, set_seed,
+        temp_file, set_temp_file,
+        temp_classification, set_temp_classification,
+        preview_base64, set_preview_base64,
+        theme, set_theme,
     });
 }
 
@@ -93,60 +81,26 @@ pub fn use_global_state() -> GlobalState {
 }
 
 #[component]
-fn AuthGuard(children: Children) -> impl IntoView {
-    let auth = use_auth();
-    let navigate = leptos_router::hooks::use_navigate();
-    
-    Effect::new(move |_| {
-        if auth.user.get().is_none() {
-            navigate("/", Default::default());
-        }
-    });
-
-    children()
-}
-
-#[component]
 fn App() -> impl IntoView {
-    provide_global_state();
-
-    // 1. Hydroate Global State from Storage
-    let global_state = use_global_state();
+    let gs = use_global_state();
     
-    // Sync classification changes to storage
+    // Effects for persisting state
     Effect::new(move |_| {
-        persistence::save_classification(global_state.temp_classification.get());
+        let settings = persistence::UserSettings {
+            quality: gs.quality.get(),
+            style: gs.style.get(),
+            temperature: gs.temperature.get(),
+            keep_depth_of_field: gs.keep_depth_of_field.get(),
+            lighting: gs.lighting.get(),
+            thinking_level: gs.thinking_level.get(),
+            seed: gs.seed.get(),
+            theme: gs.theme.get(),
+        };
+        persistence::save_settings(&settings);
     });
 
-    // Sync settings changes to storage
+    // Initial hydration
     Effect::new(move |_| {
-        persistence::save_settings(persistence::SettingsState {
-            quality: global_state.quality.get(),
-            style: global_state.style.get(),
-            temperature: global_state.temperature.get(),
-            keep_depth_of_field: global_state.keep_depth_of_field.get(),
-            lighting: global_state.lighting.get(),
-            thinking_level: global_state.thinking_level.get(),
-            seed: global_state.seed.get(),
-            theme: global_state.theme.get(),
-        });
-    });
-
-    // Apply theme to document element
-    Effect::new(move |_| {
-        let current_theme = global_state.theme.get();
-        if let Some(document) = web_sys::window().and_then(|w| w.document()) {
-            if let Some(html) = document.document_element() {
-                let _ = html.set_attribute("data-theme", &current_theme);
-            }
-        }
-    });
-
-    // Hydrate everything on start
-    Effect::new(move |_| {
-        let gs = global_state;
-        
-        // Hydrate classification (sync)
         if let Some(c) = persistence::load_classification() {
             gs.set_temp_classification.set(Some(c));
         }
@@ -181,6 +135,7 @@ fn App() -> impl IntoView {
 #[allow(non_snake_case)]
 #[component]
 pub fn Root() -> impl IntoView {
+    provide_global_state();
     view! {
         <AuthProvider>
             <App />
@@ -307,16 +262,12 @@ fn Footer() -> impl IntoView {
                 </div>
             </div>
             <style>
-                "footer { border-top: 1px solid var(--glass-border); padding: var(--s-6) var(--s-12); margin-top: auto; background: hsl(var(--bg) / 0.8); backdrop-filter: blur(20px); }
+                "footer { border-top: 1px solid var(--glass-border); padding: var(--s-12) var(--s-12); margin-top: auto; background: hsl(var(--bg) / 0.8); backdrop-filter: blur(20px); }
                 .footer-content { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%; height: var(--s-12); padding: 0 var(--s-12); }
                 
                 .footer-left { flex: 1; display: flex; align-items: center; }
                 .footer-logo { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text)); display: flex; align-items: center; gap: var(--s-2); letter-spacing: 0.2em; text-transform: uppercase; }
                 
-                .hero-content { max-width: 800px; margin: 0 auto 4rem; text-align: center; }
-                .hero-subtitle { font-size: 1.25rem; font-weight: 800; color: hsl(var(--text)); margin-bottom: var(--s-4); letter-spacing: -0.02em; }
-                .hero-description { font-size: 1.0625rem; font-weight: 500; color: hsl(var(--text-muted)); line-height: 1.6; }
-
                 .footer-center { flex: 1; display: flex; align-items: center; justify-content: center; gap: var(--s-4); white-space: nowrap; }
                 .footer-meta { font-size: 0.625rem; color: hsl(var(--text-dim)); font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; white-space: nowrap; }
                 .footer-link { font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim)); text-decoration: none; text-transform: uppercase; letter-spacing: 0.1em; transition: color 0.2s; white-space: nowrap; }
@@ -331,12 +282,6 @@ fn Footer() -> impl IntoView {
                 .status-indicator { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
                 .status-indicator.online { background: hsl(var(--success)); }
                 .status-indicator.offline { background: hsl(var(--error)); }
-
-                @keyframes pulse {
-                    0% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--success) / 0.7); }
-                    70% { transform: scale(1); box-shadow: 0 0 0 6px hsl(var(--success) / 0); }
-                    100% { transform: scale(0.95); box-shadow: 0 0 0 0 hsl(var(--success) / 0); }
-                }
                 
                 @media (max-width: 768px) {
                     footer { padding: var(--s-8) var(--s-6); }
@@ -387,60 +332,31 @@ fn AuthNav() -> impl IntoView {
                         <div class="dropdown-container">
                             <div 
                                 class="avatar-btn"
-                                on:click=move |ev| {
+                                on:click=move |ev: ev::MouseEvent| {
                                     ev.stop_propagation();
                                     set_show_dropdown.update(|v| *v = !*v);
                                 }
                             >
-                                {user.email.clone().unwrap_or_default().chars().next().unwrap_or('?').to_uppercase().to_string()}
+                                {user.email.as_ref().and_then(|e| e.chars().next()).unwrap_or('?').to_uppercase().to_string()}
                             </div>
-                            
-                            // Backdrop for click-outside
-                            {move || show_dropdown.get().then(|| view! {
-                                <div 
-                                    style="position: fixed; inset: 0; z-index: 999; background: transparent; cursor: default;"
-                                    on:click=move |_| set_show_dropdown.set(false)
-                                ></div>
-                            })}
 
-                            <div 
-                                class="dropdown-menu"
-                                class:show=show_dropdown
-                                style="z-index: 1000;"
-                                on:click=move |_| {
-                                    set_show_dropdown.set(false);
-                                }
-                            >
+                            <div class="dropdown-menu" class:show=show_dropdown>
                                 <div class="dropdown-header">
                                     <span class="user-email">{user.email.clone().unwrap_or_default()}</span>
                                 </div>
-                                <A href="/account" attr:class="dropdown-item">
-                                    <UserIcon size={16} />
-                                    "Account Settings"
-                                </A>
-                                <div 
-                                    class="dropdown-item"
-                                    on:click=move |ev| {
-                                        ev.stop_propagation();
-                                        set_theme.update(|t| {
-                                            *t = if *t == "dark" { "light".to_string() } else { "dark".to_string() };
-                                        });
-                                    }
-                                >
-                                    {move || if theme.get() == "dark" {
-                                        view! { <div style="display: flex; align-items: center; gap: var(--s-3);"><Sun size={16} /> "LIGHT MODE"</div> }.into_any()
-                                    } else {
-                                        view! { <div style="display: flex; align-items: center; gap: var(--s-3);"><Moon size={16} /> "DARK MODE"</div> }.into_any()
-                                    }}
-                                </div>
                                 <div class="dropdown-divider"></div>
-                                <A href="/terms" attr:class="dropdown-item">
-                                    <crate::components::icons::ShieldCheck size={16} />
-                                    "Terms of Service"
-                                </A>
-                                <A href="/contact" attr:class="dropdown-item">
-                                    <crate::components::icons::Mail size={16} />
-                                    "Contact Support"
+                                
+                                <div class="dropdown-item" on:click=move |_| {
+                                    let next = if theme.get() == "light" { "dark" } else { "light" };
+                                    set_theme.set(next.to_string());
+                                }>
+                                    {move || if theme.get() == "light" { view! { <Moon size={16} /> }.into_any() } else { view! { <Sun size={16} /> }.into_any() }}
+                                    {move || if theme.get() == "light" { "Dark Mode" } else { "Light Mode" }}
+                                </div>
+                                
+                                <A href="/account" attr:class="dropdown-item" attr:style="text-decoration: none;">
+                                    <UserIcon size={16} />
+                                    "Profile Settings"
                                 </A>
                                 <div class="dropdown-item error" on:click=move |_| auth.logout()>
                                     <LogOut size={16} />
@@ -448,36 +364,70 @@ fn AuthNav() -> impl IntoView {
                                 </div>
                             </div>
                         </div>
-                </div>
+                    </div>
             }.into_any(),
             None => view! {
-                <div style="display: flex; gap: var(--s-3); align-items: center;">
-                    <a href="/login" class="nav-auth-btn ghost">"Sign In"</a>
-                    <a href="/register" class="nav-auth-btn primary">"Create Account"</a>
+                <div style="display: flex; gap: var(--s-3);">
+                    <A href="/login" attr:class="btn btn-secondary">"Login"</A>
+                    <A href="/register" attr:class="btn btn-primary">"Start Free"</A>
                 </div>
             }.into_any(),
         }}
+
+        <style>
+            ".dropdown-container { position: relative; }
+            .dropdown-menu { 
+                position: absolute; top: calc(100% + 12px); right: 0; width: 220px; 
+                background: hsl(var(--surface-raised)); 
+                border: 1px solid var(--glass-border); border-radius: var(--radius-md);
+                padding: 8px; box-shadow: var(--shadow-xl); z-index: 1000;
+                transform-origin: top right; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                opacity: 0; transform: translateY(10px) scale(0.95); pointer-events: none;
+            }
+            .dropdown-menu.show { opacity: 1; transform: translateY(0) scale(1); pointer-events: auto; }
+            .dropdown-header { padding: 12px 16px; }
+            .user-email { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim)); opacity: 0.8; }
+            .dropdown-divider { height: 1px; background: var(--glass-border); margin: 8px 0; }
+            .dropdown-item { 
+                display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+                font-size: 0.8125rem; font-weight: 600; color: hsl(var(--text)); 
+                border-radius: var(--radius-sm); cursor: pointer; transition: background 0.2s;
+            }
+            .dropdown-item:hover { background: rgba(255,255,255,0.05); }
+            .dropdown-item.error { color: hsl(var(--error)); }
+            .dropdown-item.error:hover { background: hsl(var(--error) / 0.1); }
+            "
+        </style>
     }
 }
 
 #[component]
-fn Credits() -> impl IntoView {
-    view! {
-        <crate::components::settings::Credits />
-    }
+fn AuthGuard(children: Children) -> impl IntoView {
+    let auth = use_auth();
+    let navigate = use_navigate();
+    
+    Effect::new(move |_| {
+        if auth.session.get().is_none() {
+            navigate("/login", Default::default());
+        }
+    });
+
+    view! { {children()} }
 }
 
 #[component]
 fn Home() -> impl IntoView {
+    let auth = use_auth();
     view! {
-            <div class="page-container" style="max-width: 1300px; margin: 0 auto; padding: 0 var(--s-8);">
+        <div class="fade-in" style="position: relative;">
+            <div class="page-container" style="max-width: 1200px; margin: 0 auto; padding: 0 var(--s-8);">
                 <div class="hero-section stagger-1">
                     <h1 class="hero-title text-gradient" style="font-size: 3rem; margin-bottom: var(--s-4);">{crate::text::TXT.home_hero_title}</h1>
                     <p class="hero-subtitle muted" style="font-size: 1.125rem; max-width: 700px;">{crate::text::TXT.home_hero_subtitle}</p>
                 </div>
                 
-                <div class="hybrid-layout stagger-3">
-                    <div class="studio-card hybrid-left">
+                <div class="home-showcase stagger-3">
+                    <div class="showcase-frame">
                         <ComparisonSlider 
                             images=vec![
                                 ("./assets/hero_before_1.svg".to_string(), "./assets/hero_after_1.svg".to_string()),
@@ -488,49 +438,61 @@ fn Home() -> impl IntoView {
                             ]
                         />
                     </div>
-                    <div class="studio-card hybrid-right">
-                        <div class="cta-card">
-                            <div class="card-glow"></div>
-                            <h3 class="cta-title">"Ready to Transform your Imagery?"</h3>
-                            <p class="cta-desc">"Enter our state-of-the-art studio to begin your high-fidelity reconstruction journey. Instant 4K synthesis at your fingertips."</p>
-                            
-                            <div class="benefit-list">
-                                <div class="benefit-item">
-                                    <div class="benefit-icon"><Zap size={14} /></div>
-                                    <span>"AI Detail Synthesis"</span>
-                                </div>
-                                <div class="benefit-item">
-                                    <div class="benefit-icon"><Target size={14} /></div>
-                                    <span>"Lossless 4K Scaling"</span>
-                                </div>
-                                <div class="benefit-item">
-                                    <div class="benefit-icon"><RefreshCw size={14} /></div>
-                                    <span>"Deterministic Seeds"</span>
-                                </div>
-                            </div>
-
-                            <A href="/editor" attr:class="btn btn-primary cta-btn">
+                    
+                    <div class="showcase-actions stagger-4">
+                        <div class="action-meta">
+                            <h3 class="action-title">"High-Fidelity AI Reconstruction"</h3>
+                            <p class="action-desc">"Our Gemini-powered engine synthesizes high-frequency details where traditional upscalers fail. Experience the next generation of image enhancement."</p>
+                        </div>
+                        <div class="action-buttons">
+                            <A href="/editor" attr:class="btn btn-primary cta-btn-hero">
+                                <Zap size={18} />
                                 <span>{crate::text::TXT.home_cta_start}</span>
-                                <div class="btn-shine"></div>
                             </A>
+                            {move || auth.user.get().is_some().then(|| view! {
+                                <A href="/history" attr:class="btn btn-secondary">
+                                    <ImageIcon size={18} />
+                                    "VIEW GALLERY"
+                                </A>
+                            })}
+                        </div>
+                    </div>
+
+                    <div class="feature-grid stagger-5">
+                        <div class="feature-item">
+                            <div class="feature-icon"><Zap size={20} /></div>
+                            <div class="feature-text">
+                                <strong>"4K Synthesis"</strong>
+                                <p>"Beyond scaling. Actual detail reconstruction."</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-icon"><Target size={20} /></div>
+                            <div class="feature-text">
+                                <strong>"Focal Locking"</strong>
+                                <p>"Preserve your original depth of field."</p>
+                            </div>
+                        </div>
+                        <div class="feature-item">
+                            <div class="feature-icon"><RefreshCw size={20} /></div>
+                            <div class="feature-text">
+                                <strong>"Deterministic"</strong>
+                                <p>"Perfectly reproducible seed-based results."</p>
+                            </div>
                         </div>
                     </div>
                 </div>
 
             <style>
-                ".hero-section { padding: var(--s-10) 0 var(--s-20); }                .hybrid-layout { 
-                    display: grid; 
-                    grid-template-columns: 1fr 1fr; 
-                    gap: var(--s-16); 
-                    margin-top: var(--s-16); 
-                    text-align: left;
-                    align-items: stretch;
-                    max-width: 1300px;
-                    margin-left: auto;
-                    margin-right: auto;
+                ".home-showcase { 
+                    max-width: 1200px;
+                    margin: var(--s-16) auto 0;
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--s-16);
                 }
                 
-                .studio-card { 
+                .showcase-frame {
                     background: hsl(var(--surface));
                     border: 1px solid hsl(var(--accent) / 0.1);
                     border-radius: var(--radius-lg);
@@ -539,44 +501,52 @@ fn Home() -> impl IntoView {
                     position: relative;
                 }
 
-                .hybrid-right { padding: var(--s-12); position: relative; overflow: hidden; }
-                
-                .cta-card { position: relative; z-index: 2; height: 100%; display: flex; flex-direction: column; justify-content: center; }
-                .cta-title { font-size: 1.5rem; font-weight: 800; margin-bottom: var(--s-3); letter-spacing: -0.02em; }
-                .cta-desc { font-size: 0.875rem; color: hsl(var(--text-dim)); line-height: 1.6; margin-bottom: var(--s-8); }
-                
-                .benefit-list { display: flex; flex-direction: column; gap: var(--s-4); margin-bottom: var(--s-10); }
-                .benefit-item { display: flex; align-items: center; gap: var(--s-4); }
-                .benefit-icon { width: 32px; height: 32px; background: rgba(255,255,255,0.03); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: hsl(var(--accent)); border: 1px solid rgba(255,255,255,0.05); }
-                .benefit-item span { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim) / 0.8); letter-spacing: 0.02em; }
-                
-                .cta-btn { 
-                    width: 100%; height: 56px; font-size: 0.875rem; letter-spacing: 0.1em; font-weight: 900; 
-                    display: flex; align-items: center; justify-content: center; text-decoration: none;
-                    background: hsl(var(--accent)); color: white; border-radius: var(--radius-lg);
-                    position: relative; overflow: hidden; transition: all 0.3s;
+                .showcase-actions {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    gap: var(--s-12);
+                    padding: 0 var(--s-4);
                 }
-                .cta-btn:hover { transform: translateY(-3px); box-shadow: 0 15px 30px hsla(var(--accent-h), var(--accent-s), 50%, 0.3); }
+
+                .action-meta { flex: 1; text-align: left; }
+                .action-title { font-size: 1.75rem; font-weight: 800; margin-bottom: var(--s-2); letter-spacing: -0.02em; }
+                .action-desc { font-size: 1rem; color: hsl(var(--text-dim)); line-height: 1.6; max-width: 500px; }
+
+                .action-buttons { display: flex; gap: var(--s-4); align-items: center; }
                 
-                .card-glow { 
-                    position: absolute; top: -50%; right: -50%; width: 100%; height: 100%; 
-                    background: radial-gradient(circle at center, hsla(var(--accent-h), var(--accent-s), 50%, 0.05), transparent 70%);
-                    pointer-events: none;
+                .feature-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: var(--s-12);
+                    padding: var(--s-12);
+                    background: rgba(255,255,255,0.02);
+                    border-radius: var(--radius-lg);
+                    border: 1px solid rgba(255,255,255,0.05);
+                    margin-bottom: var(--s-20);
+                }
+
+                .feature-item { display: flex; gap: var(--s-6); align-items: flex-start; }
+                .feature-icon { width: 48px; height: 48px; min-width: 48px; background: hsl(var(--accent) / 0.1); border-radius: 12px; display: flex; align-items: center; justify-content: center; color: hsl(var(--accent)); border: 1px solid hsl(var(--accent) / 0.1); }
+                .feature-text strong { display: block; font-size: 0.875rem; color: white; margin-bottom: 4px; letter-spacing: 0.05em; text-transform: uppercase; }
+                .feature-text p { font-size: 0.75rem; color: hsl(var(--text-dim)); line-height: 1.4; }
+
+                .cta-btn-hero { 
+                    height: 56px; padding: 0 var(--s-10); font-weight: 900; letter-spacing: 0.1em;
+                    display: flex; align-items: center; gap: var(--s-3);
                 }
                 
                 @media (max-width: 1050px) {
-                    .hero-section { padding: var(--s-6) 0 var(--s-12); }
-                    .hybrid-layout { 
-                        grid-template-columns: 1fr; 
-                        max-width: 600px; 
-                        gap: var(--s-8);
-                    }
-                    .hybrid-left { order: 2; }
-                    .hybrid-right { order: 1; }
+                    .home-showcase { gap: var(--s-10); }
+                    .showcase-actions { flex-direction: column; text-align: center; gap: var(--s-8); }
+                    .action-meta { text-align: center; }
+                    .action-desc { margin: 0 auto; }
+                    .feature-grid { grid-template-columns: 1fr; gap: var(--s-8); }
                 }
                 "
             </style>
             </div>
+        </div>
     }
 }
 
@@ -584,6 +554,13 @@ fn Home() -> impl IntoView {
 fn History() -> impl IntoView {
     view! {
         <crate::components::history_gallery::HistoryGallery />
+    }
+}
+
+#[component]
+fn Credits() -> impl IntoView {
+    view! {
+        <crate::components::settings::Credits />
     }
 }
 

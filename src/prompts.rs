@@ -65,6 +65,7 @@ mod tests {
             keep_depth_of_field: true,
             lighting: "VIVID".to_string(),
             thinking_level: "HIGH".to_string(),
+            seed: None,
         };
         let prompt = build_system_prompt("PHOTOGRAPHY", &settings);
         
@@ -80,6 +81,7 @@ mod tests {
             keep_depth_of_field: false,
             lighting: "Original".to_string(),
             thinking_level: "MINIMAL".to_string(),
+            seed: None,
         };
         let prompt = build_system_prompt("ILLUSTRATION", &settings);
         
@@ -95,6 +97,7 @@ mod tests {
             keep_depth_of_field: false,
             lighting: "STUDIO".to_string(),
             thinking_level: "HIGH".to_string(),
+            seed: None,
         };
         let prompt = build_system_prompt("PHOTOGRAPHY", &settings);
         assert!(prompt.contains("Enhance clarity across all planes"));

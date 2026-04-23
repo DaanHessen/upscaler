@@ -11,7 +11,7 @@ const FILE_KEY: &str = "uploaded_image";
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SettingsState {
+pub struct UserSettings {
     pub quality: String,
     pub style: String,
     pub temperature: f32,
@@ -34,11 +34,11 @@ pub fn load_classification() -> Option<String> {
     LocalStorage::get("upsyl_temp_classification").ok()
 }
 
-pub fn save_settings(settings: SettingsState) {
+pub fn save_settings(settings: &UserSettings) {
     let _ = LocalStorage::set("upsyl_user_settings", settings);
 }
 
-pub fn load_settings() -> Option<SettingsState> {
+pub fn load_settings() -> Option<UserSettings> {
     LocalStorage::get("upsyl_user_settings").ok()
 }
 
