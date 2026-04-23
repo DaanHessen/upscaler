@@ -17,8 +17,10 @@ fn MarkdownPage(title: &'static str, subtitle: &'static str, content: &'static s
     view! {
         <div class="legal-container fade-in">
             <div class="page-header">
-                <h1 class="text-gradient">{title}</h1>
-                <p class="muted">{subtitle}</p>
+                <div class="header-main">
+                    <h1 class="stagger-1 text-gradient">{title}</h1>
+                    <p class="muted stagger-2">{subtitle}</p>
+                </div>
             </div>
 
             <div class="card legal-card">
@@ -129,7 +131,7 @@ pub fn Contact() -> impl IntoView {
     let (submitted, set_submitted) = signal(false);
 
     view! {
-        <div class="legal-container fade-in">
+        <div class="history-container fade-in">
             <div class="page-header">
                 <div class="header-main">
                     <h1 class="stagger-1 text-gradient">"Support Request"</h1>
@@ -137,7 +139,7 @@ pub fn Contact() -> impl IntoView {
                 </div>
             </div>
 
-            <div class="card shadow-lg stagger-3 contact-form-card" style="padding: var(--s-10) var(--s-12); max-width: 700px; margin-top: var(--s-8);">
+            <div class="card shadow-lg stagger-3 contact-form-card" style="padding: var(--s-10) var(--s-12); max-width: 900px; margin: var(--s-8) auto 0 auto;">
                 {move || if submitted.get() {
                     view! {
                         <div class="success-panel" style="padding: 4rem 2rem; text-align: center;">

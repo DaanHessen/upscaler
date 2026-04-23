@@ -52,7 +52,7 @@ pub fn AccountSettings() -> impl IntoView {
                         <div style="color: hsl(var(--text)); padding: 0; display: flex; align-items: center; justify-content: center;">
                             <UserIcon size={24} />
                         </div>
-                        <h3 class="text-gradient" style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em;">"Identity"</h3>
+                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; color: hsl(var(--text));">"Identity"</h3>
                     </div>
                     
                     <div style="display: grid; gap: var(--s-4);">
@@ -73,7 +73,7 @@ pub fn AccountSettings() -> impl IntoView {
                         <div style="color: hsl(var(--text)); padding: 0; display: flex; align-items: center; justify-content: center;">
                             <Lock size={24} />
                         </div>
-                        <h3 class="text-gradient" style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em;">"Security"</h3>
+                        <h3 style="margin: 0; font-size: 1.25rem; font-weight: 800; letter-spacing: -0.02em; color: hsl(var(--text));">"Security"</h3>
                     </div>
 
                     {move || if success.get() {
@@ -132,7 +132,7 @@ pub fn AccountSettings() -> impl IntoView {
             </div>
 
             <style>
-                ".settings-container { max-width: 1000px; margin: 0 auto; width: 100%; padding-bottom: var(--s-20); }
+                ".settings-container { max-width: 1200px; margin: 0 auto; width: 100%; padding: 0 var(--s-8) var(--s-20) var(--s-8); }
                 .input-group label { font-size: 0.75rem; font-weight: 850; text-transform: uppercase; letter-spacing: 0.05em; color: hsl(var(--text-dim)); margin-bottom: var(--s-2); display: block; }
                 .input-group input { padding: var(--s-3) var(--s-4); border: 1px solid var(--border); color: hsl(var(--text)); transition: border-color 0.2s, box-shadow 0.2s; }
                 .input-group input:focus { outline: none; border-color: hsl(var(--accent)); box-shadow: 0 0 0 2px hsl(var(--accent) / 0.1); }

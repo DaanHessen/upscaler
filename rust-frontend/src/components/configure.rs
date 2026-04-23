@@ -239,7 +239,7 @@ pub fn Configure() -> impl IntoView {
             </div>
 
             <style>
-                ".configure-page { max-width: 1200px; margin: 0 auto; padding: 2rem 1rem; min-height: 80vh; display: flex; flex-direction: column; }
+                ".configure-page { max-width: 1200px; margin: 0 auto; padding: 0 var(--s-8) var(--s-8) var(--s-8); min-height: 80vh; display: flex; flex-direction: column; }
                 .page-header { margin-bottom: 3rem; }
                 .page-header h1 { font-size: 2.5rem; font-weight: 900; letter-spacing: -0.05em; margin-bottom: 0.5rem; }
                 .page-header .muted { font-size: 1rem; color: hsl(var(--text-muted)); font-weight: 500; }

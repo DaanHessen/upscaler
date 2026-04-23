@@ -219,7 +219,7 @@ fn MainLayout() -> impl IntoView {
                 <div class="bg-glow"></div>
                 <div class="bg-glow glow-2"></div>
             </div>
-            <header class="glass stagger-1">
+            <header class="glass">
                 <A href="/" attr:class="logo" attr:style="text-decoration: none; display: flex; align-items: center; gap: var(--s-3); color: inherit;">
                     <div class="logo-icon"><Zap size={18} /></div>
                     "UPSYL" 
@@ -306,7 +306,7 @@ fn Footer() -> impl IntoView {
             </div>
             <style>
                 "footer { border-top: 1px solid var(--glass-border); padding: var(--s-6) var(--s-12); margin-top: auto; background: hsl(var(--bg) / 0.8); backdrop-filter: blur(20px); }
-                .footer-content { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%; height: var(--s-12); }
+                .footer-content { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; width: 100%; height: var(--s-12); padding: 0 var(--s-12); }
                 
                 .footer-left { flex: 1; display: flex; align-items: center; }
                 .footer-logo { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--text)); display: flex; align-items: center; gap: var(--s-2); letter-spacing: 0.2em; text-transform: uppercase; }
@@ -327,7 +327,7 @@ fn Footer() -> impl IntoView {
                 .footer-status-tag.offline { color: hsl(var(--error)); }
 
                 .status-indicator { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-                .status-indicator.online { background: hsl(var(--success)); box-shadow: 0 0 8px hsl(var(--success) / 0.8); animation: pulse 2s infinite; }
+                .status-indicator.online { background: hsl(var(--success)); }
                 .status-indicator.offline { background: hsl(var(--error)); }
 
                 @keyframes pulse {
