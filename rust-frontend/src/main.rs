@@ -21,6 +21,7 @@ use crate::components::reset_password::ResetPassword;
 use leptos::ev;
 use leptos_router::hooks::use_navigate;
 use crate::components::profile::AccountSettings;
+use crate::components::cookie_banner::CookieBanner;
 
 #[derive(Copy, Clone, Debug)]
 pub struct GlobalState {
@@ -197,9 +198,13 @@ fn MainLayout() -> impl IntoView {
                             <NavLink href="/settings">{crate::text::TXT.nav_billing}</NavLink>
                         </>
                     })}
-                    <AuthNav />
                 </nav>
+                <div class="auth-nav-container">
+                    <AuthNav />
+                </div>
             </header>
+
+            <CookieBanner />
 
             <main>
                 <Routes fallback=|| view! { <NotFound /> }>
@@ -291,7 +296,7 @@ fn AuthNav() -> impl IntoView {
     view! {
         {move || match auth.user.get() {
             Some(user) => view! {
-                    <div style="display: flex; align-items: center; gap: var(--s-6);">
+                    <div class="auth-cluster" style="display: flex; align-items: center; gap: var(--s-6);">
                         <Suspense>
                             {move || {
                                 let res = auth.credits.get();
@@ -355,7 +360,7 @@ fn AuthNav() -> impl IntoView {
                     </div>
             }.into_any(),
             None => view! {
-                <div style="display: flex; gap: var(--s-3);">
+                <div class="auth-cluster-guest" style="display: flex; gap: var(--s-3);">
                     <A href="/login" attr:class="btn btn-secondary">"Login"</A>
                     <A href="/register" attr:class="btn btn-primary">"Start Free"</A>
                 </div>

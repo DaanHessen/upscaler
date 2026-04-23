@@ -584,11 +584,33 @@ footer {
 .status-chip.processing { background: hsl(var(--warning) / 0.1); color: hsl(var(--warning)); border-color: hsl(var(--warning) / 0.2); }
 
 @media (max-width: 900px) {
-  header { padding: 0 var(--s-6); }
-  main { padding: var(--s-12) var(--s-4); }
-  .hero-section { padding: var(--s-10) 0; }
-  .hero-section h1 { font-size: 3rem; }
+  header { 
+    padding: var(--s-3) var(--s-4); 
+    height: auto; 
+    flex-wrap: wrap; 
+    gap: var(--s-4); 
+    justify-content: center;
+  }
+  nav { 
+    width: 100%; 
+    justify-content: center; 
+    flex-wrap: wrap; 
+    gap: var(--s-3); 
+  }
+  .logo { font-size: 1.125rem; }
+  main { padding: var(--s-8) var(--s-4); }
+  .hero-section { padding: var(--s-8) 0; }
+  .hero-section h1 { font-size: 2.5rem; }
   .btn-lg { width: 100%; }
+  
+  .auth-card { padding: var(--s-6); }
+  .credits-layout, .unified-billing-grid { grid-template-columns: 1fr !important; }
+  .billing-section { border-right: none !important; border-bottom: 1px solid hsl(var(--border) / 0.5); }
+  .billing-section:last-child { border-bottom: none; }
+  .meta-stats { flex-direction: column; gap: var(--s-6); }
+  .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  
+  .history-container, .credits-container, .settings-container, .legal-container { padding: 0 var(--s-4); }
 }
 
 /* Global Animations */

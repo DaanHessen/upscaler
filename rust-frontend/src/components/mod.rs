@@ -8,4 +8,5 @@ pub mod view_result;
 pub mod legal;
 pub mod auth_callback;
 pub mod reset_password;
+pub mod cookie_banner;
 pub mod profile;

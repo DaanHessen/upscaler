@@ -203,13 +203,30 @@ impl ApiClient {
             .await
             .map_err(|e| e.to_string())?;
 
-        if resp.ok() {
-            let data: SubmitResponse = resp.json().await.map_err(|e| e.to_string())?;
+        let status = resp.status();
+        let body_text = resp.text().await.map_err(|e| e.to_string())?;
+
+        if status >= 200 && status < 300 {
+            let data: SubmitResponse = serde_json::from_str(&body_text)
+                .map_err(|_| format!("Invalid response format: {}", body_text))?;
             Ok(data)
         } else {
-            let err_body: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
-            let msg = err_body["error"].as_str().unwrap_or("Submission failed");
-            Err(msg.to_string())
+            let err_msg = serde_json::from_str::<serde_json::Value>(&body_text)
+                .ok()
+                .and_then(|v| v.get("error").and_then(|e| e.as_str().map(|s| s.to_string())))
+                .unwrap_or_else(|| {
+                    if body_text.is_empty() {
+                        format!("Server returned status {}", status)
+                    } else {
+                        // Truncate if it's too long (e.g. HTML error page)
+                        if body_text.len() > 100 {
+                            format!("Error {}: {}...", status, &body_text[..100])
+                        } else {
+                            format!("Error {}: {}", status, body_text)
+                        }
+                    }
+                });
+            Err(err_msg)
         }
     }
 
