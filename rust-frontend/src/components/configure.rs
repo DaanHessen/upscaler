@@ -3,7 +3,6 @@ use leptos_router::hooks::use_navigate;
 use crate::{use_global_state, use_auth};
 use crate::api::{ApiClient, PromptSettings, PollResponse};
 use crate::components::icons::{Zap, ImageIcon, Settings, Target, RefreshCw, AlertCircle, Download, Info, ChevronRight};
-use crate::text::TXT;
 use wasm_bindgen::JsCast;
 
 #[component]
@@ -11,20 +10,16 @@ pub fn Configure() -> impl IntoView {
     let global_state = use_global_state();
     let auth = use_auth();
     let navigate = use_navigate();
-    
-    // Internal state for the upscale engine
+
     let (processing_job, set_processing_job) = signal(Option::<uuid::Uuid>::None);
     let (engine_status, set_engine_status) = signal(Option::<PollResponse>::None);
     let (error_msg, set_error_msg) = signal(Option::<String>::None);
     let (is_dragging, set_is_dragging) = signal(false);
 
-    // Watch for job creation and start polling
     Effect::new(move |_| {
         if let Some(job_id) = processing_job.get() {
             let token = auth.session.get().map(|s| s.access_token);
             let state = global_state;
-            
-            // Polling task
             leptos::task::spawn_local(async move {
                 loop {
                     match ApiClient::poll_job(job_id, token.as_deref()).await {
@@ -37,9 +32,7 @@ pub fn Configure() -> impl IntoView {
                                 }
                                 break;
                             }
-                            if r.status == "FAILED" {
-                                break;
-                            }
+                            if r.status == "FAILED" { break; }
                         },
                         Err(_) => break,
                     }
@@ -76,27 +69,23 @@ pub fn Configure() -> impl IntoView {
         if let Some(file) = global_state.temp_file.get() {
             let q_val: String = global_state.quality.get();
             let cost = if q_val == "4K" { 4 } else { 2 };
-            
             if let Some(current) = auth.credits.get() {
                 if current < cost {
-                    set_error_msg.set(Some("Insufficient credits available.".to_string()));
+                    set_error_msg.set(Some("Insufficient credits.".to_string()));
                     return;
                 }
             }
-
             set_error_msg.set(None);
             let token = auth.session.get().map(|s| s.access_token);
             let s_val: String = global_state.style.get();
             let t_val: f32 = global_state.temperature.get();
             let auth_ctx = auth;
-            
             let p_settings = PromptSettings {
                 keep_depth_of_field: global_state.keep_depth_of_field.get(),
                 lighting: global_state.lighting.get(),
                 thinking_level: global_state.thinking_level.get(),
                 seed: global_state.seed.get(),
             };
-            
             leptos::task::spawn_local(async move {
                 match ApiClient::submit_upscale(&file, &q_val, &s_val, t_val, &p_settings, token.as_deref()).await {
                     Ok(resp) => {
@@ -104,9 +93,7 @@ pub fn Configure() -> impl IntoView {
                         auth_ctx.sync_telemetry(true);
                         set_processing_job.set(Some(resp.job_id));
                     },
-                    Err(e) => {
-                        set_error_msg.set(Some(format!("Upload failed: {}", e)));
-                    }
+                    Err(e) => { set_error_msg.set(Some(format!("Upload failed: {}", e))); }
                 }
             });
         }
@@ -114,219 +101,197 @@ pub fn Configure() -> impl IntoView {
 
     let stage_info = move || {
         match engine_status.get().map(|s| s.status) {
-            Some(s) if s == "PENDING" => ("QUEUE", "System Ready", "Analyzing asset for reconstruction..."),
-            Some(s) if s == "PROCESSING" => ("ACTIVE", "Reconstructing", "Gemini Vision is synthesizing high-freq details."),
-            Some(s) if s == "COMPLETED" => ("FINISH", "Studio Export", "Enhancement complete. Ready for download."),
-            _ => ("IDLE", "Standby", "Awaiting engine handshake.")
+            Some(s) if s == "PENDING"    => ("QUEUE",  "System Ready",   "Analyzing asset for reconstruction..."),
+            Some(s) if s == "PROCESSING" => ("ACTIVE", "Reconstructing", "Gemini Vision is synthesizing high-frequency details."),
+            Some(s) if s == "COMPLETED"  => ("DONE",   "Export Ready",   "Enhancement complete. Ready for download."),
+            _ =>                            ("IDLE",   "Standby",        "Awaiting engine handshake."),
         }
     };
 
-    let nav_home = navigate.clone();
     let nav_history = navigate.clone();
 
     view! {
         <div class="editor-shell fade-in">
-            <div class="editor-main-container">
 
-                <div class="editor-main"
-                     on:dragover=move |ev| { ev.prevent_default(); set_is_dragging.set(true); }
-                     on:dragleave=move |_| set_is_dragging.set(false)
-                     on:drop=on_drop
-                >
-                    <div class="editor-canvas">
-                        <div class="canvas-grid"></div>
-                        
-                        // Workspace Header Overlay (Technical feel)
-                        <div class="workspace-nav stagger-3">
-                            <div class="nav-item">
-                                <span class="nav-label">"WORKSPACE:"</span>
-                                <span class="nav-val">"MODERN_ASSET_01"</span>
-                            </div>
-                            <div class="nav-divider"></div>
-                            <div class="nav-item">
-                                <span class="nav-label">"ENGINE:"</span>
-                                <span class="nav-val accent">"ONLINE"</span>
-                            </div>
-                        </div>
+            // ── Canvas ──────────────────────────────────────────
+            <div class="editor-canvas-area"
+                 on:dragover=move |ev| { ev.prevent_default(); set_is_dragging.set(true); }
+                 on:dragleave=move |_| set_is_dragging.set(false)
+                 on:drop=on_drop
+            >
+                <div class="canvas-grid"></div>
 
-                        <div class="asset-frame">
-                            {move || {
-                                let img_url = global_state.preview_base64.get();
-                                match img_url {
-                                    Some(url) => view! {
-                                        <div class="asset-wrapper fade-in">
-                                            <img src=url class="studio-asset" alt="Upscale Result" />
-                                            <div class="laser-scanner"></div>
-                                            <div class="corner-accents">
-                                                <div class="corner tl"></div>
-                                                <div class="corner tr"></div>
-                                                <div class="corner bl"></div>
-                                                <div class="corner br"></div>
-                                            </div>
-                                        </div>
-                                    }.into_any(),
-                                    None => view! {
-                                        <div class="empty-canvas stagger-1">
-                                            <div class="drop-zone-trigger" on:click=move |_| {
-                                                if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
-                                                    if let Some(el) = doc.get_element_by_id("hidden_file_input") {
-                                                        let html_el: web_sys::HtmlElement = el.unchecked_into();
-                                                        html_el.click();
-                                                    }
-                                                }
-                                            }>
-                                                <div class="trigger-icon"><ImageIcon size={48} /></div>
-                                                <h3>{TXT.editor_empty_title}</h3>
-                                                <p>{TXT.editor_empty_desc}</p>
-                                            </div>
-                                            <input type="file" id="hidden_file_input" style="display: none;" on:change=on_file_input />
-                                        </div>
-                                    }.into_any()
-                                }
-                            }}
-
-                            // Overlay for dragging
-                            {move || is_dragging.get().then(|| view! {
-                                <div class="drag-overlay fade-in">
-                                    <Download size={48} />
-                                    <h2>"DROP TO IMPORT"</h2>
+                // Canvas content
+                {move || {
+                    let img_url = global_state.preview_base64.get();
+                    match img_url {
+                        Some(url) => view! {
+                            <div class="asset-wrapper fade-in">
+                                <img src=url class="studio-asset" alt="Upscale Result" />
+                                <div class="corner-accents">
+                                    <div class="corner tl"></div>
+                                    <div class="corner tr"></div>
+                                    <div class="corner bl"></div>
+                                    <div class="corner br"></div>
                                 </div>
-                            })}
-                        </div>
-
-                        // --- Canvas Telemetry ---
-                        <div class="canvas-telemetry">
-                            <div class="telemetry-pill">
-                                <span class="label">"DETECTED:"</span>
-                                <span class="value accent">{move || global_state.temp_classification.get().unwrap_or_else(|| "NONE".to_string())}</span>
                             </div>
-                            {move || processing_job.get().map(|id| view! {
-                                <div class="telemetry-pill job-pill">
-                                    <span class="label">"JOB_ID:"</span>
-                                    <span class="value font-mono">{id.to_string().chars().take(8).collect::<String>()}</span>
+                        }.into_any(),
+                        None => view! {
+                            <div class="drop-zone-outer">
+                                <div class="drop-zone-inner" on:click=move |_| {
+                                    if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
+                                        if let Some(el) = doc.get_element_by_id("hidden_file_input") {
+                                            let html_el: web_sys::HtmlElement = el.unchecked_into();
+                                            html_el.click();
+                                        }
+                                    }
+                                }>
+                                    <div class="dz-icon-wrap">
+                                        <ImageIcon size={28} />
+                                    </div>
+                                    <p class="dz-title">"Drop image here"</p>
+                                    <p class="dz-sub">"or click to browse your files"</p>
+                                    <div class="dz-formats">"PNG · JPG · WEBP · MAX 20 MB"</div>
                                 </div>
-                            })}
-                        </div>
+                                <input type="file" id="hidden_file_input" style="display:none;" on:change=on_file_input />
+                            </div>
+                        }.into_any()
+                    }
+                }}
+
+                // Drag overlay
+                {move || is_dragging.get().then(|| view! {
+                    <div class="drag-overlay fade-in">
+                        <Download size={40} />
+                        <span>"Drop to import"</span>
                     </div>
-                </div>
+                })}
             </div>
 
-            // --- Right Sidebar: Editor Controls ---
-            <aside class="editor-sidebar-wrapper">
-                <div class="sidebar-backdrop"></div>
-                <div class="editor-sidebar">
-                    
-                    {move || {
-                        let job = processing_job.get();
-                        let nav = nav_history.clone();
-                        match job {
-                            None => view! {
-                                // --- SETTINGS MODE ---
-                                <div class="sidebar-content fade-in">
-                                    <div class="sidebar-scrollable">
-                                        // Error message
-                                        {move || error_msg.get().map(|msg| view! {
-                                            <div class="sidebar-error animate-slide-up">
-                                                <AlertCircle size={14} />
-                                                <span>{msg}</span>
-                                            </div>
-                                        })}
+            // ── Sidebar ─────────────────────────────────────────
+            <aside class="editor-sidebar">
+                {move || {
+                    let nav = nav_history.clone();
+                    match processing_job.get() {
 
-                                        // Resolution Section
-                                        <div class="sidebar-group-v2">
-                                            <div class="card-tag-editor-v2">
+                        // Settings panel
+                        None => view! {
+                            <div class="sidebar-inner fade-in">
+                                <div class="sb-scroll">
+
+                                    // Error
+                                    {move || error_msg.get().map(|msg| view! {
+                                        <div class="sb-error">
+                                            <AlertCircle size={14} />
+                                            <span>{msg}</span>
+                                        </div>
+                                    })}
+
+                                    // ── Resolution ──────────────────
+                                    <div class="card editor-card">
+                                        <div class="editor-card-body">
+                                            <div class="card-tag" style="margin-bottom: var(--s-6);">
                                                 <Target size={10} />
-                                                <span>"RESOLUTION TARGET"</span>
+                                                <span>"RESOLUTION"</span>
                                             </div>
-                                            
-                                            <div class="resolution-grid-v2">
-                                                <div 
-                                                    class=move || if global_state.quality.get() == "2K" { "res-tile-v2 active" } else { "res-tile-v2" }
+                                            <div class="res-grid">
+                                                <div
+                                                    class=move || if global_state.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
                                                     on:click=move |_| global_state.set_quality.set("2K".to_string())
                                                 >
-                                                    <div class="res-info-v2">
-                                                        <span class="res-num-v2">"2K"</span>
-                                                        <span class="res-label-v2">"RESTORE"</span>
+                                                    <div class="pack-info">
+                                                        <span class="res-big-num">"2K"</span>
+                                                        <span class="pack-credits">"RESTORE"</span>
                                                     </div>
-                                                    <div class="res-cost-v2">"2 CREDITS"</div>
+                                                    <span class="pack-price" style="font-size: 0.8125rem;">"2 cr"</span>
                                                 </div>
-                                                <div 
-                                                    class=move || if global_state.quality.get() == "4K" { "res-tile-v2 active" } else { "res-tile-v2" }
+                                                <div
+                                                    class=move || if global_state.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
                                                     on:click=move |_| global_state.set_quality.set("4K".to_string())
                                                 >
-                                                    <div class="res-info-v2">
-                                                        <span class="res-num-v2">"4K"</span>
-                                                        <span class="res-label-v2">"ULTRA HD"</span>
+                                                    <div class="pack-info">
+                                                        <span class="res-big-num">"4K"</span>
+                                                        <span class="pack-credits">"ULTRA HD"</span>
                                                     </div>
-                                                    <div class="res-cost-v2">"4 CREDITS"</div>
+                                                    <span class="pack-price" style="font-size: 0.8125rem;">"4 cr"</span>
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
 
-                                        // Engine Logic (Style & Creativity)
-                                        <div class="sidebar-group-v2">
-                                            <div class="card-tag-editor-v2">
+                                    // ── Engine ──────────────────────
+                                    <div class="card editor-card">
+                                        <div class="editor-card-body">
+                                            <div class="card-tag" style="margin-bottom: var(--s-6);">
                                                 <Zap size={10} />
-                                                <span>"RECONSTRUCTION ENGINE"</span>
+                                                <span>"ENGINE"</span>
                                             </div>
 
-                                            <div class="control-card-v2">
-                                                <label class="control-label-v2">{TXT.label_style.to_uppercase()}</label>
-                                                <div class="style-switcher-v2">
-                                                    <button 
+                                            // Style
+                                            <div class="sb-field">
+                                                <label class="sb-label">"Style"</label>
+                                                <div class="seg-control">
+                                                    <button
                                                         class:active=move || global_state.style.get() == "PHOTOGRAPHY"
                                                         on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
-                                                    >
-                                                        "PHOTOGRAPHY"
-                                                    </button>
-                                                    <button 
+                                                    >"Photography"</button>
+                                                    <button
                                                         class:active=move || global_state.style.get() == "ILLUSTRATION"
                                                         on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
-                                                    >
-                                                        "ILLUSTRATION"
-                                                    </button>
+                                                    >"Illustration"</button>
                                                 </div>
                                             </div>
 
-                                            <div class="control-card-v2">
-                                                <div class="label-row-v2">
-                                                     <label class="control-label-v2">{TXT.label_creativity.to_uppercase()}</label>
-                                                     <span class="control-val-v2">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                                            // Creativity
+                                            <div class="sb-field" style="margin-top: var(--s-5);">
+                                                <div class="sb-label-row">
+                                                    <label class="sb-label">"Creativity"</label>
+                                                    <span class="sb-val-badge">{move || format!("{:.1}", global_state.temperature.get())}</span>
                                                 </div>
-                                                <div class="slider-box-v2">
-                                                    <input 
+                                                <div class="slider-wrap">
+                                                    <input
                                                         type="range" min="0.0" max="2.0" step="0.1"
+                                                        class="studio-slider"
                                                         prop:value=move || global_state.temperature.get().to_string()
-                                                        on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
+                                                        on:input=move |ev| global_state.set_temperature.set(
+                                                            leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0)
+                                                        )
                                                     />
-                                                    <div class="slider-meta-v2">
-                                                        <span>"STRICT"</span>
-                                                        <span>"CREATIVE"</span>
+                                                    <div class="slider-ends">
+                                                        <span>"Strict"</span>
+                                                        <span>"Creative"</span>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
 
-                                        // Advanced Telemetry (Seed & DOF)
-                                        <div class="sidebar-group-v2">
-                                            <div class="card-tag-editor-v2">
+                                    // ── Advanced ────────────────────
+                                    <div class="card editor-card">
+                                        <div class="editor-card-body">
+                                            <div class="card-tag" style="margin-bottom: var(--s-6);">
                                                 <Settings size={10} />
-                                                <span>"STUDIO TELEMETRY"</span>
+                                                <span>"ADVANCED"</span>
                                             </div>
 
-                                            <div class="control-card-v2">
-                                                <div class="label-row-v2">
-                                                     <label class="control-label-v2">{TXT.label_seed.to_uppercase()}</label>
-                                                     <span class="seed-pill-v2">
-                                                         {move || global_state.seed.get().map(|s: u32| format!("#{}", s)).unwrap_or_else(|| "AUTO".to_string())}
-                                                     </span>
+                                            // Seed
+                                            <div class="sb-field">
+                                                <div class="sb-label-row">
+                                                    <label class="sb-label">"Seed"</label>
+                                                    <span class="sb-val-badge mono">
+                                                        {move || global_state.seed.get()
+                                                            .map(|s: u32| format!("#{}", s))
+                                                            .unwrap_or_else(|| "AUTO".to_string())}
+                                                    </span>
                                                 </div>
-                                                <div class="seed-input-wrapper-v2">
-                                                    <input 
-                                                        type="number" 
-                                                        class="seed-input-v2"
-                                                        placeholder="000000"
-                                                        prop:value=move || global_state.seed.get().map(|s: u32| s.to_string()).unwrap_or_default()
+                                                <div class="seed-row">
+                                                    <input
+                                                        type="number"
+                                                        class="sb-input"
+                                                        placeholder="Leave empty for auto"
+                                                        prop:value=move || global_state.seed.get()
+                                                            .map(|s: u32| s.to_string())
+                                                            .unwrap_or_default()
                                                         on:input=move |ev| {
                                                             let val = event_target_value(&ev);
                                                             if val.is_empty() {
@@ -336,450 +301,560 @@ pub fn Configure() -> impl IntoView {
                                                             }
                                                         }
                                                     />
-                                                    <div class="seed-actions-v2">
-                                                        <button 
-                                                            class="seed-action-btn-v2" 
-                                                            on:click=move |_| {
-                                                                let val = (js_sys::Math::random() * (u32::MAX as f64)) as u32;
-                                                                global_state.set_seed.set(Some(val));
-                                                            }
-                                                        >
-                                                            <RefreshCw size={12} />
-                                                        </button>
-                                                    </div>
+                                                    <button
+                                                        class="seed-rng-btn"
+                                                        title="Randomize seed"
+                                                        on:click=move |_| {
+                                                            let val = (js_sys::Math::random() * (u32::MAX as f64)) as u32;
+                                                            global_state.set_seed.set(Some(val));
+                                                        }
+                                                    >
+                                                        <RefreshCw size={13} />
+                                                    </button>
                                                 </div>
                                             </div>
 
-                                            <div 
-                                                class="lock-card-v2" 
-                                                class:active=move || global_state.keep_depth_of_field.get()
+                                            // DOF toggle  — styled as pack-item
+                                            <div
+                                                class=move || if global_state.keep_depth_of_field.get() { "pack-item active dof-row" } else { "pack-item dof-row" }
+                                                style="margin-top: var(--s-4); cursor: pointer;"
                                                 on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
                                             >
-                                                <div class="lock-info-v2">
-                                                    <span class="lock-title-v2">"DEPTH-OF-FIELD LOCK"</span>
-                                                    <span class="lock-sub-v2">"Preserve focal planes"</span>
+                                                <div class="pack-info">
+                                                    <span class="pack-name">"Depth-of-field lock"</span>
+                                                    <span style="font-size: 0.6875rem; color: hsl(var(--text-dim));">"Preserve original focal planes"</span>
                                                 </div>
-                                                <div class="lock-toggle-v2">
-                                                    <div class="toggle-track-v2">
-                                                        <div class="toggle-thumb-v2"></div>
-                                                    </div>
+                                                <div class="toggle-track">
+                                                    <div class="toggle-thumb"></div>
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
 
-                                        // Environment
-                                        <div class="sidebar-group-v2">
-                                            <div class="card-tag-editor-v2">
+                                    // ── Lighting ────────────────────
+                                    <div class="card editor-card">
+                                        <div class="editor-card-body">
+                                            <div class="card-tag" style="margin-bottom: var(--s-6);">
                                                 <Info size={10} />
-                                                <span>"SCENE LIGHTING"</span>
+                                                <span>"LIGHTING"</span>
                                             </div>
-                                            <div class="studio-select-v2">
-                                                <select 
-                                                    on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
+                                            <div class="select-wrap">
+                                                <select
+                                                    class="sb-select"
+                                                    on:change=move |ev| global_state.set_lighting.set(
+                                                        leptos::prelude::event_target_value(&ev)
+                                                    )
                                                     prop:value=move || global_state.lighting.get()
                                                 >
-                                                    <option value="Original">"ORIGINAL LIGHTING"</option>
-                                                    <option value="Studio">"STUDIO LIGHTING"</option>
-                                                    <option value="Cinematic">"CINEMATIC SHADOWS"</option>
-                                                     <option value="Vivid">"VIVID DYNAMICS"</option>
-                                                     <option value="Natural">"NATURAL OVERCAST"</option>
+                                                    <option value="Original">"Original"</option>
+                                                    <option value="Studio">"Studio"</option>
+                                                    <option value="Cinematic">"Cinematic"</option>
+                                                    <option value="Vivid">"Vivid"</option>
+                                                    <option value="Natural">"Natural"</option>
                                                 </select>
-                                                <ChevronRight size={12} custom_style="transform: rotate(90deg); position: absolute; right: 12px; pointer-events: none; opacity: 0.5;".to_string() />
+                                                <ChevronRight size={14} custom_style="transform:rotate(90deg);position:absolute;right:12px;top:50%;margin-top:-7px;pointer-events:none;opacity:0.35;".to_string() />
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="sidebar-footer-v2">
-                                        <button 
-                                            class="initiate-btn-v2"
-                                            on:click=handle_upscale
-                                            disabled=move || global_state.temp_file.get().is_none()
-                                        >
-                                            <div class="initiate-btn-content">
-                                                <Zap size={16} />
-                                                <span>"INITIATE RECONSTRUCTION"</span>
-                                                <span class="initiate-btn-cost">
-                                                    {move || if global_state.quality.get() == "4K" { "4 CREDITS" } else { "2 CREDITS" }}
-                                                </span>
+                                </div>
+
+                                // ── CTA ─────────────────────────────
+                                <div class="sb-footer">
+                                    <button
+                                        class="btn btn-primary btn-lg sb-cta"
+                                        on:click=handle_upscale
+                                        disabled=move || global_state.temp_file.get().is_none()
+                                    >
+                                        <Zap size={16} />
+                                        <span>"Initiate Upscale"</span>
+                                        <span class="sb-cta-credit">
+                                            {move || if global_state.quality.get() == "4K" { "4 credits" } else { "2 credits" }}
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        }.into_any(),
+
+                        // Processing panel
+                        Some(_) => {
+                            let n = nav.clone();
+                            view! {
+                                <div class="sidebar-inner processing-panel fade-in">
+                                    <div class="proc-body">
+                                        <div class="proc-icon">
+                                            <Zap size={28} />
+                                        </div>
+                                        <span class="proc-stage">{move || stage_info().0}</span>
+                                        <h3 class="proc-title">{move || stage_info().1}</h3>
+                                        <p class="proc-desc">{move || stage_info().2}</p>
+
+                                        <div class="proc-bar-wrap">
+                                            <div class="proc-bar-track">
+                                                <div class="proc-bar-fill"></div>
                                             </div>
-                                            <div class="initiate-btn-shine"></div>
-                                        </button>
+                                            <div class="proc-bar-labels">
+                                                <span>"Reconstruction"</span>
+                                                <span>"Running"</span>
+                                            </div>
+                                        </div>
+
+                                        {move || engine_status.get().and_then(|s| s.latency_ms).map(|ms| view! {
+                                            <div class="proc-latency fade-in">
+                                                <span>"Duration:"</span>
+                                                <span class="proc-latency-val">{format!("{:.1}s", ms as f32 / 1000.0)}</span>
+                                            </div>
+                                        })}
+                                    </div>
+
+                                    <div class="proc-footer">
+                                        {move || if engine_status.get().map(|s| s.status == "COMPLETED").unwrap_or(false) {
+                                            let n2 = n.clone();
+                                            view! {
+                                                <button class="btn btn-primary btn-lg sb-cta" on:click=move |_| n2("/history", Default::default())>
+                                                    "View Gallery"
+                                                </button>
+                                            }.into_any()
+                                        } else {
+                                            view! {
+                                                <p class="proc-hint">"Processing your image. Do not close this page."</p>
+                                            }.into_any()
+                                        }}
                                     </div>
                                 </div>
-                            }.into_any(),
-
-                            Some(_) => {
-                                let n = nav.clone();
-                                view! {
-                                    // --- PROCESSING MODE ---
-                                    <div class="sidebar-content processing-state fade-in">
-                                        <div class="sidebar-header">
-                                            <div class="card-tag">
-                                                <RefreshCw size={12} custom_style="animation: spin 2s linear infinite".to_string() />
-                                                <span>"ENGINE ACTIVE"</span>
-                                            </div>
-                                            <h2 class="sidebar-title">"Upscaling..."</h2>
-                                        </div>
-
-                                        <div class="processing-vitals">
-                                            <div class="status-icon-box">
-                                                <Zap size={32} />
-                                            </div>
-                                            
-                                            <div class="status-box">
-                                                <span class="status-tag">{move || stage_info().0}</span>
-                                                <h3 class="status-title">{move || stage_info().1}</h3>
-                                                <p class="status-desc">{move || stage_info().2}</p>
-                                            </div>
-
-                                            <div class="progress-container">
-                                                <div class="progress-bar-rail">
-                                                    <div class="progress-bar-fill active"></div>
-                                                </div>
-                                                <div class="progress-labels">
-                                                    <span>"RECONSTRUCTION"</span>
-                                                    <span>"RUNNING"</span>
-                                                </div>
-                                            </div>
-
-                                            {move || engine_status.get().and_then(|s| s.latency_ms).map(|ms| view! {
-                                                <div class="latency-telemetry fade-in">
-                                                    <span class="latency-label">"DURATION:"</span>
-                                                    <span class="latency-value">{format!("{:.1}s", ms as f32 / 1000.0)}</span>
-                                                </div>
-                                            })}
-                                        </div>
-
-                                        <div class="sidebar-note">
-                                            <p>"Image is being processed by the Gemini Vision infrastructure."</p>
-                                            {move || if engine_status.get().map(|s| s.status == "COMPLETED").unwrap_or(false) {
-                                                let n2 = n.clone();
-                                                view! {
-                                                    <button class="btn btn-primary" style="margin-top: var(--s-4); width: 100%;" on:click=move |_| n2("/history", Default::default())>"VIEW GALLERY"</button>
-                                                }.into_any()
-                                            } else {
-                                                view! { <p style="font-size: 0.75rem; opacity: 0.5;">"Do not close until completion."</p> }.into_any()
-                                            }}
-                                        </div>
-                                    </div>
-                                }.into_any()
-                            }
+                            }.into_any()
                         }
-                    }.into_any()}
-                </div>
+                    }
+                }.into_any()}
             </aside>
         </div>
 
         <style>
-            "/* ─── EDITOR SHELL ─── */
+            "
+            /* ── Shell ── */
             .editor-shell {
                 display: flex;
                 height: calc(100vh - 72px);
-                background: hsl(var(--bg));
                 overflow: hidden;
+                background: transparent;
             }
 
-            .editor-main-container {
+            /* ── Canvas ── */
+            .editor-canvas-area {
                 flex: 1;
-                display: flex;
-                flex-direction: column;
-                overflow: hidden;
-            }
-
-            .editor-main {
-                flex: 1;
+                min-width: 0;
                 position: relative;
-                overflow: hidden;
-                display: flex;
-                flex-direction: column;
-            }
-
-            .editor-canvas {
-                flex: 1;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                position: relative;
-                padding: var(--s-12);
-                background: radial-gradient(circle at center, hsl(var(--accent) / 0.05), transparent);
+                overflow: hidden;
             }
-
-            .workspace-nav {
-                position: absolute; top: var(--s-6); left: var(--s-6);
-                display: flex; align-items: center; gap: var(--s-8); 
-                padding: 12px 24px; background: var(--glass); backdrop-filter: blur(20px);
-                border: 1px solid var(--glass-border); border-radius: var(--radius-md);
-                width: auto; z-index: 60;
-                box-shadow: var(--shadow-md);
-            }
-            .nav-item { display: flex; flex-direction: column; gap: 2px; }
-            .nav-label { font-size: 0.5rem; font-weight: 900; color: hsl(var(--text-dim) / 0.4); letter-spacing: 0.15em; text-transform: uppercase; }
-            .nav-val { font-size: 0.6875rem; font-weight: 850; color: hsl(var(--text)); letter-spacing: 0.05em; font-family: var(--font-mono); }
-            .nav-val.accent { color: hsl(var(--accent)); }
-            .nav-divider { width: 1px; height: 20px; background: var(--glass-border); }
 
             .canvas-grid {
-                position: absolute;
-                inset: 0;
-                background-image: 
-                    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-                    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-                background-size: 30px 30px;
-                mask-image: radial-gradient(circle at center, black, transparent 90%);
+                position: absolute; inset: 0;
+                background-image:
+                    linear-gradient(rgba(255,255,255,0.013) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(255,255,255,0.013) 1px, transparent 1px);
+                background-size: 44px 44px;
+                mask-image: radial-gradient(ellipse 65% 65% at center, black 10%, transparent 100%);
+                pointer-events: none;
             }
 
-            .asset-frame {
-                position: relative;
-                max-width: 90%;
-                max-height: 85%;
-                z-index: 10;
-            }
-
-            .studio-asset {
-                display: block;
-                max-width: 100%;
-                max-height: 60vh;
-                border-radius: 2px;
-                box-shadow: 0 40px 100px rgba(0,0,0,0.9), 0 0 0 1px rgba(255,255,255,0.08);
-            }
-
+            /* Asset */
             .asset-wrapper { position: relative; }
-
-            .laser-scanner {
-                position: absolute;
-                top: 0; left: 0; right: 0; height: 1px;
-                background: linear-gradient(90deg, transparent, hsl(var(--accent)), transparent);
-                box-shadow: 0 0 20px hsl(var(--accent));
-                animation: scan 5s linear infinite;
-                z-index: 20;
+            .studio-asset {
+                display: block; max-width: 100%; max-height: 62vh;
+                border-radius: var(--radius-md);
+                box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.06);
             }
-
-            @keyframes scan {
-                0% { top: 0%; opacity: 0; }
-                10%, 90% { opacity: 1; }
-                100% { top: 100%; opacity: 0; }
-            }
-
             .corner-accents .corner {
-                position: absolute; width: 14px; height: 14px;
-                border: 1px solid hsl(var(--accent) / 0.4);
-                z-index: 25;
+                position: absolute; width: 12px; height: 12px;
+                border: 1.5px solid hsl(var(--accent) / 0.45);
             }
-            .corner.tl { top: -8px; left: -8px; border-right: 0; border-bottom: 0; }
-            .corner.tr { top: -8px; right: -8px; border-left: 0; border-bottom: 0; }
-            .corner.bl { bottom: -8px; left: -8px; border-right: 0; border-top: 0; }
-            .corner.br { bottom: -8px; right: -8px; border-left: 0; border-top: 0; }
+            .corner.tl { top:-7px; left:-7px; border-right:0; border-bottom:0; }
+            .corner.tr { top:-7px; right:-7px; border-left:0; border-bottom:0; }
+            .corner.bl { bottom:-7px; left:-7px; border-right:0; border-top:0; }
+            .corner.br { bottom:-7px; right:-7px; border-left:0; border-top:0; }
 
-            .empty-canvas {
-                text-align: center; color: hsl(var(--text-dim));
+            /* Drop zone */
+            .drop-zone-outer {
+                padding: 2px;
+                border-radius: calc(var(--radius-lg) + 2px);
+                background: linear-gradient(140deg,
+                    hsl(var(--accent) / 0.12) 0%,
+                    transparent 45%,
+                    hsl(var(--accent) / 0.06) 100%
+                );
+                cursor: pointer;
+                transition: background 0.3s;
             }
-            .drop-zone-trigger {
-                cursor: pointer; padding: var(--s-20); border: 1px dashed rgba(255,255,255,0.08);
-                border-radius: var(--radius-lg); transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-                background: rgba(255,255,255,0.01);
+            .drop-zone-outer:hover {
+                background: linear-gradient(140deg,
+                    hsl(var(--accent) / 0.26) 0%,
+                    hsl(var(--accent) / 0.04) 45%,
+                    hsl(var(--accent) / 0.15) 100%
+                );
             }
-            .drop-zone-trigger:hover { 
-                background: rgba(255,255,255,0.03); 
-                border-color: hsl(var(--accent) / 0.4);
-                transform: translateY(-4px);
-            }
-            .trigger-icon { 
-                width: 80px; height: 80px; background: rgba(255,255,255,0.02);
-                border-radius: 20px; display: flex; align-items: center; justify-content: center;
-                margin: 0 auto var(--s-6); border: 1px solid rgba(255,255,255,0.05);
-                color: hsl(var(--text-dim) / 0.4);
-            }
-
-            .drag-overlay {
-                position: absolute; inset: -40px; background: hsl(var(--bg) / 0.95);
-                backdrop-filter: blur(20px); z-index: 100; border: 2px dashed hsl(var(--accent));
-                border-radius: var(--radius-xl); display: flex; flex-direction: column; align-items: center; justify-content: center;
-                gap: var(--s-4); color: hsl(var(--accent));
-            }
-
-            .canvas-telemetry {
-                position: absolute; bottom: var(--s-6); left: 50%; transform: translateX(-50%);
-                display: flex; gap: var(--s-4); z-index: 30;
-            }
-            .telemetry-pill {
-                background: var(--glass); border: 1px solid var(--glass-border);
-                padding: 6px 16px; border-radius: 100px;
-                display: flex; gap: 10px; font-size: 0.625rem; font-weight: 900; letter-spacing: 0.05em;
-                backdrop-filter: blur(10px);
-            }
-            .telemetry-pill .label { color: hsl(var(--text-dim) / 0.4); text-transform: uppercase; }
-            .telemetry-pill .value { color: hsl(var(--text)); font-family: var(--font-mono); }
-            .telemetry-pill .value.accent { color: hsl(var(--accent)); }
-
-            /* ─── SIDEBAR ─── */
-            .editor-sidebar-wrapper {
-                width: 380px; 
-                position: relative; 
-                border-left: 1px solid hsl(var(--border) / 0.5);
-                background: hsl(var(--surface));
-                box-shadow: -10px 0 50px rgba(0,0,0,0.2);
-            }
-            .sidebar-backdrop {
-                position: absolute; inset: 0; 
-                background: linear-gradient(to bottom, hsl(var(--surface-raised) / 0.5), transparent);
-            }
-            .editor-sidebar {
-                position: relative; height: 100%; display: flex; flex-direction: column; z-index: 10;
-            }
-            .sidebar-content { display: flex; flex-direction: column; height: 100%; }
-            
-            .sidebar-scrollable {
-                flex: 1; overflow-y: auto; padding: var(--s-8) var(--s-8);
-            }
-            .sidebar-scrollable::-webkit-scrollbar { width: 2px; }
-            .sidebar-scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
-
-            .sidebar-group-v2 {
-                background: hsl(var(--surface-raised) / 0.3);
-                border: 1px solid var(--glass-border);
+            .drop-zone-inner {
+                background: var(--glass);
+                backdrop-filter: blur(20px) saturate(140%);
                 border-radius: var(--radius-lg);
+                border: 1px dashed rgba(255,255,255,0.08);
+                padding: 3.5rem 4.5rem;
+                display: flex; flex-direction: column;
+                align-items: center; gap: var(--s-3);
+                text-align: center;
+                transition: border-color 0.25s;
+                user-select: none;
+            }
+            .drop-zone-outer:hover .drop-zone-inner { border-color: hsl(var(--accent) / 0.22); }
+            .dz-icon-wrap {
+                width: 64px; height: 64px;
+                background: hsl(var(--accent) / 0.07);
+                border: 1px solid hsl(var(--accent) / 0.13);
+                border-radius: 18px;
+                display: flex; align-items: center; justify-content: center;
+                color: hsl(var(--accent) / 0.65);
+                margin-bottom: var(--s-2);
+                transition: all 0.25s;
+            }
+            .drop-zone-outer:hover .dz-icon-wrap {
+                background: hsl(var(--accent) / 0.12);
+                border-color: hsl(var(--accent) / 0.28);
+                color: hsl(var(--accent));
+            }
+            .dz-title {
+                font-size: 1.125rem; font-weight: 700;
+                color: hsl(var(--text));
+                font-family: var(--font-heading);
+                letter-spacing: -0.02em;
+            }
+            .dz-sub { font-size: 0.875rem; color: hsl(var(--text-dim)); font-weight: 400; }
+            .dz-formats {
+                margin-top: var(--s-3);
+                font-size: 0.5625rem; font-weight: 700;
+                color: hsl(var(--text-dim) / 0.35);
+                letter-spacing: 0.14em; text-transform: uppercase;
+                font-family: var(--font-mono);
+            }
+
+            /* Drag overlay */
+            .drag-overlay {
+                position: absolute; inset: 0;
+                background: hsl(var(--bg) / 0.75);
+                backdrop-filter: blur(16px);
+                display: flex; flex-direction: column;
+                align-items: center; justify-content: center;
+                gap: var(--s-3); color: hsl(var(--accent));
+                border: 2px dashed hsl(var(--accent) / 0.5);
+                z-index: 50;
+                font-size: 0.875rem; font-weight: 700;
+            }
+
+            /* ── Sidebar ── */
+            .editor-sidebar {
+                width: 340px; flex-shrink: 0;
+                border-left: 1px solid var(--glass-border);
+                background: hsl(var(--surface) / 0.7);
+                backdrop-filter: blur(24px) saturate(160%);
+                display: flex; flex-direction: column;
+                overflow: hidden;
+            }
+
+            .sidebar-inner {
+                display: flex; flex-direction: column;
+                height: 100%; overflow: hidden;
+            }
+
+            .sb-scroll {
+                flex: 1; overflow-y: auto;
                 padding: var(--s-6);
-                margin-bottom: var(--s-6);
-                transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                display: flex; flex-direction: column;
+                gap: var(--s-4);
             }
-            .sidebar-group-v2:hover { 
-                background: hsl(var(--surface-raised) / 0.5);
-                border-color: hsl(var(--accent) / 0.2); 
+            .sb-scroll::-webkit-scrollbar { width: 3px; }
+            .sb-scroll::-webkit-scrollbar-thumb {
+                background: hsl(var(--border) / 0.35); border-radius: 3px;
             }
 
-            .card-tag-editor-v2 {
-                display: flex; align-items: center; gap: 8px;
-                margin-bottom: var(--s-6);
+            /* Error */
+            .sb-error {
+                display: flex; align-items: center; gap: var(--s-3);
+                padding: var(--s-3) var(--s-4);
+                background: hsl(var(--error) / 0.08);
+                border: 1px solid hsl(var(--error) / 0.2);
+                border-radius: var(--radius-md);
+                color: hsl(var(--error));
+                font-size: 0.8125rem; font-weight: 600;
             }
-            .card-tag-editor-v2 span {
-                font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim) / 0.5);
-                letter-spacing: 0.1em;
-            }
-            .card-tag-editor-v2 svg { color: hsl(var(--accent)); }
 
-            .resolution-grid-v2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
-            .res-tile-v2 {
-                background: hsl(var(--surface-raised) / 0.5); 
-                border: 1px solid var(--glass-border);
-                border-radius: var(--radius-md); padding: var(--s-4);
-                cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            /* Cards — use global .card + editor-card-body for internal padding */
+            .editor-card { padding: 0 !important; }
+            .editor-card-body { padding: var(--s-6); }
+
+            /* Resolution grid */
+            .res-grid {
+                display: grid; grid-template-columns: 1fr 1fr;
+                gap: var(--s-3);
+            }
+            /* Big numeral inside pack-item for resolution */
+            .res-big-num {
+                font-family: var(--font-heading);
+                font-size: 1.5rem; font-weight: 800;
+                color: hsl(var(--text));
+                line-height: 1; letter-spacing: -0.04em;
+            }
+
+            /* Segmented control */
+            .seg-control {
+                display: flex;
+                background: hsl(var(--surface-raised));
+                border: 1px solid hsl(var(--border));
+                border-radius: var(--radius-md);
+                padding: 3px; gap: 3px;
+            }
+            .seg-control button {
+                flex: 1; border: none;
+                background: transparent;
+                color: hsl(var(--text-dim));
+                padding: 8px 0;
+                font-size: 0.8125rem; font-weight: 600;
+                border-radius: 8px; cursor: pointer;
+                transition: all 0.18s;
+                font-family: var(--font-body);
+            }
+            .seg-control button.active {
+                background: hsl(var(--surface-bright));
+                color: hsl(var(--text));
+                box-shadow: var(--shadow-sm);
+            }
+
+            /* Field helpers */
+            .sb-field { display: flex; flex-direction: column; gap: var(--s-2); }
+            .sb-label {
+                font-size: 0.6875rem; font-weight: 700;
+                color: hsl(var(--text-dim));
+            }
+            .sb-label-row {
                 display: flex; justify-content: space-between; align-items: center;
             }
-            .res-tile-v2:hover { background: hsl(var(--surface-bright)); border-color: hsl(var(--accent) / 0.3); }
-            .res-tile-v2.active { 
-                background: hsl(var(--accent) / 0.08); 
-                border-color: hsl(var(--accent)); 
-                box-shadow: 0 0 20px hsl(var(--accent) / 0.1);
+            .sb-val-badge {
+                font-family: var(--font-mono);
+                font-size: 0.6875rem; font-weight: 700;
+                color: hsl(var(--accent));
+                background: hsl(var(--accent) / 0.08);
+                padding: 2px 8px; border-radius: 4px;
+                border: 1px solid hsl(var(--accent) / 0.15);
             }
-            .res-info-v2 { display: flex; flex-direction: column; gap: 2px; }
-            .res-num-v2 { font-size: 1.125rem; font-weight: 850; color: hsl(var(--text)); font-family: var(--font-heading); }
-            .res-label-v2 { font-size: 0.55rem; font-weight: 800; color: hsl(var(--text-dim) / 0.5); letter-spacing: 0.05em; text-transform: uppercase; }
-            .res-cost-v2 { font-size: 0.6875rem; font-weight: 900; color: hsl(var(--accent)); font-family: var(--font-mono); }
+            .sb-val-badge.mono { font-family: var(--font-mono); }
 
-            .control-card-v2 { margin-bottom: var(--s-8); }
-            .control-card-v2:last-child { margin-bottom: 0; }
-            .control-label-v2 { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim) / 0.6); letter-spacing: 0.05em; margin-bottom: var(--s-4); display: block; }
-            
-            .style-switcher-v2 { 
-                display: flex; background: hsl(var(--surface-raised)); padding: 4px; border-radius: var(--radius-md); 
-                border: 1px solid var(--glass-border);
+            /* Slider */
+            .slider-wrap { display: flex; flex-direction: column; gap: 6px; }
+            .studio-slider {
+                width: 100%; height: 3px;
+                background: hsl(var(--border) / 0.5);
+                border-radius: 3px; appearance: none;
+                outline: none; cursor: pointer; border: none; padding: 0;
             }
-            .style-switcher-v2 button {
-                flex: 1; border: none; background: transparent; color: hsl(var(--text-dim) / 0.6);
-                padding: 10px 0; font-size: 0.625rem; font-weight: 900; border-radius: 6px;
-                cursor: pointer; transition: all 0.2s; letter-spacing: 0.05em;
+            .studio-slider::-webkit-slider-thumb {
+                appearance: none;
+                width: 16px; height: 16px;
+                background: hsl(var(--text));
+                border-radius: 50%; cursor: pointer;
+                border: 2px solid hsl(var(--bg));
+                box-shadow: 0 0 0 2px hsl(var(--accent) / 0.2), 0 2px 6px rgba(0,0,0,0.4);
+                transition: box-shadow 0.15s;
             }
-            .style-switcher-v2 button.active { background: hsl(var(--bg)); color: hsl(var(--text)); box-shadow: var(--shadow-sm); }
-
-            .label-row-v2 { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-3); }
-            .control-val-v2 { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 900; color: hsl(var(--accent)); }
-            
-            .slider-box-v2 input { width: 100%; height: 2px; background: rgba(255,255,255,0.1); border-radius: 2px; appearance: none; outline: none; }
-            .slider-box-v2 input::-webkit-slider-thumb { 
-                appearance: none; width: 12px; height: 12px; background: white; border-radius: 50%; cursor: pointer;
-                border: 2px solid #000; box-shadow: 0 0 10px rgba(255,255,255,0.2);
+            .studio-slider::-webkit-slider-thumb:hover {
+                box-shadow: 0 0 0 4px hsl(var(--accent) / 0.2);
             }
-            .slider-meta-v2 { display: flex; justify-content: space-between; font-size: 0.5rem; font-weight: 900; color: hsl(var(--text-dim) / 0.2); margin-top: 6px; letter-spacing: 0.1em; }
-
-            .seed-pill-v2 { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 900; color: hsl(var(--accent)); }
-            .seed-input-wrapper-v2 { display: flex; gap: var(--s-2); margin-top: var(--s-1); }
-            .seed-input-v2 { 
-                flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); 
-                padding: 10px; border-radius: var(--radius-md); color: white; font-family: var(--font-mono); font-size: 0.75rem; text-align: center;
-            }
-            .seed-input-v2:focus { border-color: hsl(var(--accent) / 0.5); background: rgba(0,0,0,0.5); outline: none; }
-            .seed-action-btn-v2 { 
-                width: 40px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
-                border-radius: var(--radius-md); color: hsl(var(--text-dim) / 0.4); cursor: pointer;
-                display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-            }
-            .seed-action-btn-v2:hover { background: rgba(255,255,255,0.1); color: white; }
-
-            .lock-card-v2 {
-                background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03);
-                padding: var(--s-4); border-radius: var(--radius-lg);
-                display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.3s;
-            }
-            .lock-card-v2:hover { background: rgba(255,255,255,0.02); }
-            .lock-card-v2.active { border-color: hsl(var(--accent) / 0.3); background: hsl(var(--accent) / 0.03); }
-            .lock-info-v2 { display: flex; flex-direction: column; }
-            .lock-title-v2 { font-size: 0.625rem; font-weight: 900; color: white; }
-            .lock-sub-v2 { font-size: 0.5rem; font-weight: 700; color: hsl(var(--text-dim) / 0.4); }
-            
-            .toggle-track-v2 { width: 34px; height: 18px; background: #111; border-radius: 100px; padding: 3px; position: relative; border: 1px solid rgba(255,255,255,0.05); }
-            .toggle-thumb-v2 { width: 12px; height: 12px; background: #333; border-radius: 50%; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-            .lock-card-v2.active .toggle-thumb-v2 { transform: translateX(16px); background: hsl(var(--accent)); box-shadow: 0 0 10px hsl(var(--accent)); }
-
-            .studio-select-v2 { position: relative; }
-            .studio-select-v2 select {
-                width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
-                padding: 12px 16px; border-radius: var(--radius-md); color: white; font-size: 0.6875rem;
-                font-weight: 900; letter-spacing: 0.05em; appearance: none; cursor: pointer; outline: none;
+            .slider-ends {
+                display: flex; justify-content: space-between;
+                font-size: 0.625rem; font-weight: 600;
+                color: hsl(var(--text-dim) / 0.35);
             }
 
-            .sidebar-footer-v2 { padding: var(--s-8); background: hsl(var(--surface) / 0.8); border-top: 1px solid var(--glass-border); backdrop-filter: blur(10px); }
-            .initiate-btn-v2 {
-                width: 100%; height: 56px; background: hsl(var(--text)); border: none; border-radius: var(--radius-md);
-                cursor: pointer; position: relative; overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            /* Input */
+            .sb-input {
+                flex: 1;
+                background: hsl(var(--surface-raised));
+                border: 1px solid hsl(var(--border));
+                border-radius: var(--radius-md);
+                padding: 9px 12px;
+                color: hsl(var(--text));
+                font-size: 0.8125rem;
+                font-family: var(--font-body);
+                transition: all 0.18s;
+                width: 100%;
             }
-            .initiate-btn-v2:disabled { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
-            .initiate-btn-content { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 12px; color: hsl(var(--bg)); font-weight: 900; letter-spacing: 0.1em; font-size: 0.8125rem; text-transform: uppercase; }
-            .initiate-btn-cost { background: hsl(var(--bg) / 0.1); padding: 4px 10px; border-radius: 6px; font-size: 0.625rem; font-weight: 900; color: hsl(var(--bg)); font-family: var(--font-mono); }
-            .initiate-btn-shine { position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent); transform: translateX(-100%); animation: shine 3s infinite; }
-            @keyframes shine { 100% { transform: translateX(100%); } }
-            .initiate-btn-v2:hover:not(:disabled) { background: hsl(var(--accent)); transform: translateY(-3px); box-shadow: 0 20px 40px hsl(var(--accent) / 0.2); }
-            .initiate-btn-v2:hover:not(:disabled) .initiate-btn-content { color: white; }
-            .initiate-btn-v2:hover:not(:disabled) .initiate-btn-cost { background: rgba(255,255,255,0.2); color: white; }
-
-            /* ─── PROCESSING STATE ─── */
-            .processing-state { background: hsl(var(--bg)); }
-            .processing-vitals { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: var(--s-12); }
-            
-            .status-icon-box { 
-                width: 100px; height: 100px; background: hsl(var(--accent) / 0.05); 
-                border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-                color: hsl(var(--accent)); margin-bottom: var(--s-12); border: 1px solid hsl(var(--accent) / 0.1);
+            .sb-input::placeholder { color: hsl(var(--text-dim) / 0.3); }
+            .sb-input:focus {
+                border-color: hsl(var(--accent) / 0.5);
+                background: hsl(var(--surface-bright));
+                outline: none;
+                box-shadow: 0 0 0 3px hsl(var(--accent) / 0.08);
             }
 
-            .status-box { text-align: center; margin-bottom: var(--s-12); }
-            .status-tag { display: inline-block; background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); font-size: 0.625rem; font-weight: 900; padding: 4px 14px; border-radius: 100px; margin-bottom: var(--s-3); border: 1px solid hsl(var(--accent) / 0.2); }
-            .status-title { font-size: 1.5rem; font-weight: 850; margin-bottom: var(--s-2); letter-spacing: -0.04em; }
-            .status-desc { font-size: 0.8125rem; color: hsl(var(--text-dim) / 0.5); max-width: 260px; line-height: 1.5; }
+            /* Seed row */
+            .seed-row { display: flex; gap: var(--s-2); }
+            .seed-rng-btn {
+                width: 40px; flex-shrink: 0;
+                background: hsl(var(--surface-raised));
+                border: 1px solid hsl(var(--border));
+                border-radius: var(--radius-md);
+                color: hsl(var(--text-dim));
+                cursor: pointer;
+                display: flex; align-items: center; justify-content: center;
+                transition: all 0.18s;
+            }
+            .seed-rng-btn:hover {
+                background: hsl(var(--surface-bright));
+                border-color: hsl(var(--accent) / 0.4);
+                color: hsl(var(--text));
+            }
 
-            .progress-container { width: 100%; max-width: 300px; margin-bottom: var(--s-10); }
-            .progress-bar-rail { height: 2px; background: rgba(255,255,255,0.03); border-radius: 10px; overflow: hidden; margin-bottom: 10px; }
-            .progress-bar-fill.active { height: 100%; background: hsl(var(--accent)); width: 100%; transform: translateX(-100%); animation: progress-slide-editor 2.5s infinite cubic-bezier(0.16, 1, 0.3, 1); }
-            @keyframes progress-slide-editor { 
-                0% { transform: translateX(-100%); }
+            /* DOF toggle — reuses pack-item, just needs the toggle switch */
+            .dof-row { align-items: center; }
+            .toggle-track {
+                width: 34px; height: 18px; flex-shrink: 0;
+                background: hsl(var(--surface-raised));
+                border: 1px solid hsl(var(--border));
+                border-radius: 100px; padding: 3px;
+                transition: all 0.25s;
+            }
+            .pack-item.active .toggle-track {
+                background: hsl(var(--accent) / 0.15);
+                border-color: hsl(var(--accent) / 0.5);
+            }
+            .toggle-thumb {
+                width: 12px; height: 12px;
+                background: hsl(var(--text-dim) / 0.4);
+                border-radius: 50%;
+                transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            .pack-item.active .toggle-thumb {
+                transform: translateX(16px);
+                background: hsl(var(--accent));
+                box-shadow: 0 0 6px hsl(var(--accent) / 0.5);
+            }
+
+            /* Select */
+            .select-wrap { position: relative; }
+            .sb-select {
+                width: 100%;
+                background: hsl(var(--surface-raised));
+                border: 1px solid hsl(var(--border));
+                border-radius: var(--radius-md);
+                padding: 10px 36px 10px 12px;
+                color: hsl(var(--text));
+                font-size: 0.8125rem;
+                font-family: var(--font-body); font-weight: 500;
+                appearance: none; cursor: pointer; outline: none;
+                transition: all 0.18s;
+            }
+            .sb-select:focus {
+                border-color: hsl(var(--accent) / 0.4);
+                box-shadow: 0 0 0 3px hsl(var(--accent) / 0.07);
+            }
+
+            /* Footer CTA */
+            .sb-footer {
+                padding: var(--s-4) var(--s-6) var(--s-5);
+                border-top: 1px solid hsl(var(--border-muted));
+                background: hsl(var(--surface) / 0.5);
+                flex-shrink: 0;
+            }
+            .sb-cta {
+                width: 100% !important;
+                position: relative;
+                gap: 10px;
+                justify-content: center;
+            }
+            .sb-cta:disabled { opacity: 0.35; cursor: not-allowed; transform: none !important; box-shadow: none !important; }
+            .sb-cta-credit {
+                font-size: 0.6875rem;
+                font-weight: 600;
+                opacity: 0.65;
+                padding: 2px 8px;
+                border-radius: 4px;
+                background: rgba(0,0,0,0.15);
+                margin-left: auto;
+            }
+
+            /* ── Processing panel ── */
+            .processing-panel { justify-content: space-between; }
+            .proc-body {
+                flex: 1; display: flex; flex-direction: column;
+                align-items: center; justify-content: center;
+                padding: var(--s-10) var(--s-8);
+                text-align: center; gap: var(--s-4);
+            }
+            .proc-icon {
+                width: 72px; height: 72px;
+                background: hsl(var(--accent) / 0.07);
+                border: 1px solid hsl(var(--accent) / 0.14);
+                border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
+                color: hsl(var(--accent));
+                margin-bottom: var(--s-2);
+            }
+            .proc-stage {
+                font-size: 0.5625rem; font-weight: 900;
+                letter-spacing: 0.2em; text-transform: uppercase;
+                color: hsl(var(--accent));
+                background: hsl(var(--accent) / 0.08);
+                border: 1px solid hsl(var(--accent) / 0.15);
+                padding: 3px 12px; border-radius: 100px;
+            }
+            .proc-title {
+                font-size: 1.375rem; font-weight: 800;
+                letter-spacing: -0.03em;
+                font-family: var(--font-heading);
+            }
+            .proc-desc {
+                font-size: 0.875rem; color: hsl(var(--text-dim));
+                max-width: 220px; line-height: 1.5;
+            }
+            .proc-bar-wrap { width: 100%; max-width: 220px; }
+            .proc-bar-track {
+                height: 2px; background: hsl(var(--border) / 0.3);
+                border-radius: 2px; overflow: hidden; margin-bottom: 6px;
+            }
+            .proc-bar-fill {
+                height: 100%; background: hsl(var(--accent));
+                width: 100%; transform: translateX(-100%);
+                animation: proc-slide 2s infinite ease-in-out;
+            }
+            @keyframes proc-slide {
+                0%   { transform: translateX(-100%); }
                 100% { transform: translateX(100%); }
             }
-            .progress-labels { display: flex; justify-content: space-between; font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim) / 0.15); letter-spacing: 0.2em; }
-
-            .latency-telemetry { display: flex; gap: 10px; align-items: center; padding: 12px 20px; background: hsl(var(--surface-raised)); border-radius: 10px; border: 1px solid var(--glass-border); }
-            .latency-label { font-size: 0.625rem; color: hsl(var(--text-dim) / 0.4); font-weight: 850; letter-spacing: 0.05em; }
-            .latency-value { font-size: 0.6875rem; color: hsl(var(--accent)); font-family: var(--font-mono); font-weight: 950; }
-
-            .sidebar-note { padding: var(--s-10); text-align: center; font-size: 0.75rem; color: hsl(var(--text-dim) / 0.4); line-height: 1.6; }
+            .proc-bar-labels {
+                display: flex; justify-content: space-between;
+                font-size: 0.5625rem; font-weight: 700;
+                color: hsl(var(--text-dim) / 0.25);
+                letter-spacing: 0.1em; text-transform: uppercase;
+            }
+            .proc-latency {
+                display: flex; align-items: center; gap: 8px;
+                font-size: 0.75rem; color: hsl(var(--text-dim));
+                padding: 8px 16px;
+                background: hsl(var(--surface-raised));
+                border-radius: var(--radius-md);
+                border: 1px solid hsl(var(--border));
+            }
+            .proc-latency-val {
+                font-family: var(--font-mono); font-weight: 800;
+                color: hsl(var(--accent));
+            }
+            .proc-footer {
+                padding: var(--s-6);
+                border-top: 1px solid hsl(var(--border-muted));
+            }
+            .proc-hint {
+                font-size: 0.75rem; color: hsl(var(--text-dim));
+                text-align: center; line-height: 1.5;
+            }
             "
         </style>
     }
