@@ -321,7 +321,14 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
     border-radius: var(--radius-lg); 
     box-shadow: var(--shadow-xl);
 }
-.auth-card h2 { font-family: var(--font-heading); font-size: 2rem; font-weight: 800; letter-spacing: -0.05em; margin-bottom: var(--s-1); text-align: center; }
+.auth-card h2 { 
+    font-family: var(--font-heading); 
+    font-size: 2rem; 
+    font-weight: 800; 
+    letter-spacing: -0.05em; 
+    margin-bottom: var(--s-1); 
+    text-align: center; 
+}
 .auth-card .text-muted { text-align: center; margin-bottom: var(--s-6); display: block; color: hsl(var(--text-dim)); font-size: 0.875rem; }
 
 .divider { position: relative; text-align: center; margin: var(--s-6) 0; }

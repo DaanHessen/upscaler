@@ -316,13 +316,28 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
     width: 100%; 
     max-width: 440px; 
     padding: var(--s-10); 
-    background: hsl(var(--surface)); 
-    border: 1px solid hsl(var(--border)); 
+    background: hsl(var(--surface-bright)); 
+    border: 1px solid hsl(var(--border) / 0.5); 
     border-radius: var(--radius-lg); 
     box-shadow: var(--shadow-xl);
 }
-.auth-card h2 { font-family: var(--font-heading); font-size: 2rem; font-weight: 800; letter-spacing: -0.05em; margin-bottom: var(--s-1); text-align: center; }
-.auth-card .text-muted { text-align: center; margin-bottom: var(--s-6); display: block; color: hsl(var(--text-dim)); font-size: 0.875rem; }
+.auth-card h2 { 
+    font-family: var(--font-heading); 
+    font-size: 2rem; 
+    font-weight: 800; 
+    letter-spacing: -0.05em; 
+    margin-bottom: var(--s-1); 
+    text-align: center; 
+}
+.auth-card .text-muted { 
+  text-align: center; 
+  margin-bottom: var(--s-8); 
+  display: block; 
+  color: hsl(var(--text-dim)); 
+  font-size: 0.9375rem; 
+  line-height: 1.6;
+  letter-spacing: -0.01em;
+}
 
 .divider { position: relative; text-align: center; margin: var(--s-6) 0; }
 .divider::before { content: ''; position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: hsl(var(--border-muted)); }
