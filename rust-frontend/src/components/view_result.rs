@@ -251,8 +251,8 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
 
                 <div class="result-sidebar">
                     <div class="card settings-card">
-                        <div class="params-body">
-                            <div class="card-tag" style="margin-bottom: var(--s-6);">
+                        <div class="params-body" style="padding: var(--s-8);">
+                            <div class="card-tag" style="margin-bottom: var(--s-8);">
                                 <Settings size={10} />
                                 <span>"ASSET TELEMETRY"</span>
                             </div>

@@ -250,7 +250,7 @@ pub fn Configure() -> impl IntoView {
                                     // ── Resolution ──────────────────
                                     <div class="card editor-card">
                                         <div class="editor-card-body">
-                                            <div class="card-tag" style="margin-bottom: var(--s-6);">
+                                            <div class="card-tag" style="margin-bottom: var(--s-8);">
                                                 <Target size={10} />
                                                 <span>"RESOLUTION"</span>
                                             </div>
@@ -261,7 +261,6 @@ pub fn Configure() -> impl IntoView {
                                                 >
                                                     <div class="pack-info">
                                                         <span class="res-big-num">"2K"</span>
-                                                        <span class="pack-credits">"RESTORE"</span>
                                                     </div>
                                                     <span class="pack-price" style="font-size: 0.8125rem;">"2 cr"</span>
                                                 </div>
@@ -271,7 +270,6 @@ pub fn Configure() -> impl IntoView {
                                                 >
                                                     <div class="pack-info">
                                                         <span class="res-big-num">"4K"</span>
-                                                        <span class="pack-credits">"ULTRA HD"</span>
                                                     </div>
                                                     <span class="pack-price" style="font-size: 0.8125rem;">"4 cr"</span>
                                                 </div>
@@ -304,7 +302,7 @@ pub fn Configure() -> impl IntoView {
 
                                             // Creativity
                                             <div class="sb-field" style="margin-top: var(--s-5);">
-                                                <div class="sb-label-row">
+                                                <div class="sb-label-row" style="margin-bottom: var(--s-3);">
                                                     <label class="sb-label">"Creativity"</label>
                                                     <span class="sb-val-badge">{move || format!("{:.1}", global_state.temperature.get())}</span>
                                                 </div>
@@ -336,7 +334,7 @@ pub fn Configure() -> impl IntoView {
 
                                             // Seed
                                             <div class="sb-field">
-                                                <div class="sb-label-row">
+                                                <div class="sb-label-row" style="margin-bottom: var(--s-3);">
                                                     <label class="sb-label">"Seed"</label>
                                                     <span class="sb-val-badge mono">
                                                         {move || global_state.seed.get()
@@ -673,6 +671,7 @@ pub fn Configure() -> impl IntoView {
                 backdrop-filter: blur(24px) saturate(160%);
                 display: flex; flex-direction: column;
                 overflow: hidden;
+                gap: var(--s-2);
             }
 
             .sidebar-inner {
@@ -704,7 +703,7 @@ pub fn Configure() -> impl IntoView {
 
             /* Cards — use global .card + editor-card-body for internal padding */
             .editor-card { padding: 0 !important; }
-            .editor-card-body { padding: var(--s-6); }
+            .editor-card-body { padding: var(--s-8); }
 
             /* Resolution grid */
             .res-grid {
@@ -744,10 +743,11 @@ pub fn Configure() -> impl IntoView {
             }
 
             /* Field helpers */
-            .sb-field { display: flex; flex-direction: column; gap: var(--s-2); }
+            .sb-field { display: flex; flex-direction: column; gap: var(--s-4); }
             .sb-label {
                 font-size: 0.6875rem; font-weight: 700;
                 color: hsl(var(--text-dim));
+                margin-bottom: var(--s-1);
             }
             .sb-label-row {
                 display: flex; justify-content: space-between; align-items: center;
