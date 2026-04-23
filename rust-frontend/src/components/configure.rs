@@ -653,7 +653,7 @@ pub fn Configure() -> impl IntoView {
             /* Custom Scrollbar for Sidebar */
             .sb-scroll::-webkit-scrollbar { width: 4px; }
             .sb-scroll::-webkit-scrollbar-track { background: transparent; }
-            .sb-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 10px; }
+            .sb-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); border-radius: 100px; }
 
             /* Polling View */
             .polling-view { padding: var(--s-10) var(--s-8); text-align: center; display: flex; flex-direction: column; gap: var(--s-6); }
@@ -682,8 +682,9 @@ pub fn Configure() -> impl IntoView {
             .p-footer { padding-top: var(--s-4); border-top: 1px solid var(--glass-border); }
             .p-hint { font-size: 0.75rem; color: hsl(var(--text-dim)); opacity: 0.6; line-height: 1.5; }
 
-            .editor-card-body { padding: var(--s-8); }
-            .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+            .editor-card { overflow: visible !important; }
+            .editor-card-body { padding: var(--s-8); overflow: visible !important; }
+            .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); overflow: visible !important; }
             .res-big-num { font-size: 1.5rem; font-weight: 800; }
             .seg-control {
                 display: flex;
@@ -692,28 +693,33 @@ pub fn Configure() -> impl IntoView {
                 border-radius: var(--radius-md);
                 padding: 4px;
                 gap: 4px;
+                overflow: visible !important;
             }
             .seg-control button {
                 flex: 1;
                 background: transparent;
                 border: none;
                 color: hsl(var(--text-dim));
-                padding: 10px 0;
+                padding: 10px 4px;
                 font-size: 0.8125rem;
                 font-weight: 700;
                 border-radius: 6px;
                 cursor: pointer;
                 transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             .seg-control button.active {
                 background: hsl(var(--accent));
                 color: white;
                 box-shadow: 0 4px 12px hsl(var(--accent) / 0.3);
+                overflow: visible !important;
             }
 
-            .sb-field { display: flex; flex-direction: column; gap: var(--s-3); }
+            .sb-field { display: flex; flex-direction: column; gap: var(--s-3); overflow: visible !important; }
             .sb-label { font-size: 0.6875rem; font-weight: 850; color: hsl(var(--text-dim) / 0.4); letter-spacing: 0.08em; text-transform: uppercase; }
-            .sb-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+            .sb-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; overflow: visible !important; }
             .sb-val-badge { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 900; color: hsl(var(--accent)); background: hsl(var(--accent) / 0.1); padding: 2px 10px; border-radius: 6px; border: 1px solid hsl(var(--accent) / 0.2); }
 
             .studio-slider { 
@@ -754,6 +760,7 @@ pub fn Configure() -> impl IntoView {
                 flex-direction: column;
                 justify-content: center;
                 min-height: 100px;
+                overflow: visible !important;
             }
             .pack-info { display: flex; flex-direction: column; gap: 2px; }
             .pack-item:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); }
@@ -765,7 +772,7 @@ pub fn Configure() -> impl IntoView {
             .pack-price { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim) / 0.4); margin-top: 4px; }
             .pack-item.active .pack-price { color: hsl(var(--accent)); opacity: 0.8; }
             
-            .seed-row { display: flex; gap: var(--s-3); align-items: center; }
+            .seed-row { display: flex; gap: var(--s-3); align-items: center; overflow: visible !important; }
             .sb-input { 
                 flex: 1; background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
                 color: white; padding: 12px 14px; border-radius: 8px; font-size: 0.875rem;
@@ -791,9 +798,9 @@ pub fn Configure() -> impl IntoView {
             }
             .pack-item.active .toggle-thumb { left: calc(100% - 18px); }
             
-            .dof-row { flex-direction: row; align-items: center; justify-content: space-between; min-height: 0; padding: var(--s-6); }
+            .dof-row { flex-direction: row; align-items: center; justify-content: space-between; min-height: 0; padding: var(--s-6); overflow: visible !important; }
 
-            .select-wrap { position: relative; width: 100%; }
+            .select-wrap { position: relative; width: 100%; overflow: visible !important; }
             .sb-select {
                 width: 100%; appearance: none; background: rgba(255,255,255,0.04);
                 border: 1px solid var(--glass-border); color: white; padding: 12px 14px;
