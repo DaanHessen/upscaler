@@ -288,9 +288,7 @@ pub fn ForgotPassword() -> impl IntoView {
         set_loading.set(true);
         set_error.set(None);
         
-        // Define redirect URL
-        // In production this should be your domain, for now we assume localhost for dev
-        let redirect_to = "http://localhost:8080/auth/callback"; 
+        let redirect_to = match option_env!("AUTH_REDIRECT_URL") { Some(v) => v, None => "" }; 
 
         let ctx = auth;
         leptos::task::spawn_local(async move {

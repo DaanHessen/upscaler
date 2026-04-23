@@ -337,26 +337,26 @@ pub fn Configure() -> impl IntoView {
                                                 <Target size={10} />
                                                 <span>"RESOLUTION"</span>
                                             </div>
-                                            <div class="res-grid">
-                                                <div
-                                                    class=move || if global_state.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
-                                                    on:click=move |_| global_state.set_quality.set("2K".to_string())
-                                                >
-                                                    <div class="pack-info">
-                                                        <span class="res-big-num">"2K"</span>
+                                                <div class="res-grid">
+                                                    <div
+                                                        class=move || if global_state.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
+                                                        on:click=move |_| global_state.set_quality.set("2K".to_string())
+                                                    >
+                                                        <div class="pack-info">
+                                                            <span class="res-big-num">"2K"</span>
+                                                            <span class="pack-price">"2 credits"</span>
+                                                        </div>
                                                     </div>
-                                                    <span class="pack-price" style="font-size: 0.8125rem;">"2 cr"</span>
-                                                </div>
-                                                <div
-                                                    class=move || if global_state.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
-                                                    on:click=move |_| global_state.set_quality.set("4K".to_string())
-                                                >
-                                                    <div class="pack-info">
-                                                        <span class="res-big-num">"4K"</span>
+                                                    <div
+                                                        class=move || if global_state.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
+                                                        on:click=move |_| global_state.set_quality.set("4K".to_string())
+                                                    >
+                                                        <div class="pack-info">
+                                                            <span class="res-big-num">"4K"</span>
+                                                            <span class="pack-price">"4 credits"</span>
+                                                        </div>
                                                     </div>
-                                                    <span class="pack-price" style="font-size: 0.8125rem;">"4 cr"</span>
                                                 </div>
-                                            </div>
                                         </div>
                                     </div>
 
@@ -507,11 +507,14 @@ pub fn Configure() -> impl IntoView {
                                         on:click=handle_upscale
                                         disabled=move || global_state.temp_file.get().is_none()
                                     >
-                                        <Zap size={16} />
-                                        <span>"Initiate Upscale"</span>
-                                        <span class="sb-cta-credit">
-                                            {move || if global_state.quality.get() == "4K" { "4 credits" } else { "2 credits" }}
-                                        </span>
+                                        <div class="sb-cta-inner">
+                                            <Zap size={16} />
+                                            <span>"Initiate Upscale"</span>
+                                        </div>
+                                        <div class="sb-cta-badge">
+                                            {move || if global_state.quality.get() == "4K" { "4" } else { "2" }}
+                                            <span style="font-size: 0.625rem; opacity: 0.5; margin-left: 2px;">"CR"</span>
+                                        </div>
                                     </button>
                                 </div>
                             </div>
@@ -674,20 +677,87 @@ pub fn Configure() -> impl IntoView {
             .editor-card-body { padding: var(--s-8); }
             .res-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
             .res-big-num { font-size: 1.5rem; font-weight: 800; }
-            .seg-control { display: flex; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 4px; gap: 4px; }
-            .seg-control button { flex: 1; padding: 10px 0; font-size: 0.8125rem; font-weight: 700; border-radius: 6px; cursor: pointer; color: hsl(var(--text-dim)); }
-            .seg-control button.active { background: hsl(var(--accent)); color: white; }
+            .seg-control {
+                display: flex;
+                background: rgba(255, 255, 255, 0.04);
+                border: 1px solid var(--glass-border);
+                border-radius: var(--radius-md);
+                padding: 4px;
+                gap: 4px;
+            }
+            .seg-control button {
+                flex: 1;
+                background: transparent;
+                border: none;
+                color: hsl(var(--text-dim));
+                padding: 10px 0;
+                font-size: 0.8125rem;
+                font-weight: 700;
+                border-radius: 6px;
+                cursor: pointer;
+                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            .seg-control button.active {
+                background: hsl(var(--accent));
+                color: white;
+                box-shadow: 0 4px 12px hsl(var(--accent) / 0.3);
+            }
 
-            .sb-field { display: flex; flex-direction: column; gap: var(--s-4); }
-            .sb-label { font-size: 0.6875rem; font-weight: 700; color: hsl(var(--text-dim)); }
-            .sb-val-badge { font-family: var(--font-mono); font-size: 0.6875rem; color: hsl(var(--accent)); background: hsl(var(--accent) / 0.1); padding: 2px 8px; border-radius: 4px; }
+            .sb-field { display: flex; flex-direction: column; gap: var(--s-3); }
+            .sb-label { font-size: 0.6875rem; font-weight: 850; color: hsl(var(--text-dim) / 0.4); letter-spacing: 0.08em; text-transform: uppercase; }
+            .sb-label-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+            .sb-val-badge { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 900; color: hsl(var(--accent)); background: hsl(var(--accent) / 0.1); padding: 2px 10px; border-radius: 6px; border: 1px solid hsl(var(--accent) / 0.2); }
 
-            .studio-slider { width: 100%; height: 4px; background: rgba(255,255,255,0.05); border-radius: 4px; appearance: none; outline: none; }
-            .studio-slider::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; background: white; border-radius: 50%; cursor: pointer; border: 4px solid hsl(var(--accent)); box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+            .studio-slider { 
+                width: 100%; height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; appearance: none; outline: none; margin: 12px 0;
+            }
+            .studio-slider::-webkit-slider-thumb { 
+                appearance: none; width: 20px; height: 20px; background: #fff; border-radius: 50%; cursor: pointer; border: 4px solid hsl(var(--accent)); box-shadow: 0 4px 12px rgba(0,0,0,0.6); 
+                transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            }
+            .studio-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
             
-            .sb-footer { padding: var(--s-6); border-top: 1px solid var(--glass-border); }
-            .sb-cta { width: 100%; display: flex; align-items: center; justify-content: center; gap: 12px; }
-            .sb-cta-credit { background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 6px; font-size: 0.75rem; opacity: 0.6; }
+            .sb-footer { 
+                padding: var(--s-6); 
+                background: linear-gradient(to top, hsl(var(--bg)), transparent);
+                border-top: 1px solid var(--glass-border); 
+            }
+            .sb-cta { 
+                width: 100%; height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; gap: 12px; 
+                background: white; color: black; border: none; font-weight: 900; letter-spacing: 0.05em;
+                border-radius: var(--radius-md); transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            }
+            .sb-cta-inner { display: flex; align-items: center; gap: 12px; }
+            .sb-cta-badge { 
+                background: rgba(0,0,0,0.08); padding: 4px 12px; border-radius: 8px; font-size: 0.8125rem; font-weight: 900; display: flex; align-items: center; gap: 2px;
+            }
+            .sb-cta:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,0,0,0.5); filter: brightness(1.05); }
+            .sb-cta:active:not(:disabled) { transform: translateY(0); }
+            .sb-cta:disabled { opacity: 0.3; filter: grayscale(1); cursor: not-allowed; }
+            
+            .pack-item {
+                background: rgba(255,255,255,0.02);
+                border: 1px solid var(--glass-border);
+                border-radius: var(--radius-lg);
+                padding: var(--s-6);
+                cursor: pointer;
+                transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                min-height: 100px;
+            }
+            .pack-info { display: flex; flex-direction: column; gap: 2px; }
+            .pack-item:hover { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.1); }
+            .pack-item.active { 
+                background: hsl(var(--accent) / 0.08); 
+                border-color: hsl(var(--accent));
+                box-shadow: 0 0 24px hsl(var(--accent) / 0.2);
+            }
+            .pack-price { font-size: 0.75rem; font-weight: 700; color: hsl(var(--text-dim) / 0.4); margin-top: 4px; }
+            .pack-item.active .pack-price { color: hsl(var(--accent)); opacity: 0.8; }
+            
+            
             "
         </style>
     }

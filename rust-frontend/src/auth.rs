@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use gloo_net::http::Request;
 use gloo_storage::{LocalStorage, Storage};
 
-const SUPABASE_URL: &str = "https://avdchsjlsuqnmdbxlrby.supabase.co";
-const SUPABASE_ANON_KEY: &str = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZGNoc2psc3Vxbm1kYnhscmJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTQyNDcsImV4cCI6MjA5MTc3MDI0N30.GuvHDSjKige2aYlgZj1AgrvqHKahsDN3VIdf_sZl26s";
+const SUPABASE_URL: &str = match option_env!("SUPABASE_URL") { Some(v) => v, None => "" };
+const SUPABASE_ANON_KEY: &str = match option_env!("SUPABASE_ANON_KEY") { Some(v) => v, None => "" };
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct User {
@@ -72,12 +72,8 @@ fn is_token_expired(token: &str) -> bool {
     let parts: Vec<&str> = token.split('.').collect();
     if parts.len() != 3 { return true; }
     
-    // We only need the payload (middle part)
+    // Extract the exp (expiration) claim from the JWT payload
     let payload_b64 = parts[1];
-    
-    // Try to decode payload using js_sys::atob if available, or just assume it's valid if we can't.
-    // However, usually we can just check if we have the payload and it looks okay.
-    // For a real fix, we check the 'exp' field.
     if let Ok(decoded) = decode_base64_json(payload_b64) {
         if let Some(exp) = decoded.get("exp").and_then(|v| v.as_u64()) {
             let now = (js_sys::Date::now() / 1000.0) as u64;
@@ -89,18 +85,13 @@ fn is_token_expired(token: &str) -> bool {
 }
 
 pub fn decode_base64_json(b64: &str) -> Result<serde_json::Value, String> {
-    // Basic base64url decoding to handle JWT payload
-    let mut input = b64.replace('-', "+").replace('_', "/");
-    while input.len() % 4 != 0 {
-        input.push('=');
-    }
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
     
-    // Use base64-js if possible, or just a simple decode
-    // Since we don't have a base64 crate, we can use window.atob via wasm-bindgen
-    let window = web_sys::window().ok_or("No window")?;
-    let decoded_str = window.atob(&input).map_err(|_| "Base64 decode failed".to_string())?;
+    let decoded = URL_SAFE_NO_PAD.decode(b64.as_bytes())
+        .map_err(|e| format!("Base64 decode failed: {}", e))?;
     
-    serde_json::from_str(&decoded_str).map_err(|e| e.to_string())
+    serde_json::from_slice(&decoded)
+        .map_err(|e| format!("JSON parse failed: {}", e))
 }
 
 #[derive(Copy, Clone)]
