@@ -478,7 +478,6 @@ fn Home() -> impl IntoView {
                 
                 <div class="hybrid-layout stagger-3">
                     <div class="studio-card hybrid-left">
-                        <div class="scanline-overlay"></div>
                         <ComparisonSlider 
                             images=vec![
                                 ("./assets/hero_before_1.svg".to_string(), "./assets/hero_after_1.svg".to_string()),
@@ -490,7 +489,6 @@ fn Home() -> impl IntoView {
                         />
                     </div>
                     <div class="studio-card hybrid-right">
-                        <div class="scanline-overlay"></div>
                         <crate::components::upload_zone::UploadZone />
                     </div>
                 </div>

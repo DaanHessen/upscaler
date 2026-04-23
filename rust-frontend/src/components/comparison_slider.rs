@@ -113,7 +113,7 @@ pub fn ComparisonSlider(
                     position: relative;
                     width: 100%;
                     height: 100%;
-                    min-height: 480px;
+                    min-height: 420px;
                     overflow: hidden;
                     cursor: ew-resize;
                     user-select: none;
