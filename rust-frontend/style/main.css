@@ -11,6 +11,8 @@
   --glass: rgba(10, 10, 12, 0.7);
   --glass-border: rgba(255, 255, 255, 0.08);
 
+  --surface-bright: 240 10% 10%;
+
   --accent: 210 100% 60%;
   --accent-glow: 210 100% 60% / 0.15;
   
@@ -53,6 +55,7 @@
   --bg: 0 0% 100%;
   --surface: 240 20% 98%;
   --surface-raised: 240 10% 94%;
+  --surface-bright: 240 10% 90%;
   --border: 240 10% 90%;
   --border-muted: 240 10% 95%;
   
@@ -541,8 +544,29 @@ footer {
 .badge-label { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.1em; }
 .badge-value { font-weight: 900; font-family: var(--font-mono); color: hsl(var(--accent)); }
 
-.usage-table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
-.usage-table th { text-align: left; padding: var(--s-4); border-bottom: 2px solid hsl(var(--border)); font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim)); letter-spacing: 0.1em; text-transform: uppercase; }
+.usage-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 0.8125rem; margin-top: var(--s-4); }
+.usage-table th { 
+  text-align: left; 
+  padding: var(--s-4); 
+  background: hsl(var(--surface-bright));
+  border-top: 1px solid hsl(var(--border) / 0.5); 
+  border-bottom: 1px solid hsl(var(--border) / 0.5); 
+  font-size: 0.625rem; 
+  font-weight: 900; 
+  color: hsl(var(--text-dim)); 
+  letter-spacing: 0.1em; 
+  text-transform: uppercase; 
+}
+.usage-table th:first-child {
+  border-left: 1px solid hsl(var(--border) / 0.5);
+  border-top-left-radius: var(--radius-md);
+  border-bottom-left-radius: var(--radius-md);
+}
+.usage-table th:last-child {
+  border-right: 1px solid hsl(var(--border) / 0.5);
+  border-top-right-radius: var(--radius-md);
+  border-bottom-right-radius: var(--radius-md);
+}
 .usage-table td { padding: var(--s-4); border-bottom: 1px solid hsl(var(--border-muted)); vertical-align: middle; }
 .id-cell { font-family: var(--font-mono); font-weight: 700; }
 .cell-link { color: hsl(var(--accent)); text-decoration: none; border-bottom: 1px solid transparent; }

@@ -44,27 +44,27 @@ pub fn Credits() -> impl IntoView {
         <div class="credits-container fade-in">
             <div class="page-header">
                 <div class="header-main">
-                    <h1 class="text-gradient stagger-1">"Credits & Usage"</h1>
+                    <h1 class="stagger-1">"Credits & Usage"</h1>
                     <p class="muted stagger-2">"Manage your credits and view your activity history."</p>
                 </div>
             </div>
 
-            <div class="credits-layout">
-                /* Balance Hero */
-                <div class="card vault-card shadow-lg">
-                    <div class="params-body">
+            <div class="card unified-billing-card shadow-lg" style="margin-top: var(--s-8);">
+                <div class="unified-billing-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));">
+                    /* Balance Section */
+                    <div class="billing-section balance-section" style="padding: var(--s-10); border-right: 1px solid hsl(var(--border)); display: flex; flex-direction: column;">
                         <div class="card-tag">
                             <Zap size={10} />
                             <span>"VAULT BALANCE"</span>
                         </div>
-                        <div class="balance-display">
-                            <span class="credit-count">
+                        <div class="balance-display" style="margin-top: var(--s-6); flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                            <span class="credit-count" style="font-size: 4rem;">
                                 {move || auth.credits.get().map(|c| c.to_string()).unwrap_or_else(|| "---".to_string())}
                             </span>
                             <span class="credit-symbol">"Credits Available"</span>
                         </div>
                         
-                        <div class="meta-stats">
+                        <div class="meta-stats" style="margin-top: auto; padding-top: var(--s-8);">
                             <div class="stat-box">
                                 <span class="stat-label">"Last Top Up"</span>
                                 <span class="stat-value">"N/A"</span>
@@ -75,12 +75,10 @@ pub fn Credits() -> impl IntoView {
                             </div>
                         </div>
                     </div>
-                </div>
 
-                /* Replenish Hero */
-                <div class="card replenish-card shadow-lg">
-                    <div class="params-body">
-                        <div class="card-tag">
+                    /* Replenish Section */
+                    <div class="billing-section replenish-section" style="padding: var(--s-10); display: flex; flex-direction: column;">
+                        <div class="card-tag" style="margin-bottom: var(--s-6);">
                             <CreditCard size={10} />
                             <span>"BUY CREDITS"</span>
                         </div>
@@ -107,9 +105,9 @@ pub fn Credits() -> impl IntoView {
                             </div>
                         </div>
                         
-                        <div class="card-actions-row">
+                        <div class="card-actions-row centered-actions" style="display: flex; justify-content: center; margin-top: var(--s-8);">
                             <button 
-                                class="btn btn-primary btn-lg btn-block" 
+                                class="btn btn-primary btn-lg" 
                                 class:loading=loading
                                 on:click=on_buy
                                 disabled=loading
@@ -140,7 +138,7 @@ pub fn Credits() -> impl IntoView {
                     </div>
                 </div>
                 
-                <div class="card usage-card">
+                <div class="usage-card">
                     <div class="table-wrapper">
                         <table class="usage-table">
                                     <thead>

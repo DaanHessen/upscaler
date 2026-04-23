@@ -16,9 +16,9 @@ pub fn HistoryGallery() -> impl IntoView {
 
     view! {
         <div class="history-container fade-in">
-            <div class="history-header">
+            <div class="page-header">
                 <div class="header-main">
-                    <h1 class="hero-title text-gradient stagger-1">"History"</h1>
+                    <h1 class="stagger-1">"History"</h1>
                     <p class="muted stagger-2">"Your previously upscaled images."</p>
                 </div>
             </div>
@@ -43,7 +43,7 @@ pub fn HistoryGallery() -> impl IntoView {
                                         <div class="empty-icon"><ImageIcon size={48} /></div>
                                         <h3>"Gallery Empty"</h3>
                                         <p>"Successfully processed images will appear here. Records are preserved for 24 hours to ensure privacy and storage efficiency."</p>
-                                        <A href="/" attr:class="btn btn-secondary" attr:style="margin-top: var(--s-8)">"Back to Studio"</A>
+                                        <A href="/" attr:class="btn btn-secondary" attr:style="margin-top: var(--s-8)">"BACK TO STUDIO"</A>
                                     </div>
                                 }.into_any()
                             } else {
