@@ -127,13 +127,6 @@ pub fn Configure() -> impl IntoView {
     view! {
         <div class="editor-shell fade-in">
             <div class="editor-main-container">
-                // Standardised Page Header
-                <div class="page-header" style="padding: var(--s-10) var(--s-12) 0;">
-                    <div class="header-main">
-                        <h1 class="stagger-1 text-gradient">{TXT.editor_page_title}</h1>
-                        <p class="muted stagger-2">{TXT.editor_page_subtitle}</p>
-                    </div>
-                </div>
 
                 <div class="editor-main"
                      on:dragover=move |ev| { ev.prevent_default(); set_is_dragging.set(true); }

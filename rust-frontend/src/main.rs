@@ -422,12 +422,13 @@ fn Home() -> impl IntoView {
         <div class="fade-in" style="position: relative;">
             <div class="page-container" style="max-width: 1200px; margin: 0 auto; padding: 0 var(--s-8);">
                 <div class="hero-section stagger-1">
-                    <h1 class="hero-title text-gradient" style="font-size: 3rem; margin-bottom: var(--s-4);">{crate::text::TXT.home_hero_title}</h1>
-                    <p class="hero-subtitle muted" style="font-size: 1.125rem; max-width: 700px;">{crate::text::TXT.home_hero_subtitle}</p>
+                    <h1 class="hero-title text-gradient" style="font-size: 2.75rem; margin-bottom: var(--s-3); letter-spacing: -0.05em;">{crate::text::TXT.home_hero_title}</h1>
+                    <p class="hero-subtitle muted" style="font-size: 1rem; max-width: 600px;">{crate::text::TXT.home_hero_subtitle}</p>
                 </div>
                 
                 <div class="home-showcase stagger-3">
-                    <div class="showcase-frame">
+                    <div class="showcase-frame-wrapper">
+                        <div class="showcase-frame">
                         <ComparisonSlider 
                             images=vec![
                                 ("./assets/hero_before_1.svg".to_string(), "./assets/hero_after_1.svg".to_string()),
@@ -437,6 +438,7 @@ fn Home() -> impl IntoView {
                                 ("./assets/hero_before_5.svg".to_string(), "./assets/hero_after_5.svg".to_string()),
                             ]
                         />
+                        </div>
                     </div>
                     
                     <div class="showcase-actions stagger-4">
@@ -485,18 +487,24 @@ fn Home() -> impl IntoView {
 
             <style>
                 ".home-showcase { 
-                    max-width: 1200px;
-                    margin: var(--s-16) auto 0;
+                    max-width: 1100px;
+                    margin: var(--s-10) auto 0;
                     display: flex;
                     flex-direction: column;
-                    gap: var(--s-16);
+                    gap: var(--s-12);
+                }
+
+                .showcase-frame-wrapper {
+                    padding: 1px;
+                    background: linear-gradient(135deg, hsl(var(--accent) / 0.3) 0%, transparent 40%, hsl(var(--accent) / 0.1) 100%);
+                    border-radius: calc(var(--radius-lg) + 1px);
+                    box-shadow: 0 40px 100px -30px rgba(0,0,0,0.8);
                 }
                 
                 .showcase-frame {
                     background: hsl(var(--surface));
-                    border: 1px solid hsl(var(--accent) / 0.1);
+                    border: 1px solid rgba(255,255,255,0.03);
                     border-radius: var(--radius-lg);
-                    box-shadow: 0 40px 100px -30px rgba(0,0,0,0.8);
                     overflow: hidden;
                     position: relative;
                 }
