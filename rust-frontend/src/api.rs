@@ -51,8 +51,6 @@ pub struct ModerateResponse {
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct PromptSettings {
     #[serde(default)]
-    pub keep_aspect_ratio: bool,
-    #[serde(default)]
     pub keep_depth_of_field: bool,
     #[serde(default)]
     pub lighting: String,

@@ -292,7 +292,6 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                                         <div class="debug-section">
                                             <span class="d-hdr">"PROMPT BUILDER"</span>
                                             <div class="d-row"><span>"Lighting"</span><span>{settings.lighting}</span></div>
-                                            <div class="d-row"><span>"Aspect Lock"</span><span>{settings.keep_aspect_ratio.to_string()}</span></div>
                                             <div class="d-row"><span>"Focus Lock"</span><span>{settings.keep_depth_of_field.to_string()}</span></div>
                                         </div>
                                         <div class="debug-section">

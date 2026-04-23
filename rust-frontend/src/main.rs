@@ -33,8 +33,6 @@ pub struct GlobalState {
     pub set_style: WriteSignal<String>,
     pub temperature: ReadSignal<f32>,
     pub set_temperature: WriteSignal<f32>,
-    pub keep_aspect_ratio: ReadSignal<bool>,
-    pub set_keep_aspect_ratio: WriteSignal<bool>,
     pub keep_depth_of_field: ReadSignal<bool>,
     pub set_keep_depth_of_field: WriteSignal<bool>,
     pub lighting: ReadSignal<String>,
@@ -55,7 +53,6 @@ pub fn provide_global_state() {
     let (quality, set_quality) = signal(initial_settings.as_ref().map(|s| s.quality.clone()).unwrap_or_else(|| "2K".to_string()));
     let (style, set_style) = signal("PHOTOGRAPHY".to_string());
     let (temperature, set_temperature) = signal(initial_settings.as_ref().map(|s| s.temperature).unwrap_or(0.0f32));
-    let (keep_aspect_ratio, set_keep_aspect_ratio) = signal(initial_settings.as_ref().map(|s| s.keep_aspect_ratio).unwrap_or(true));
     let (keep_depth_of_field, set_keep_depth_of_field) = signal(initial_settings.as_ref().map(|s| s.keep_depth_of_field).unwrap_or(true));
     let (lighting, set_lighting) = signal(initial_settings.as_ref().map(|s| s.lighting.clone()).unwrap_or_else(|| "Original".to_string()));
     let (thinking_level, set_thinking_level) = signal(initial_settings.as_ref().map(|s| s.thinking_level.clone()).unwrap_or_else(|| "HIGH".to_string()));
@@ -73,8 +70,6 @@ pub fn provide_global_state() {
         set_style,
         temperature,
         set_temperature,
-        keep_aspect_ratio,
-        set_keep_aspect_ratio,
         keep_depth_of_field,
         set_keep_depth_of_field,
         lighting,
@@ -124,7 +119,6 @@ fn App() -> impl IntoView {
             quality: global_state.quality.get(),
             style: global_state.style.get(),
             temperature: global_state.temperature.get(),
-            keep_aspect_ratio: global_state.keep_aspect_ratio.get(),
             keep_depth_of_field: global_state.keep_depth_of_field.get(),
             lighting: global_state.lighting.get(),
             thinking_level: global_state.thinking_level.get(),
@@ -156,7 +150,6 @@ fn App() -> impl IntoView {
             gs.set_quality.set(s.quality);
             gs.set_style.set(s.style);
             gs.set_temperature.set(s.temperature);
-            gs.set_keep_aspect_ratio.set(s.keep_aspect_ratio);
             gs.set_keep_depth_of_field.set(s.keep_depth_of_field);
             gs.set_lighting.set(s.lighting);
             gs.set_theme.set(s.theme);

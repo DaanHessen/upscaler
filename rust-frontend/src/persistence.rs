@@ -15,7 +15,6 @@ pub struct SettingsState {
     pub quality: String,
     pub style: String,
     pub temperature: f32,
-    pub keep_aspect_ratio: bool,
     pub keep_depth_of_field: bool,
     pub lighting: String,
     pub thinking_level: String,

@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use crate::{use_global_state, use_auth};
 use crate::api::{ApiClient, PromptSettings};
-use crate::components::icons::{Zap, ImageIcon, Settings, Maximize, Target, Sun};
+use crate::components::icons::{Zap, ImageIcon, Settings, Target, Sun};
 
 #[component]
 pub fn Configure() -> impl IntoView {
@@ -12,8 +12,6 @@ pub fn Configure() -> impl IntoView {
     
     let (loading, set_loading) = signal(false);
 
-    // Classification should only update STYLE if the user hasn't manually tweaked it yet
-    // Or we just let it override for now as per "AI auto-detection preference"
     Effect::new(move |_| {
         if let Some(cls) = global_state.temp_classification.get() {
             global_state.set_style.set(cls);
@@ -26,7 +24,6 @@ pub fn Configure() -> impl IntoView {
             let q_val: String = global_state.quality.get();
             let cost = if q_val == "4K" { 4 } else { 2 };
             
-            // Check credits
             if let Some(current) = auth.credits.get() {
                 if current < cost {
                     leptos::logging::error!("Insufficient credits");
@@ -41,7 +38,6 @@ pub fn Configure() -> impl IntoView {
             let auth_ctx = auth;
             
             let p_settings = PromptSettings {
-                keep_aspect_ratio: global_state.keep_aspect_ratio.get(),
                 keep_depth_of_field: global_state.keep_depth_of_field.get(),
                 lighting: global_state.lighting.get(),
                 thinking_level: global_state.thinking_level.get(),
@@ -50,7 +46,6 @@ pub fn Configure() -> impl IntoView {
             leptos::task::spawn_local(async move {
                 match ApiClient::submit_upscale(&file, &q_val, &s_val, t_val, &p_settings, token.as_deref()).await {
                     Ok(resp) => {
-                        // Optimistic update
                         auth_ctx.set_credits.update(|c| if let Some(cv) = c { *cv -= cost; });
                         auth_ctx.sync_telemetry(true);
                         navigate(&format!("/view/{}", resp.job_id), Default::default());
@@ -83,204 +78,356 @@ pub fn Configure() -> impl IntoView {
                 </div>
             </div>
 
-            // ── Main card: two-column grid, same pattern as Credits page ──
-            <div class="card shadow-lg" style="margin-top: var(--s-8);">
-                <div style="display: grid; grid-template-columns: 1fr 1fr;">
+            <div class="card shadow-lg stagger-3" style="margin-top: var(--s-8); overflow: hidden;">
+                <div class="cfg-grid">
 
-                    // ── Left: Preview ────────────────────────────────────
-                    <div style="padding: var(--s-10) var(--s-12); border-right: 1px solid hsl(var(--border) / 0.5); display: flex; flex-direction: column;">
+                    // ── Left: Preview ──
+                    <div class="cfg-left">
                         <div class="card-tag">
                             <ImageIcon size={10} />
                             <span>"ASSET PREVIEW"</span>
                         </div>
 
-                        <div class="cfg-preview-box" style="margin-top: var(--s-8); flex: 1; display: flex; align-items: center; justify-content: center; background: hsl(var(--surface-raised)); border-radius: var(--radius-md); overflow: hidden; min-height: 300px;">
+                        <div class="cfg-img-box">
                             {move || {
                                 if global_state.temp_file.get().is_some() {
-                                    view! { <img src=preview_src() style="width: 100%; height: 100%; object-fit: contain; display: block;" /> }.into_any()
+                                    view! { <img src=preview_src() class="cfg-img" /> }.into_any()
                                 } else {
                                     view! {
-                                        <div style="display: flex; flex-direction: column; align-items: center; gap: var(--s-3); opacity: 0.25; color: hsl(var(--text-dim));">
-                                            <ImageIcon size={40} />
-                                            <span style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em;">"No asset loaded"</span>
+                                        <div class="cfg-empty">
+                                            <ImageIcon size={28} />
+                                            <span>"No asset"</span>
                                         </div>
                                     }.into_any()
                                 }
                             }}
                         </div>
 
-                        <div class="meta-stats" style="margin-top: var(--s-8); padding-top: var(--s-6); border-top: 1px solid hsl(var(--border-muted));">
-                            <div class="stat-box">
-                                <span class="stat-label">"Detected Style"</span>
-                                <span class="stat-value" style="font-size: 0.9375rem;">
-                                    {move || global_state.temp_classification.get().unwrap_or_else(|| "—".to_string())}
-                                </span>
-                            </div>
-                            <div class="stat-box">
-                                <span class="stat-label">"Status"</span>
-                                <span class="stat-value highlight" style="font-size: 0.9375rem;">"READY"</span>
-                            </div>
+                        <div class="cfg-detected">
+                            <span class="cfg-det-label">"DETECTED"</span>
+                            <span class="cfg-det-value">
+                                {move || global_state.temp_classification.get().unwrap_or_else(|| "—".to_string())}
+                            </span>
                         </div>
                     </div>
 
-                    // ── Right: Settings ──────────────────────────────────
-                    <div style="padding: var(--s-10) var(--s-12); display: flex; flex-direction: column;">
-                        <div class="card-tag" style="margin-bottom: var(--s-8);">
+                    // ── Right: Settings ──
+                    <div class="cfg-right">
+                        <div class="card-tag" style="margin-bottom: var(--s-5);">
                             <Settings size={10} />
                             <span>"PARAMETERS"</span>
                         </div>
 
                         // Resolution
-                        <div style="display: grid; gap: var(--s-4);">
-                            <div class="data-row">
-                                <span class="data-label">"TARGET RESOLUTION"</span>
-                            </div>
-                            <div class="pack-list">
+                        <div class="cfg-section">
+                            <span class="cfg-label">"RESOLUTION"</span>
+                            <div class="cfg-row-2">
                                 <div
-                                    class=move || if global_state.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
+                                    class=move || if global_state.quality.get() == "2K" { "cfg-opt active" } else { "cfg-opt" }
                                     on:click=move |_| global_state.set_quality.set("2K".to_string())
                                 >
-                                    <div class="pack-info">
-                                        <span class="pack-name">"2K — HD Restore"</span>
-                                        <span class="pack-credits">"STANDARD QUALITY"</span>
-                                    </div>
-                                    <span class="pack-price">"2C"</span>
+                                    <strong>"2K"</strong>
+                                    <span>"2 Credits"</span>
                                 </div>
                                 <div
-                                    class=move || if global_state.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
+                                    class=move || if global_state.quality.get() == "4K" { "cfg-opt active" } else { "cfg-opt" }
                                     on:click=move |_| global_state.set_quality.set("4K".to_string())
                                 >
-                                    <div class="pack-info">
-                                        <span class="pack-name">"4K — Ultra HD"</span>
-                                        <span class="pack-credits">"MAXIMUM QUALITY"</span>
-                                    </div>
-                                    <span class="pack-price">"4C"</span>
+                                    <strong>"4K"</strong>
+                                    <span>"4 Credits"</span>
                                 </div>
                             </div>
                         </div>
 
                         // Style
-                        <div style="display: grid; gap: var(--s-4); margin-top: var(--s-8);">
-                            <div class="data-row">
-                                <span class="data-label">"RECONSTRUCTION STYLE"</span>
-                            </div>
-                            <div class="pack-list">
+                        <div class="cfg-section">
+                            <span class="cfg-label">"STYLE"</span>
+                            <div class="cfg-row-2">
                                 <div
-                                    class=move || if global_state.style.get() == "PHOTOGRAPHY" { "pack-item active" } else { "pack-item" }
+                                    class=move || if global_state.style.get() == "PHOTOGRAPHY" { "cfg-opt active" } else { "cfg-opt" }
                                     on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
                                 >
-                                    <div class="pack-info">
-                                        <span class="pack-name">"Photography"</span>
-                                        <span class="pack-credits">"OPTIMIZED FOR PHOTOS"</span>
-                                    </div>
+                                    <strong>"Photo"</strong>
                                 </div>
                                 <div
-                                    class=move || if global_state.style.get() == "ILLUSTRATION" { "pack-item active" } else { "pack-item" }
+                                    class=move || if global_state.style.get() == "ILLUSTRATION" { "cfg-opt active" } else { "cfg-opt" }
                                     on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
                                 >
-                                    <div class="pack-info">
-                                        <span class="pack-name">"Illustration"</span>
-                                        <span class="pack-credits">"OPTIMIZED FOR ART"</span>
-                                    </div>
+                                    <strong>"Illustration"</strong>
                                 </div>
                             </div>
                         </div>
 
-                        // Temperature
-                        <div style="margin-top: var(--s-8); padding-top: var(--s-8); border-top: 1px solid hsl(var(--border-muted));">
-                            <div class="data-row" style="margin-bottom: var(--s-4);">
-                                <span class="data-label">"CREATIVE DRIFT"</span>
-                                <span class="data-value" style="color: hsl(var(--accent));">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                        // Creative Drift + Depth Lock (side by side)
+                        <div class="cfg-section-row">
+                            <div class="cfg-section" style="flex: 1;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span class="cfg-label">"CREATIVE DRIFT"</span>
+                                    <span class="cfg-val">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                                </div>
+                                <input
+                                    type="range"
+                                    min="0.0"
+                                    max="2.0"
+                                    step="0.1"
+                                    style="width: 100%;"
+                                    prop:value=move || global_state.temperature.get().to_string()
+                                    on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
+                                />
                             </div>
-                            <input
-                                type="range"
-                                min="0.0"
-                                max="2.0"
-                                step="0.1"
-                                style="width: 100%;"
-                                prop:value=move || global_state.temperature.get().to_string()
-                                on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
-                            />
+                            <div class="cfg-section" style="flex: 1;">
+                                <span class="cfg-label">"DEPTH LOCK"</span>
+                                <div
+                                    class=move || if global_state.keep_depth_of_field.get() { "cfg-opt compact active" } else { "cfg-opt compact" }
+                                    on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
+                                >
+                                    <Target size={14} />
+                                    <strong>{move || if global_state.keep_depth_of_field.get() { "Enabled" } else { "Disabled" }}</strong>
+                                </div>
+                            </div>
                         </div>
 
                         // Lighting
-                        <div style="margin-top: var(--s-8);">
-                            <div class="data-row" style="margin-bottom: var(--s-4);">
-                                <span class="data-label">"ATMOSPHERIC LIGHTING"</span>
-                            </div>
+                        <div class="cfg-section">
+                            <span class="cfg-label">"LIGHTING"</span>
                             <select
-                                style="width: 100%; padding: var(--s-3) var(--s-4); background: hsl(var(--surface-raised)); border: 1px solid hsl(var(--border)); border-radius: var(--radius-sm); color: hsl(var(--text)); font-size: 0.875rem; font-weight: 600;"
+                                class="cfg-select"
                                 on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
                                 prop:value=move || global_state.lighting.get()
                             >
-                                <option value="Original">"Maintain Original"</option>
-                                <option value="Studio">"Studio Lighting"</option>
-                                <option value="Cinematic">"Cinematic Shadowing"</option>
-                                <option value="Vivid">"High Vividity"</option>
-                                <option value="Natural">"Soft Ambient"</option>
+                                <option value="Original">"Original"</option>
+                                <option value="Studio">"Studio"</option>
+                                <option value="Cinematic">"Cinematic"</option>
+                                <option value="Vivid">"Vivid"</option>
+                                <option value="Natural">"Natural"</option>
                             </select>
                         </div>
 
-                        // Preserves
-                        <div style="margin-top: var(--s-8); padding-top: var(--s-8); border-top: 1px solid hsl(var(--border-muted));">
-                            <div class="data-row" style="margin-bottom: var(--s-4);">
-                                <span class="data-label">"ADVANCED PRESERVES"</span>
-                            </div>
-                            <div class="pack-list">
-                                <div
-                                    class=move || if global_state.keep_aspect_ratio.get() { "pack-item active" } else { "pack-item" }
-                                    on:click=move |_| global_state.set_keep_aspect_ratio.update(|v| *v = !*v)
-                                >
-                                    <div class="pack-info">
-                                        <span class="pack-name">"Ratio Lock"</span>
-                                        <span class="pack-credits">"MAINTAIN ORIGINAL ASPECT RATIO"</span>
-                                    </div>
-                                    <span class="pack-price" style="font-size: 0.75rem;">
-                                        {move || if global_state.keep_aspect_ratio.get() { "ON" } else { "OFF" }}
-                                    </span>
-                                </div>
-                                <div
-                                    class=move || if global_state.keep_depth_of_field.get() { "pack-item active" } else { "pack-item" }
-                                    on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
-                                >
-                                    <div class="pack-info">
-                                        <span class="pack-name">"Depth Lock"</span>
-                                        <span class="pack-credits">"PRESERVE DEPTH OF FIELD"</span>
-                                    </div>
-                                    <span class="pack-price" style="font-size: 0.75rem;">
-                                        {move || if global_state.keep_depth_of_field.get() { "ON" } else { "OFF" }}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-
                         // Action
-                        <div style="display: flex; justify-content: center; margin-top: auto; padding-top: var(--s-10);">
-                            <button
-                                class="btn btn-primary btn-lg"
-                                style="width: 100%; font-size: 0.875rem; font-weight: 800; padding: var(--s-5) 0; gap: var(--s-3);"
-                                disabled=move || loading.get() || global_state.temp_file.get().is_none()
-                                on:click=handle_upscale
-                            >
-                                <Zap size={16} />
-                                {move || if loading.get() { "STARTING ENGINE..." } else { "INITIATE UPSCALE" }}
-                                <span class="user-badge" style="margin-left: var(--s-2);">
-                                    {move || if global_state.quality.get() == "4K" { "4 CREDITS" } else { "2 CREDITS" }}
-                                </span>
-                            </button>
-                        </div>
+                        <button
+                            class="btn btn-primary btn-lg cfg-submit"
+                            disabled=move || loading.get() || global_state.temp_file.get().is_none()
+                            on:click=handle_upscale
+                        >
+                            <Zap size={16} />
+                            {move || if loading.get() { "STARTING ENGINE..." } else { "INITIATE UPSCALE" }}
+                            <span class="user-badge" style="margin-left: var(--s-2);">
+                                {move || if global_state.quality.get() == "4K" { "4 CREDITS" } else { "2 CREDITS" }}
+                            </span>
+                        </button>
                     </div>
                 </div>
             </div>
 
             <style>
-                "@media (max-width: 900px) {
-                    .settings-container .card > div[style*='grid-template-columns'] {
-                        grid-template-columns: 1fr !important;
+                "/* ── Configure grid ───────────────────── */
+                .cfg-grid {
+                    display: grid;
+                    grid-template-columns: 280px 1fr;
+                }
+
+                /* ── Left column: preview ─────────────── */
+                .cfg-left {
+                    padding: var(--s-8);
+                    border-right: 1px solid hsl(var(--border) / 0.5);
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--s-4);
+                }
+
+                .cfg-img-box {
+                    flex: 1;
+                    min-height: 200px;
+                    background: hsl(var(--surface-raised));
+                    border-radius: var(--radius-md);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    overflow: hidden;
+                }
+
+                .cfg-img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: contain;
+                }
+
+                .cfg-empty {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: var(--s-2);
+                    color: hsl(var(--text-dim));
+                    opacity: 0.25;
+                    font-size: 0.6875rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.1em;
+                }
+
+                .cfg-detected {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding-top: var(--s-4);
+                    border-top: 1px solid hsl(var(--border-muted));
+                }
+
+                .cfg-det-label {
+                    font-size: 0.5625rem;
+                    font-weight: 900;
+                    color: hsl(var(--text-dim));
+                    letter-spacing: 0.12em;
+                    text-transform: uppercase;
+                }
+
+                .cfg-det-value {
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    color: hsl(var(--accent));
+                    font-family: var(--font-mono);
+                    text-transform: uppercase;
+                }
+
+                /* ── Right column: controls ───────────── */
+                .cfg-right {
+                    padding: var(--s-8);
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--s-5);
+                }
+
+                .cfg-section {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--s-3);
+                }
+
+                .cfg-section-row {
+                    display: flex;
+                    gap: var(--s-5);
+                }
+
+                .cfg-label {
+                    font-size: 0.5625rem;
+                    font-weight: 900;
+                    color: hsl(var(--text-dim));
+                    letter-spacing: 0.14em;
+                    text-transform: uppercase;
+                }
+
+                .cfg-val {
+                    font-family: var(--font-mono);
+                    font-size: 0.75rem;
+                    font-weight: 800;
+                    color: hsl(var(--accent));
+                }
+
+                /* ── Selection tiles ──────────────────── */
+                .cfg-row-2 {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: var(--s-3);
+                }
+
+                .cfg-opt {
+                    background: hsl(var(--surface-raised));
+                    border: 1px solid hsl(var(--border));
+                    border-radius: var(--radius-sm);
+                    padding: var(--s-3) var(--s-4);
+                    cursor: pointer;
+                    transition: all 0.15s ease;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 2px;
+                    text-align: center;
+                }
+
+                .cfg-opt strong {
+                    font-size: 0.8125rem;
+                    font-weight: 800;
+                    color: hsl(var(--text));
+                    letter-spacing: -0.01em;
+                }
+
+                .cfg-opt span {
+                    font-size: 0.5625rem;
+                    font-weight: 700;
+                    color: hsl(var(--text-dim));
+                    text-transform: uppercase;
+                    letter-spacing: 0.08em;
+                }
+
+                .cfg-opt:hover:not(.active) {
+                    border-color: hsl(var(--accent) / 0.4);
+                }
+
+                .cfg-opt.active {
+                    background: hsl(var(--accent) / 0.1);
+                    border-color: hsl(var(--accent));
+                }
+
+                .cfg-opt.active strong {
+                    color: hsl(var(--accent));
+                }
+
+                .cfg-opt.active span {
+                    color: hsl(var(--accent) / 0.7);
+                }
+
+                .cfg-opt.compact {
+                    flex-direction: row;
+                    justify-content: center;
+                    gap: var(--s-3);
+                    padding: var(--s-4);
+                }
+
+                .cfg-opt.compact strong {
+                    font-size: 0.75rem;
+                }
+
+                /* ── Select ───────────────────────────── */
+                .cfg-select {
+                    width: 100%;
+                    padding: var(--s-3) var(--s-4);
+                    background: hsl(var(--surface-raised));
+                    border: 1px solid hsl(var(--border));
+                    border-radius: var(--radius-sm);
+                    color: hsl(var(--text));
+                    font-size: 0.8125rem;
+                    font-weight: 600;
+                    appearance: none;
+                    cursor: pointer;
+                    transition: border-color 0.15s;
+                }
+
+                .cfg-select:hover {
+                    border-color: hsl(var(--accent) / 0.5);
+                }
+
+                /* ── Submit ───────────────────────────── */
+                .cfg-submit {
+                    margin-top: auto;
+                    width: 100%;
+                    gap: var(--s-3);
+                }
+
+                /* ── Responsive ───────────────────────── */
+                @media (max-width: 800px) {
+                    .cfg-grid {
+                        grid-template-columns: 1fr;
                     }
-                    .settings-container .card > div > div[style*='border-right'] {
-                        border-right: none !important;
+                    .cfg-left {
+                        border-right: none;
                         border-bottom: 1px solid hsl(var(--border) / 0.5);
+                    }
+                    .cfg-img-box {
+                        min-height: 160px;
+                        max-height: 240px;
+                    }
+                    .cfg-section-row {
+                        flex-direction: column;
                     }
                 }
                 "

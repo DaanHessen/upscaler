@@ -2,8 +2,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct PromptSettings {
-    #[serde(default)]
-    pub keep_aspect_ratio: bool,
+    // keep_aspect_ratio removed — structural preservation is always on
     #[serde(default)]
     pub keep_depth_of_field: bool,
     #[serde(default)]
@@ -36,12 +35,8 @@ pub fn build_system_prompt(style: &str, settings: &PromptSettings) -> String {
         prompt.push_str("3. Color & Gradients: Preserve exact flat color values. Smooth intentional background gradients without introducing texture.\n");
     }
 
-    // 3. SETTINGS-BASED INSTRUCTIONS
-    if settings.keep_aspect_ratio {
-        prompt.push_str("4. Structural Lock: Preserve the exact silhouettes, proportions, and positioning of every element. Do not crop or mutate image boundaries.\n");
-    } else {
-        prompt.push_str("4. Compositional Optimization: Ensure subject focus is maintained while maximizing 4K canvas utility.\n");
-    }
+    // 3. STRUCTURAL PRESERVATION (always on)
+    prompt.push_str("4. Structural Lock: Preserve the exact silhouettes, proportions, and positioning of every element. Do not crop or mutate image boundaries.\n");
 
     // 4. LIGHTING RULES
     match settings.lighting.to_uppercase().as_str() {
@@ -65,7 +60,6 @@ mod tests {
     #[test]
     fn test_photography_lighting_vivid() {
         let settings = PromptSettings {
-            keep_aspect_ratio: true,
             keep_depth_of_field: true,
             lighting: "VIVID".to_string(),
             thinking_level: "HIGH".to_string(),
@@ -81,7 +75,6 @@ mod tests {
     #[test]
     fn test_illustration_original_lighting() {
         let settings = PromptSettings {
-            keep_aspect_ratio: false,
             keep_depth_of_field: false,
             lighting: "Original".to_string(),
             thinking_level: "MINIMAL".to_string(),
@@ -90,14 +83,13 @@ mod tests {
         
         assert!(prompt.contains("Maintain exact original art style"));
         assert!(prompt.contains("Completely remove all JPEG compression artifacts"));
-        assert!(prompt.contains("Compositional Optimization"));
+        assert!(prompt.contains("Structural Lock"));
         assert!(prompt.contains("Strictly maintain the exact structural identity"));
     }
 
     #[test]
     fn test_photography_shallow_focus() {
         let settings = PromptSettings {
-            keep_aspect_ratio: true,
             keep_depth_of_field: false,
             lighting: "STUDIO".to_string(),
             thinking_level: "HIGH".to_string(),
