@@ -723,13 +723,19 @@ pub fn Configure() -> impl IntoView {
             .sb-val-badge { font-family: var(--font-mono); font-size: 0.6875rem; font-weight: 900; color: hsl(var(--accent)); background: hsl(var(--accent) / 0.1); padding: 2px 10px; border-radius: 6px; border: 1px solid hsl(var(--accent) / 0.2); }
 
             .studio-slider { 
-                width: 100%; height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; appearance: none; outline: none; margin: 12px 0;
+                width: 100%; height: 4px; background: rgba(255,255,255,0.06); border-radius: 4px; appearance: none; outline: none; margin: 8px 0;
             }
             .studio-slider::-webkit-slider-thumb { 
                 appearance: none; width: 20px; height: 20px; background: #fff; border-radius: 50%; cursor: pointer; border: 4px solid hsl(var(--accent)); box-shadow: 0 4px 12px rgba(0,0,0,0.6); 
                 transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             }
             .studio-slider::-webkit-slider-thumb:hover { transform: scale(1.15); }
+            
+            .slider-ends {
+                display: flex; justify-content: space-between;
+                font-size: 0.625rem; font-weight: 800; color: hsl(var(--text-dim) / 0.3);
+                text-transform: uppercase; letter-spacing: 0.05em; margin-top: -2px;
+            }
             
             .sb-footer { 
                 padding: var(--s-6); 
