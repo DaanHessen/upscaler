@@ -139,9 +139,16 @@ pub async fn history_handler(
 
         if rec.status == "COMPLETED" {
             if let Some(path) = rec.output_path {
-                item["image_url"] = serde_json::Value::String(format!("/api/storage/view/{}", path));
+                let image_url = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(state.storage.get_signed_url(&path))
+                }).unwrap_or_default();
+                item["image_url"] = serde_json::Value::String(image_url);
+                
                 let preview_path = path.replace(".png", "_thumb.webp");
-                item["preview_url"] = serde_json::Value::String(format!("/api/storage/view/{}", preview_path));
+                let preview_url = tokio::task::block_in_place(|| {
+                    tokio::runtime::Handle::current().block_on(state.storage.get_signed_url(&preview_path))
+                }).unwrap_or_default();
+                item["preview_url"] = serde_json::Value::String(preview_url);
             }
         }
         item
@@ -213,7 +220,10 @@ pub async fn stripe_webhook_handler(
     if event_type == "checkout.session.completed" {
         if let Ok(checkout) = crate::stripe::parse_checkout_completed(&payload) {
             if let Ok(user_id) = Uuid::parse_str(&checkout.user_id) {
-                let _ = state.db.add_credits(user_id, checkout.credits, &checkout.session_id).await;
+                if let Err(e) = state.db.add_credits(user_id, checkout.credits, &checkout.session_id).await {
+                    tracing::error!("Failed to add credits for session {}: {}", checkout.session_id, e);
+                    return (StatusCode::INTERNAL_SERVER_ERROR, "Database error").into_response();
+                }
             }
         }
     }
@@ -301,9 +311,9 @@ pub async fn poll_upscale_handler(
 
             if job.status == "COMPLETED" {
                 if let Some(path) = &job.output_path {
-                    res["output_url"] = serde_json::Value::String(format!("/api/storage/view/{}", path));
+                    res["output_url"] = serde_json::Value::String(state.storage.get_signed_url(path).await.unwrap_or_default());
                     let preview_path = path.replace(".png", "_thumb.webp");
-                    res["preview_url"] = serde_json::Value::String(format!("/api/storage/view/{}", preview_path));
+                    res["preview_url"] = serde_json::Value::String(state.storage.get_signed_url(&preview_path).await.unwrap_or_default());
                 }
                 res["latency_ms"] = serde_json::json!(job.latency_ms);
                 res["usage_metadata"] = job.usage_metadata;
@@ -342,14 +352,22 @@ pub async fn upscale_handler(
         }
     }
 
+    // Input Validation
+    if !["2K", "4K"].contains(&quality.as_str()) {
+        quality = "2K".to_string();
+    }
+    if !temperature.is_finite() || temperature < 0.0 || temperature > 1.0 {
+        temperature = 0.0;
+    }
+
     let data = match image_data {
         Some(d) => d.to_vec(),
         None => return Err(crate::errors::ApiError::BadRequest("Missing image".to_string())),
     };
 
     let credit_cost = match quality.as_str() {
-        "4K" => 2,
-        _ => 1,
+        "4K" => 4,
+        _ => 2,
     };
 
     // Credit check
@@ -361,29 +379,47 @@ pub async fn upscale_handler(
     // Process & Moderate
     let data_clone = data.clone();
     let style_str = match tokio::task::spawn_blocking(move || {
-        let img = image::load_from_memory(&data_clone).ok()?;
+        let mut reader = image::io::Reader::new(std::io::Cursor::new(&data_clone)).with_guessed_format().ok()?;
+        let mut limits = image::io::Limits::default();
+        limits.max_alloc = Some(256 * 1024 * 1024); // Protect against decompression bombs (max 256MB)
+        reader.limits(limits);
+        let img = reader.decode().ok()?;
+
         if is_nsfw(&img).unwrap_or(false) { return None; }
         let s = analyze_style(&img, Some(&data_clone));
         Some(match s { ImageStyle::Illustration => "ILLUSTRATION", ImageStyle::Photography => "PHOTOGRAPHY" }.to_string())
     }).await.unwrap() {
         Some(s) => s,
-        None => return Err(crate::errors::ApiError::BadRequest("NSFW detected".to_string())),
+        None => {
+            // NSFW detected - do NOT store the image due to severe legal/liability risks (CSAM, etc).
+            // We only insert a text-based log for the admin to track which user is triggering the filters.
+            let _ = state.db.insert_moderation_log(user_id, "BLOCKED_IMAGE_NOT_SAVED").await;
+            return Err(crate::errors::ApiError::BadRequest("NSFW detected".to_string()));
+        }
     };
 
-    // Deduct and Upload
-    state.db.deduct_credits(user_id, credit_cost, Uuid::nil()).await.map_err(|_| crate::errors::ApiError::Internal("Credit error".to_string()))?;
+    // Generate Job ID and Deduct
+    let job_id = Uuid::new_v4();
+    state.db.deduct_credits(user_id, credit_cost, job_id).await.map_err(|_| crate::errors::ApiError::Internal("Credit error".to_string()))?;
     
     let original_id = Uuid::new_v4();
     let original_path = format!("{}/originals/{}.png", user_id, original_id);
-    state.storage.upload_object(&original_path, data, "image/png").await.map_err(|_| crate::errors::ApiError::Internal("Upload error".to_string()))?;
+    
+    if let Err(_) = state.storage.upload_object(&original_path, data, "image/png").await {
+        let _ = state.db.refund_credits(user_id, credit_cost, job_id).await;
+        return Err(crate::errors::ApiError::Internal("Upload error".to_string()));
+    }
 
     let prompt_settings_json = match prompt_settings_raw {
         Some(s) => serde_json::from_str(&s).unwrap_or_default(),
         None => serde_json::Value::Null,
     };
 
-    let job_id = state.db.insert_job(user_id, &original_path, &style_str, temperature, &quality, &prompt_settings_json).await.map_err(|_| crate::errors::ApiError::Internal("Enqueue error".to_string()))?;
-    let _ = state.db.update_credits_charged(job_id, credit_cost).await;
+    if let Err(_) = state.db.insert_job(job_id, user_id, &original_path, &style_str, temperature, &quality, &prompt_settings_json, credit_cost).await {
+        let _ = state.db.refund_credits(user_id, credit_cost, job_id).await;
+        let _ = state.storage.delete_object(&original_path).await; // Prevent storage leak
+        return Err(crate::errors::ApiError::Internal("Enqueue error".to_string()));
+    }
 
     Ok((StatusCode::ACCEPTED, Json(serde_json::json!({ "success": true, "job_id": job_id, "final_style": style_str }))).into_response())
 }

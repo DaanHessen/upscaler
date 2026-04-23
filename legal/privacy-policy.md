@@ -15,7 +15,7 @@ UPSYL STUDIO ("we," "us," or "our") is committed to protecting your privacy. Thi
 To provide our service, we share specific data with these trusted providers:
 *   **Google Cloud (Vertex AI)**: Images are transmitted to Google for processing using Gemini AI. Google's Cloud Terms apply, ensuring your data is not used for training their foundation models unless opted-in.
 *   **Stripe**: Used for secure payment processing.
-*   **AWS / Google Cloud Storage**: Used for encrypted storage of your temporary image files.
+*   **Supabase Storage**: Used for encrypted S3-compatible storage of your temporary image files.
 
 ## 3. Data Retention: The "24-Hour" Rule
 We implement a strict data minimization policy. 

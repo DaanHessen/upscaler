@@ -36,12 +36,14 @@ pub trait DbProvider: Send + Sync {
     // Job Management
     async fn insert_job(
         &self,
+        id: Uuid,
         user_id: Uuid,
         input_path: &str,
         style: &str,
         temperature: f32,
         quality: &str,
         prompt_settings: &serde_json::Value,
+        credits_charged: i32,
     ) -> Result<Uuid, Box<dyn Error + Send + Sync>>;
 
     async fn claim_pending_job(&self) -> Result<Option<UpscaleRecord>, Box<dyn Error + Send + Sync>>;
@@ -114,22 +116,26 @@ impl DbProvider for DbService {
 
     async fn insert_job(
         &self,
+        id: Uuid,
         user_id: Uuid,
         input_path: &str,
         style: &str,
         temperature: f32,
         quality: &str,
         prompt_settings: &serde_json::Value,
+        credits_charged: i32,
     ) -> Result<Uuid, Box<dyn Error + Send + Sync>> {
         let rec: (Uuid,) = sqlx::query_as(
-            "INSERT INTO upscales (user_id, input_path, style, status, temperature, quality, prompt_settings) VALUES ($1, $2, $3, 'PENDING', $4, $5, $6) RETURNING id"
+            "INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged) VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7, $8) RETURNING id"
         )
+        .bind(id)
         .bind(user_id)
         .bind(input_path)
         .bind(style)
         .bind(temperature)
         .bind(quality)
         .bind(prompt_settings)
+        .bind(credits_charged)
         .fetch_one(&self.pool)
         .await?;
 
@@ -362,15 +368,16 @@ impl DbProvider for SqliteDb {
 
     async fn insert_job(
         &self,
+        id: Uuid,
         user_id: Uuid,
         input_path: &str,
         style: &str,
         temperature: f32,
         quality: &str,
         prompt_settings: &serde_json::Value,
+        credits_charged: i32,
     ) -> Result<Uuid, Box<dyn Error + Send + Sync>> {
-        let id = Uuid::new_v4();
-        sqlx::query("INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, usage_metadata) VALUES (?, ?, ?, ?, 'PENDING', ?, ?, ?, '{}')")
+        sqlx::query("INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged, usage_metadata) VALUES (?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, '{}')")
             .bind(id)
             .bind(user_id)
             .bind(input_path)
@@ -378,6 +385,7 @@ impl DbProvider for SqliteDb {
             .bind(temperature)
             .bind(quality)
             .bind(prompt_settings.to_string())
+            .bind(credits_charged)
             .execute(&self.pool)
             .await?;
         Ok(id)

@@ -3,8 +3,14 @@ use serde::{Deserialize, Serialize};
 use gloo_net::http::Request;
 use gloo_storage::{LocalStorage, Storage};
 
-const SUPABASE_URL: &str = match option_env!("SUPABASE_URL") { Some(v) => v, None => "" };
-const SUPABASE_ANON_KEY: &str = match option_env!("SUPABASE_ANON_KEY") { Some(v) => v, None => "" };
+const SUPABASE_URL: &str = match option_env!("SUPABASE_URL") { 
+    Some(v) => v, 
+    None => "https://avdchsjlsuqnmdbxlrby.supabase.co" 
+};
+const SUPABASE_ANON_KEY: &str = match option_env!("SUPABASE_ANON_KEY") { 
+    Some(v) => v, 
+    None => "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZGNoc2psc3Vxbm1kYnhscmJ5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxOTQyNDcsImV4cCI6MjA5MTc3MDI0N30.GuvHDSjKige2aYlgZj1AgrvqHKahsDN3VIdf_sZl26s" 
+};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct User {

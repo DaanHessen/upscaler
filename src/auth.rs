@@ -127,12 +127,8 @@ where
         // 4. Validate — only allow the exact algorithm from the token header
         let mut validation = Validation::new(header.alg);
         
-        // NOTE: validate_aud is disabled because of past 'InvalidAlgorithm' issues during development.
-        // To re-enable securely in production:
-        // 1. Set validation.validate_aud = true;
-        // 2. Set validation.set_audience(&["authenticated"]); 
-        // 3. Ensure your SUPABASE_URL and other env vars are correctly set.
-        validation.validate_aud = false;
+        validation.validate_aud = true;
+        validation.set_audience(&["authenticated"]);
 
         // 5. Decode and verify signature
         let token_data = decode::<Claims>(token_str, &decoding_key, &validation)

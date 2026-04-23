@@ -6,7 +6,7 @@
 Welcome to **UPSYL STUDIO** ("the Service"). These Terms of Service ("Terms") govern your access to and use of our AI-powered image upscaling platform. By using the Service, you agree to be bound by these Terms.
 
 ## 1. Description of Service
-UPSYL STUDIO provides high-fidelity image reconstruction and super-resolution services using advanced artificial intelligence models (including Google Vertex AI Gemini 1.5 Pro). The service allows users to upload digital images, apply enhancement parameters, and download upscaled results.
+UPSYL STUDIO provides high-fidelity image reconstruction and super-resolution services using advanced artificial intelligence models (including Google Vertex AI gemini-3-pro-image-preview). The service allows users to upload digital images, apply enhancement parameters, and download upscaled results.
 
 ## 2. Accounts and Credits
 *   **Authentication**: Access to the Service requires an account managed through our authentication provider (Supabase).
@@ -16,7 +16,7 @@ UPSYL STUDIO provides high-fidelity image reconstruction and super-resolution se
 ## 3. Data Retention and Privacy
 *   **Temporary Processing**: To maintain privacy and minimize costs, all uploaded and generated images are **automatically deleted after 24 hours**.
 *   **User Responsibility**: Users are responsible for downloading their results before the 24-hour expiration period. We are not liable for data loss occurring after this window.
-*   **Third-Party AI**: We utilize Google Vertex AI for processing. By using the Service, you acknowledge that your images are transmitted to Google for the sole purpose of generating upscaled results. We do not use your images to train our models unless explicitly opted-in for specific "Studio Training" features.
+*   **Third-Party AI**: We utilize Google Vertex AI for processing. By using the Service, you acknowledge that your images are transmitted to Google for the sole purpose of generating upscaled results. We do not use your images to train our foundation models.
 
 ## 4. Acceptable Use
 You agree not to use the Service for:

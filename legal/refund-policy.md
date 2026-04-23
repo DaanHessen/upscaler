@@ -14,9 +14,9 @@ Our Service operates using digital "Units" (Credits). By purchasing credits, you
 If you have purchased a credit pack but have **not spent any credits**, you are entitled to a full refund within **14 days** of the purchase date. 
 
 ## 3. Technical Failures
-We understand that technology can occasionally fail. You may request a credit refund or a financial refund in the following scenarios:
-*   **System Error**: The Service failed to process your image due to a backend infrastructure error, and no output was provided.
-*   **Duplicate Billing**: You were accidentally charged multiple times for the same transaction.
+We understand that technology can occasionally fail. 
+*   **Automatic Credit Refunds**: If the Service fails to process your image due to a backend infrastructure error, upstream provider timeout, or internal safety filter rejection, your account will be **automatically refunded** the exact amount of credits charged for that specific job.
+*   **Duplicate Billing**: If you were accidentally charged multiple times for the same transaction via our payment provider, please contact us for a financial refund.
 
 **Note**: Credits will not be refunded for results that you are simply "unhappy with" (e.g., subjective aesthetic preferences), as AI generation is probabilistic and provided "as-is" per our Terms of Service.
 

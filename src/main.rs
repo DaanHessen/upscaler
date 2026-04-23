@@ -8,7 +8,6 @@ use upscaler::handlers::{
     health_check, moderate_handler, balance_handler, history_handler,
     checkout_handler, stripe_webhook_handler, admin_insights_handler,
     change_password_handler, poll_upscale_handler, upscale_handler,
-    storage::get_storage_object,
 };
 
 use dotenvy::dotenv;
@@ -95,7 +94,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/checkout", post(checkout_handler))
         .route("/auth/change-password", post(change_password_handler))
         .route("/admin/insights", get(admin_insights_handler))
-        .route("/storage/view/*path", get(get_storage_object))
         .layer(axum::extract::DefaultBodyLimit::max(25 * 1024 * 1024))
         .layer(GovernorLayer { config: governor_conf })
         .with_state(state.clone());
@@ -103,10 +101,19 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let frontend_service = ServeDir::new("frontend")
         .fallback(tower_http::services::ServeFile::new("frontend/index.html"));
 
+    let cors = CorsLayer::new()
+        .allow_origin([
+            "http://localhost:3000".parse().unwrap(),
+            "http://localhost:8080".parse().unwrap(),
+            config.public_url.parse().unwrap_or_else(|_| "http://localhost".parse().unwrap())
+        ])
+        .allow_methods(tower_http::cors::Any)
+        .allow_headers(tower_http::cors::Any);
+
     let app = Router::new()
         .nest("/api", api_routes)
         .route("/stripe/webhook", post(stripe_webhook_handler))
-        .layer(CorsLayer::permissive())
+        .layer(cors)
         .fallback_service(frontend_service)
         .with_state(state.clone());
 

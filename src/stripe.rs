@@ -129,7 +129,21 @@ pub fn verify_webhook_signature(
     let expected = hex::encode(mac.finalize().into_bytes());
 
     // Check if any of the provided signatures match
-    let valid = signatures.iter().any(|sig| sig == &expected);
+    // Use constant-time comparison to prevent timing attacks
+    let expected_bytes = expected.as_bytes();
+    let valid = signatures.iter().any(|sig| {
+        let sig_bytes = sig.as_bytes();
+        if sig_bytes.len() != expected_bytes.len() {
+            return false;
+        }
+        // Simple constant-time comparison
+        let mut result = 0;
+        for (a, b) in sig_bytes.iter().zip(expected_bytes.iter()) {
+            result |= a ^ b;
+        }
+        result == 0
+    });
+
     if !valid {
         error!("Stripe webhook signature mismatch");
         return Err("Invalid webhook signature".into());

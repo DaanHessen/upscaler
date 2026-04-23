@@ -72,20 +72,41 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         Ok(res) => res,
         Err(e) => {
             state.db.update_job_failed(job.id, &e.to_string(), latency_ms).await?;
+            let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
             return Err(e);
         }
     };
 
-    let candidate = gemini_response.candidates.first()
-        .ok_or("Gemini returned no candidates")?;
+    let candidate = match gemini_response.candidates.first() {
+        Some(c) => c,
+        None => {
+            state.db.update_job_failed(job.id, "Gemini returned no candidates", latency_ms).await?;
+            let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+            return Err("Gemini returned no candidates".into());
+        }
+    };
 
-    let inline_data = candidate.content.parts.iter().find_map(|p| p.inline_data.as_ref())
-        .ok_or("No image data in Gemini response")?;
+    let inline_data = match candidate.content.parts.iter().find_map(|p| p.inline_data.as_ref()) {
+        Some(d) => d,
+        None => {
+            state.db.update_job_failed(job.id, "No image data in Gemini response", latency_ms).await?;
+            let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+            return Err("No image data in Gemini response".into());
+        }
+    };
 
-    let image_bytes = general_purpose::STANDARD.decode(&inline_data.data)?;
+    let image_bytes = match general_purpose::STANDARD.decode(&inline_data.data) {
+        Ok(b) => b,
+        Err(e) => {
+            state.db.update_job_failed(job.id, "Invalid base64 from Gemini", latency_ms).await?;
+            let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+            return Err(Box::new(e));
+        }
+    };
 
     if candidate.finish_reason == "SAFETY" {
         state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
+        let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
         return Err("Image rejected by internal safety filters.".into());
     }
 
@@ -93,6 +114,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     if let Ok(generated_img) = image::load_from_memory(&image_bytes) {
         if generated_img.width() == 64 && generated_img.height() == 64 {
             state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
+            let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
             return Err("Image rejected by internal safety filters.".into());
         }
     }
