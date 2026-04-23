@@ -51,7 +51,7 @@ pub fn Login() -> impl IntoView {
                         "CONTINUE WITH GOOGLE"
                     </button>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-bottom: var(--s-8);">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-bottom: var(--s-6);">
                         <button class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             <GithubIcon />
                             "GITHUB"
@@ -174,7 +174,7 @@ pub fn Register() -> impl IntoView {
                         "SIGN UP WITH GOOGLE"
                     </button>
 
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-bottom: var(--s-8);">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); margin-bottom: var(--s-6);">
                         <button class="btn btn-secondary" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;">
                             <GithubIcon />
                             "GITHUB"
@@ -219,7 +219,7 @@ pub fn Register() -> impl IntoView {
                             />
                         </div>
 
-                        <div class="legal-checkbox-group" style="margin-top: var(--s-6); display: flex; gap: var(--s-3); align-items: flex-start;">
+                        <div class="legal-checkbox-group" style="margin-top: var(--s-4); display: flex; gap: var(--s-3); align-items: flex-start;">
                             <input 
                                 type="checkbox" 
                                 id="agree-terms"
