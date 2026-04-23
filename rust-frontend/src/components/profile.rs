@@ -37,7 +37,7 @@ pub fn AccountSettings() -> impl IntoView {
     };
 
     view! {
-        <div class="fade-in container-narrow" style="padding: var(--s-12) 0;">
+        <div class="fade-in container-narrow">
             <div class="page-header">
                 <div class="header-main">
                     <h1 class="stagger-1 text-gradient">"Account Settings"</h1>
@@ -119,7 +119,7 @@ pub fn AccountSettings() -> impl IntoView {
                 /* Advanced Section */
                 <div class="card" style="padding: var(--s-8); background: hsl(var(--error) / 0.02); border-color: hsl(var(--error) / 0.1);">
                     <div style="display: flex; align-items: center; gap: var(--s-4); margin-bottom: var(--s-4);">
-                        <h3 style="margin: 0; font-size: 1rem; color: hsl(var(--error));">"Danger Zone"</h3>
+                        <h3 class="text-gradient" style="margin: 0; font-size: 1rem;">"Danger Zone"</h3>
                     </div>
                     <p class="muted" style="font-size: 0.8125rem; margin-bottom: var(--s-6);">"Irreversibly delete your Upsyl Studio account and all stored history. This action cannot be undone."</p>
                     <button class="btn btn-secondary btn-sm" style="color: hsl(var(--error)); border-color: hsl(var(--error) / 0.2);" on:click=move |_| {

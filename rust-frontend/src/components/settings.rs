@@ -130,7 +130,7 @@ pub fn Credits() -> impl IntoView {
             <div class="history-section">
                 <div class="history-header">
                     <div class="history-title">
-                        <h2>"Logs"</h2>
+                        <h2 class="text-gradient" style="font-family: var(--font-heading); letter-spacing: -0.04em;">"Logs"</h2>
                         <p class="muted">"History of your previous upscales and credits usage."</p>
                     </div>
                     <div class="telemetry-badge">
@@ -181,10 +181,13 @@ pub fn Credits() -> impl IntoView {
                                                         } else { raw_ts };
                                                         
                                                         let item_quality = item.quality.replace(" RECON", "");
-                                                        let item_style = item.style.unwrap_or_else(|| "AUTO".to_string());
+                                                        let is_topup = item_quality == "TOP-UP";
+                                                        let item_style = if is_topup { "-".to_string() } else { item.style.unwrap_or_else(|| "AUTO".to_string()) };
                                                         let item_status_lower = item.status.to_lowercase();
-                                                        let item_latency = format!("{:.1}S", item.latency_ms as f32 / 1000.0);
-                                                        let item_credits = format!("{}C", item.credits_charged);
+                                                        let item_latency = if is_topup || item.latency_ms == 0 { "-".to_string() } else { format!("{:.1}S", item.latency_ms as f32 / 1000.0) };
+                                                        
+                                                        let item_credits = if is_topup { format!("+{}C", item.credits_charged) } else { format!("-{}C", item.credits_charged) };
+                                                        let credit_color = if is_topup { "color: hsl(var(--success))" } else { "color: hsl(var(--accent))" };
                                                         
                                                         view! {
                                                             <tr>
@@ -197,7 +200,7 @@ pub fn Credits() -> impl IntoView {
                                                                 <td style="color: hsl(var(--text-dim))">{formatted_ts}</td>
                                                                 <td class="text-center">{item_quality}</td>
                                                                 <td class="text-center">{item_style}</td>
-                                                                <td class="text-center" style="font-weight: 800; color: hsl(var(--accent))">{item_credits}</td>
+                                                                <td class="text-center" style=format!("font-weight: 800; {}", credit_color)>{item_credits}</td>
                                                                 <td class="text-center"><span class=format!("status-chip {}", item_status_lower)>{status_label}</span></td>
                                                                 <td class="text-right" style="color: hsl(var(--success)); font-weight: 800;">{item_latency}</td>
                                                             </tr>

@@ -194,12 +194,41 @@ impl DbProvider for DbService {
     }
 
     async fn get_user_history(&self, user_id: Uuid) -> Result<Vec<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
-        let records = sqlx::query_as::<_, UpscaleRecord>(
+        let mut records = sqlx::query_as::<_, UpscaleRecord>(
             "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50"
         )
         .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
+
+        let topups = sqlx::query_as::<sqlx::Postgres, (Uuid, i32, chrono::DateTime<chrono::Utc>)>(
+            "SELECT id, amount, created_at FROM credit_transactions WHERE user_id = $1 AND tx_type = 'STRIPE_PURCHASE'"
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        for t in topups {
+            records.push(UpscaleRecord {
+                id: t.0,
+                user_id,
+                style: None,
+                input_path: String::new(),
+                output_path: None,
+                created_at: t.2,
+                status: "COMPLETED".to_string(),
+                error_msg: None,
+                temperature: 0.0,
+                quality: "TOP-UP".to_string(),
+                credits_charged: t.1,
+                prompt_settings: serde_json::json!({}),
+                usage_metadata: serde_json::json!({}),
+                latency_ms: 0,
+            });
+        }
+
+        records.sort_by_key(|r| std::cmp::Reverse(r.created_at));
+        records.truncate(50);
 
         Ok(records)
     }
@@ -402,12 +431,42 @@ impl DbProvider for SqliteDb {
     }
 
     async fn get_user_history(&self, user_id: Uuid) -> Result<Vec<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
-        let records = sqlx::query_as::<_, UpscaleRecord>(
+        let mut records = sqlx::query_as::<_, UpscaleRecord>(
             "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE user_id = ? ORDER BY created_at DESC"
         )
         .bind(user_id)
         .fetch_all(&self.pool)
         .await?;
+        
+        let topups = sqlx::query_as::<sqlx::Sqlite, (Vec<u8>, i32, chrono::DateTime<chrono::Utc>)>(
+            "SELECT id, amount, created_at FROM credit_transactions WHERE user_id = ? AND tx_type = 'STRIPE_PURCHASE'"
+        )
+        .bind(user_id)
+        .fetch_all(&self.pool)
+        .await?;
+
+        for t in topups {
+            records.push(UpscaleRecord {
+                id: Uuid::from_slice(&t.0).unwrap_or(Uuid::new_v4()),
+                user_id,
+                style: None,
+                input_path: String::new(),
+                output_path: None,
+                created_at: t.2,
+                status: "COMPLETED".to_string(),
+                error_msg: None,
+                temperature: 0.0,
+                quality: "TOP-UP".to_string(),
+                credits_charged: t.1,
+                prompt_settings: serde_json::json!({}),
+                usage_metadata: serde_json::json!({}),
+                latency_ms: 0,
+            });
+        }
+
+        records.sort_by_key(|r| std::cmp::Reverse(r.created_at));
+        records.truncate(50);
+        
         Ok(records)
     }
 

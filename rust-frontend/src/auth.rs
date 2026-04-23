@@ -35,9 +35,13 @@ pub fn AuthProvider(children: Children) -> impl IntoView {
     
     let (user, set_user) = signal(initial_user);
     let (session, set_session) = signal(initial_session);
-    let (credits, set_credits) = signal(Option::<i32>::None);
-    let (history, set_history) = signal(Option::<Vec<crate::api::HistoryItem>>::None);
-    let (last_fetch, set_last_fetch) = signal(Option::<f64>::None);
+    let initial_credits = LocalStorage::get::<i32>("telemetry_credits").ok();
+    let initial_history = LocalStorage::get::<Vec<crate::api::HistoryItem>>("telemetry_history").ok();
+    let initial_last_fetch = LocalStorage::get::<f64>("telemetry_last_fetch").ok();
+
+    let (credits, set_credits) = signal(initial_credits);
+    let (history, set_history) = signal(initial_history);
+    let (last_fetch, set_last_fetch) = signal(initial_last_fetch);
     
     let ctx = AuthContext { 
         user, 
@@ -272,18 +276,22 @@ impl AuthContext {
             // Fetch credits
             if let Ok(c) = crate::api::ApiClient::get_balance(Some(&t_str)).await {
                 ctx.set_credits.set(Some(c));
+                let _ = LocalStorage::set("telemetry_credits", c);
             } else {
                 leptos::logging::error!("Telemetry: Failed to fetch balance (is token valid?)");
             }
             
             // Fetch history
             if let Ok(h) = crate::api::ApiClient::get_history(Some(&t_str)).await {
-                ctx.set_history.set(Some(h));
+                ctx.set_history.set(Some(h.clone()));
+                let _ = LocalStorage::set("telemetry_history", h);
             } else {
                 leptos::logging::error!("Telemetry: Failed to fetch history");
             }
             
-            ctx.set_last_fetch.set(Some(js_sys::Date::now()));
+            let current_time = js_sys::Date::now();
+            ctx.set_last_fetch.set(Some(current_time));
+            let _ = LocalStorage::set("telemetry_last_fetch", current_time);
         });
     }
 }
