@@ -364,10 +364,7 @@ pub async fn upscale_handler(
         None => return Err(crate::errors::ApiError::BadRequest("Missing image".to_string())),
     };
 
-    let credit_cost = match quality.as_str() {
-        "4K" => 4,
-        _ => 2,
-    };
+    let credit_cost = crate::credits::calculate_cost(&quality);
 
     // Credit check
     let balance = state.db.get_balance(user_id).await.map_err(|_| crate::errors::ApiError::Internal("DB Error".to_string()))?;
@@ -375,37 +372,50 @@ pub async fn upscale_handler(
         return Err(crate::errors::ApiError::PaymentRequired("Insufficient credits".to_string()));
     }
 
-    // Process & Moderate
+    // Process & Moderate & Transcode
     let data_clone = data.clone();
-    let style_str = match tokio::task::spawn_blocking(move || {
-        let mut reader = image::io::Reader::new(std::io::Cursor::new(&data_clone)).with_guessed_format().ok()?;
+    let style_result = tokio::task::spawn_blocking(move || -> Result<(String, Vec<u8>), String> {
+        let mut reader = image::io::Reader::new(std::io::Cursor::new(&data_clone)).with_guessed_format()
+            .map_err(|_| "Invalid format".to_string())?;
+        
         let mut limits = image::io::Limits::default();
         limits.max_alloc = Some(256 * 1024 * 1024); // Protect against decompression bombs (max 256MB)
         reader.limits(limits);
-        let img = reader.decode().ok()?;
+        let img = reader.decode().map_err(|_| "Decode failed".to_string())?;
 
-        if is_nsfw(&img).unwrap_or(false) { return None; }
+        if is_nsfw(&img).unwrap_or(false) { 
+            return Err("NSFW".to_string()); 
+        }
+        
         let s = analyze_style(&img, Some(&data_clone));
-        Some(match s { ImageStyle::Illustration => "ILLUSTRATION", ImageStyle::Photography => "PHOTOGRAPHY" }.to_string())
-    }).await.unwrap() {
-        Some(s) => s,
-        None => {
+        let style_str = match s { ImageStyle::Illustration => "ILLUSTRATION", ImageStyle::Photography => "PHOTOGRAPHY" }.to_string();
+        
+        // Transcode to clean PNG bytes to strip metadata and mitigate polyglot files
+        let mut buffer = std::io::Cursor::new(Vec::new());
+        img.write_to(&mut buffer, image::ImageFormat::Png).map_err(|_| "Transcode failed".to_string())?;
+        
+        Ok((style_str, buffer.into_inner()))
+    }).await.unwrap();
+
+    let (style_str, clean_png_bytes) = match style_result {
+        Ok(res) => res,
+        Err(e) if e == "NSFW" => {
             // NSFW detected - do NOT store the image due to severe legal/liability risks (CSAM, etc).
             // We only insert a text-based log for the admin to track which user is triggering the filters.
             let _ = state.db.insert_moderation_log(user_id, "BLOCKED_IMAGE_NOT_SAVED").await;
             return Err(crate::errors::ApiError::BadRequest("NSFW detected".to_string()));
         }
+        Err(_) => {
+            return Err(crate::errors::ApiError::BadRequest("Invalid image data".to_string()));
+        }
     };
 
-    // Generate Job ID and Deduct
+    // Upload clean image
     let job_id = Uuid::new_v4();
-    state.db.deduct_credits(user_id, credit_cost, job_id).await.map_err(|_| crate::errors::ApiError::Internal("Credit error".to_string()))?;
-    
     let original_id = Uuid::new_v4();
     let original_path = format!("{}/originals/{}.png", user_id, original_id);
     
-    if let Err(_) = state.storage.upload_object(&original_path, data, "image/png").await {
-        let _ = state.db.refund_credits(user_id, credit_cost, job_id).await;
+    if let Err(_) = state.storage.upload_object(&original_path, clean_png_bytes, "image/png").await {
         return Err(crate::errors::ApiError::Internal("Upload error".to_string()));
     }
 
@@ -414,10 +424,10 @@ pub async fn upscale_handler(
         None => serde_json::Value::Null,
     };
 
-    if let Err(_) = state.db.insert_job(job_id, user_id, &original_path, &style_str, temperature, &quality, &prompt_settings_json, credit_cost).await {
-        let _ = state.db.refund_credits(user_id, credit_cost, job_id).await;
-        let _ = state.storage.delete_object(&original_path).await; // Prevent storage leak
-        return Err(crate::errors::ApiError::Internal("Enqueue error".to_string()));
+    // Atomic Deduct and Insert
+    if let Err(_) = state.db.create_job_with_deduction(job_id, user_id, &original_path, &style_str, temperature, &quality, &prompt_settings_json, credit_cost).await {
+        let _ = state.storage.delete_object(&original_path).await; // Cleanup on DB failure
+        return Err(crate::errors::ApiError::Internal("Enqueue or credit error".to_string()));
     }
 
     Ok((StatusCode::ACCEPTED, Json(serde_json::json!({ "success": true, "job_id": job_id, "final_style": style_str }))).into_response())

@@ -106,7 +106,6 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     if candidate.finish_reason == "SAFETY" {
         state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
-        let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
         return Err("Image rejected by internal safety filters.".into());
     }
 
@@ -124,7 +123,6 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     if is_blocked {
         state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
-        let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
         return Err("Image rejected by internal safety filters.".into());
     }
 

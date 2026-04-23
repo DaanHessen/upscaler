@@ -53,6 +53,7 @@ pub async fn save_file(file: &web_sys::File) -> Result<(), JsValue> {
         let _ = db.create_object_store(STORE_NAME);
     });
     db_request.set_onupgradeneeded(Some(on_upgrade.as_ref().unchecked_ref()));
+    on_upgrade.forget();
 
     let res = wait_for_request(db_request.into()).await?;
     let db: web_sys::IdbDatabase = res.unchecked_into();
@@ -77,6 +78,7 @@ pub async fn load_file() -> Option<web_sys::File> {
         let _ = db.create_object_store(STORE_NAME);
     });
     open_request.set_onupgradeneeded(Some(on_upgrade.as_ref().unchecked_ref()));
+    on_upgrade.forget();
 
     let res = wait_for_request(open_request.into()).await.ok()?;
     let db: web_sys::IdbDatabase = res.unchecked_into();

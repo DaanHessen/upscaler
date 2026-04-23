@@ -34,12 +34,19 @@ pub fn Configure() -> impl IntoView {
         }
     });
 
+    let cancelled = std::rc::Rc::new(std::cell::Cell::new(false));
+    let c = cancelled.clone();
+    on_cleanup(move || c.set(true));
+
+    let c_effect = cancelled.clone();
     Effect::new(move |_| {
         if let Some(job_id) = processing_job.get() {
             let token = auth.session.get().map(|s| s.access_token);
             let state = global_state;
+            let c_loop = c_effect.clone();
             leptos::task::spawn_local(async move {
                 loop {
+                    if c_loop.get() { break; }
                     match ApiClient::poll_job(job_id, token.as_deref()).await {
                         Ok(resp) => {
                             let r: PollResponse = resp.clone();
@@ -66,6 +73,15 @@ pub fn Configure() -> impl IntoView {
         let input: web_sys::HtmlInputElement = leptos::prelude::event_target(&ev);
         if let Some(files) = input.files() {
             if let Some(file) = files.get(0) {
+                if file.size() > 20_000_000.0 {
+                    set_error_msg.set(Some("File exceeds 20MB limit.".to_string()));
+                    return;
+                }
+                if !file.type_().starts_with("image/") {
+                    set_error_msg.set(Some("Invalid file type. Only images are allowed.".to_string()));
+                    return;
+                }
+                set_error_msg.set(None);
                 global_state.set_temp_file.set(Some(file));
                 global_state.set_preview_base64.set(None);
             }
@@ -78,6 +94,15 @@ pub fn Configure() -> impl IntoView {
         if let Some(data) = ev.data_transfer() {
             if let Some(files) = data.files() {
                 if let Some(file) = files.get(0) {
+                    if file.size() > 20_000_000.0 {
+                        set_error_msg.set(Some("File exceeds 20MB limit.".to_string()));
+                        return;
+                    }
+                    if !file.type_().starts_with("image/") {
+                        set_error_msg.set(Some("Invalid file type. Only images are allowed.".to_string()));
+                        return;
+                    }
+                    set_error_msg.set(None);
                     global_state.set_temp_file.set(Some(file));
                     global_state.set_preview_base64.set(None);
                 }

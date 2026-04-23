@@ -82,6 +82,19 @@ pub trait DbProvider: Send + Sync {
     async fn refund_credits(&self, user_id: Uuid, amount: i32, job_id: Uuid) -> Result<(), Box<dyn Error + Send + Sync>>;
     async fn add_credits(&self, user_id: Uuid, amount: i32, stripe_session_id: &str) -> Result<(), Box<dyn Error + Send + Sync>>;
     async fn update_credits_charged(&self, job_id: Uuid, credits: i32) -> Result<(), Box<dyn Error + Send + Sync>>;
+
+    // Atomic combined operation
+    async fn create_job_with_deduction(
+        &self,
+        job_id: Uuid,
+        user_id: Uuid,
+        input_path: &str,
+        style: &str,
+        temperature: f32,
+        quality: &str,
+        prompt_settings: &serde_json::Value,
+        credits_charged: i32,
+    ) -> Result<(), Box<dyn Error + Send + Sync>>;
 }
 
 impl DbService {
@@ -263,7 +276,7 @@ impl DbProvider for DbService {
 
     async fn get_expired_jobs(&self) -> Result<Vec<(Uuid, String, Option<String>, String, Uuid, i32)>, Box<dyn Error + Send + Sync>> {
         let records = sqlx::query_as::<sqlx::Postgres, (Uuid, String, Option<String>, String, Uuid, i32)>(
-            "SELECT id, input_path, output_path, status::text, user_id, credits_charged FROM upscales WHERE created_at < NOW() - INTERVAL '24 hours' AND status != 'EXPIRED'"
+            "SELECT id, input_path, output_path, status::text, user_id, credits_charged FROM upscales WHERE status != 'EXPIRED' AND ((status IN ('COMPLETED', 'FAILED') AND created_at < NOW() - INTERVAL '24 hours') OR (status IN ('PENDING', 'PROCESSING') AND created_at < NOW() - INTERVAL '1 hour'))"
         )
         .fetch_all(&self.pool)
         .await?;
@@ -338,6 +351,72 @@ impl DbProvider for DbService {
             .bind(job_id)
             .execute(&self.pool)
             .await?;
+        Ok(())
+    }
+
+    async fn create_job_with_deduction(
+        &self,
+        job_id: Uuid,
+        user_id: Uuid,
+        input_path: &str,
+        style: &str,
+        temperature: f32,
+        quality: &str,
+        prompt_settings: &serde_json::Value,
+        credits_charged: i32,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let mut tx = self.pool.begin().await?;
+
+        // 1. Lock user and check balance
+        let row: (i32,) = sqlx::query_as(
+            "SELECT credit_balance FROM users WHERE id = $1 FOR UPDATE"
+        )
+        .bind(user_id)
+        .fetch_one(&mut *tx)
+        .await?;
+
+        let current_balance = row.0;
+        if current_balance < credits_charged {
+            return Err("Insufficient credits".into());
+        }
+        let new_balance = current_balance - credits_charged;
+
+        // 2. Deduct credits
+        sqlx::query("UPDATE users SET credit_balance = $1, updated_at = NOW() WHERE id = $2")
+            .bind(new_balance)
+            .bind(user_id)
+            .execute(&mut *tx)
+            .await?;
+
+        // 3. Ledger entry
+        sqlx::query(
+            "INSERT INTO credit_transactions (user_id, amount, balance_after, tx_type, reference_id, description)
+             VALUES ($1, $2, $3, 'UPSCALE_DEBIT', $4, $5)"
+        )
+        .bind(user_id)
+        .bind(-credits_charged)
+        .bind(new_balance)
+        .bind(job_id.to_string())
+        .bind(format!("Upscale job debit ({} credits)", credits_charged))
+        .execute(&mut *tx)
+        .await?;
+
+        // 4. Insert job
+        sqlx::query(
+            "INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged) VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7, $8)"
+        )
+        .bind(job_id)
+        .bind(user_id)
+        .bind(input_path)
+        .bind(style)
+        .bind(temperature)
+        .bind(quality)
+        .bind(prompt_settings)
+        .bind(credits_charged)
+        .execute(&mut *tx)
+        .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }
@@ -498,7 +577,7 @@ impl DbProvider for SqliteDb {
 
     async fn get_expired_jobs(&self) -> Result<Vec<(Uuid, String, Option<String>, String, Uuid, i32)>, Box<dyn Error + Send + Sync>> {
         let records = sqlx::query_as::<sqlx::Sqlite, (Uuid, String, Option<String>, String, Uuid, i32)>(
-            "SELECT id, input_path, output_path, status, user_id, credits_charged FROM upscales WHERE created_at < datetime('now', '-24 hours') AND status != 'EXPIRED'"
+            "SELECT id, input_path, output_path, status, user_id, credits_charged FROM upscales WHERE status != 'EXPIRED' AND ((status IN ('COMPLETED', 'FAILED') AND created_at < datetime('now', '-24 hours')) OR (status IN ('PENDING', 'PROCESSING') AND created_at < datetime('now', '-1 hour')))"
         )
         .fetch_all(&self.pool)
         .await?;
@@ -581,6 +660,53 @@ impl DbProvider for SqliteDb {
             .bind(job_id)
             .execute(&self.pool)
             .await?;
+        Ok(())
+    }
+
+    async fn create_job_with_deduction(
+        &self,
+        job_id: Uuid,
+        user_id: Uuid,
+        input_path: &str,
+        style: &str,
+        temperature: f32,
+        quality: &str,
+        prompt_settings: &serde_json::Value,
+        credits_charged: i32,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let mut tx = self.pool.begin().await?;
+
+        // 1. Check balance
+        self.ensure_user_exists(user_id).await?;
+        let row: (i32,) = sqlx::query_as("SELECT credit_balance FROM users WHERE id = ?")
+            .bind(user_id).fetch_one(&mut *tx).await?;
+
+        let current_balance = row.0;
+        if current_balance < credits_charged { return Err("Insufficient credits".into()); }
+        let new_balance = current_balance - credits_charged;
+
+        // 2. Deduct credits
+        sqlx::query("UPDATE users SET credit_balance = ? WHERE id = ?")
+            .bind(new_balance).bind(user_id).execute(&mut *tx).await?;
+
+        // 3. Ledger entry
+        sqlx::query("INSERT INTO credit_transactions (id, user_id, amount, balance_after, tx_type, reference_id, description) VALUES (?, ?, ?, ?, 'UPSCALE_DEBIT', ?, ?)")
+            .bind(Uuid::new_v4()).bind(user_id).bind(-credits_charged).bind(new_balance).bind(job_id.to_string()).bind("Upscale debit").execute(&mut *tx).await?;
+
+        // 4. Insert job
+        sqlx::query("INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged, usage_metadata) VALUES (?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, '{}')")
+            .bind(job_id)
+            .bind(user_id)
+            .bind(input_path)
+            .bind(style)
+            .bind(temperature)
+            .bind(quality)
+            .bind(prompt_settings.to_string())
+            .bind(credits_charged)
+            .execute(&mut *tx)
+            .await?;
+
+        tx.commit().await?;
         Ok(())
     }
 }

@@ -31,17 +31,25 @@ pub fn AuthCallback() -> impl IntoView {
                                 }
                             };
                             
-                            // PERSIST: Set session in state and localStorage
-                            auth.set_session.set(Some(session.clone()));
-                            auth.set_user.set(Some(session.user.clone()));
-                            let _ = gloo_storage::LocalStorage::set("sb_session", session);
-                            
-                            // PROCEED: Handle actual flow based on type
-                            if token_type == "recovery" {
-                                navigate("/reset-password", Default::default());
-                            } else {
-                                navigate("/", Default::default());
-                            }
+                            leptos::task::spawn_local(async move {
+                                // Verify token with backend before trusting it
+                                if let Ok(_) = crate::api::ApiClient::get_balance(Some(&access_token)).await {
+                                    // PERSIST: Set session in state and localStorage
+                                    auth.set_session.set(Some(session.clone()));
+                                    auth.set_user.set(Some(session.user.clone()));
+                                    let _ = gloo_storage::LocalStorage::set("sb_session", session);
+                                    
+                                    // PROCEED: Handle actual flow based on type
+                                    if token_type == "recovery" {
+                                        navigate("/reset-password", Default::default());
+                                    } else {
+                                        navigate("/", Default::default());
+                                    }
+                                } else {
+                                    leptos::logging::error!("AuthCallback: Token verification failed.");
+                                    navigate("/login", Default::default());
+                                }
+                            });
                             return;
                         }
                     }

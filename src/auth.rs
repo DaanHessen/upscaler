@@ -129,6 +129,10 @@ where
         
         validation.validate_aud = true;
         validation.set_audience(&["authenticated"]);
+        
+        let mut iss = std::collections::HashSet::new();
+        iss.insert(format!("{}/auth/v1", app_state.config.supabase_url));
+        validation.iss = Some(iss);
 
         // 5. Decode and verify signature
         let token_data = decode::<Claims>(token_str, &decoding_key, &validation)
