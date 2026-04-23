@@ -224,14 +224,6 @@ pub fn Configure() -> impl IntoView {
                             None => view! {
                                 // --- SETTINGS MODE ---
                                 <div class="sidebar-content fade-in">
-                                    <div class="sidebar-header">
-                                        <div class="card-tag">
-                                            <Settings size={12} />
-                                            <span>"UPSCALE PARAMETERS"</span>
-                                        </div>
-                                        <h2 class="sidebar-title">{TXT.editor_sidebar_title}</h2>
-                                    </div>
-
                                     <div class="sidebar-scrollable">
                                         // Error message
                                         {move || error_msg.get().map(|msg| view! {
@@ -241,199 +233,177 @@ pub fn Configure() -> impl IntoView {
                                             </div>
                                         })}
 
-                                        // Resolution
-                                        <div class="input-group-editor">
-                                            <div class="label-row-editor">
-                                                <label class="group-label-editor">{TXT.label_resolution}</label>
-                                                <div class="tooltip-wrapper-editor">
-                                                    <Info size={12} />
-                                                    <div class="tooltip-editor">{TXT.desc_resolution}</div>
-                                                </div>
+                                        // Resolution Section
+                                        <div class="sidebar-group-v2">
+                                            <div class="card-tag-editor-v2">
+                                                <Target size={10} />
+                                                <span>"RESOLUTION TARGET"</span>
                                             </div>
-                                            <div class="resolution-grid-editor">
+                                            
+                                            <div class="resolution-grid-v2">
                                                 <div 
-                                                    class=move || if global_state.quality.get() == "2K" { "res-tile-editor active" } else { "res-tile-editor" }
+                                                    class=move || if global_state.quality.get() == "2K" { "res-tile-v2 active" } else { "res-tile-v2" }
                                                     on:click=move |_| global_state.set_quality.set("2K".to_string())
                                                 >
-                                                    <span class="res-num-editor">"2K"</span>
-                                                    <span class="res-desc-editor">"RESTORE"</span>
-                                                    <div class="res-tag-editor">"2 CREDITS"</div>
+                                                    <div class="res-info-v2">
+                                                        <span class="res-num-v2">"2K"</span>
+                                                        <span class="res-label-v2">"RESTORE"</span>
+                                                    </div>
+                                                    <div class="res-cost-v2">"2 CREDITS"</div>
                                                 </div>
                                                 <div 
-                                                    class=move || if global_state.quality.get() == "4K" { "res-tile-editor active" } else { "res-tile-editor" }
+                                                    class=move || if global_state.quality.get() == "4K" { "res-tile-v2 active" } else { "res-tile-v2" }
                                                     on:click=move |_| global_state.set_quality.set("4K".to_string())
                                                 >
-                                                    <span class="res-num-editor">"4K"</span>
-                                                    <span class="res-desc-editor">"ULTRA HD"</span>
-                                                    <div class="res-tag-editor">"4 CREDITS"</div>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        // Style
-                                        <div class="input-group-editor">
-                                            <div class="label-row-editor">
-                                                <label class="group-label-editor">{TXT.label_style}</label>
-                                                <div class="tooltip-wrapper-editor">
-                                                    <Info size={12} />
-                                                    <div class="tooltip-editor">{TXT.desc_style}</div>
-                                                </div>
-                                            </div>
-                                            <div class="style-switcher-editor">
-                                                <button 
-                                                    class:active=move || global_state.style.get() == "PHOTOGRAPHY"
-                                                    on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
-                                                >
-                                                    "PHOTOGRAPHY"
-                                                </button>
-                                                <button 
-                                                    class:active=move || global_state.style.get() == "ILLUSTRATION"
-                                                    on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
-                                                >
-                                                    "ILLUSTRATION"
-                                                </button>
-                                            </div>
-                                        </div>
-
-                                        // Creativity
-                                        <div class="input-group-editor">
-                                            <div class="label-row-editor">
-                                                <div style="display: flex; gap: var(--s-2); align-items: center;">
-                                                    <label class="group-label-editor">{TXT.label_creativity}</label>
-                                                    <div class="tooltip-wrapper-editor">
-                                                        <Info size={12} />
-                                                        <div class="tooltip-editor">{TXT.desc_creativity}</div>
+                                                    <div class="res-info-v2">
+                                                        <span class="res-num-v2">"4K"</span>
+                                                        <span class="res-label-v2">"ULTRA HD"</span>
                                                     </div>
-                                                </div>
-                                                <span class="drift-val-editor">{move || format!("{:.1}", global_state.temperature.get())}</span>
-                                            </div>
-                                            <div class="slider-wrapper-editor">
-                                                <input 
-                                                    type="range" min="0.0" max="2.0" step="0.1"
-                                                    prop:value=move || global_state.temperature.get().to_string()
-                                                    on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
-                                                />
-                                                <div class="slider-labels-editor">
-                                                    <span>"STRICT"</span>
-                                                    <span>"CREATIVE"</span>
+                                                    <div class="res-cost-v2">"4 CREDITS"</div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        // Seed
-                                        <div class="input-group-editor">
-                                            <div class="label-row-editor">
-                                                <div style="display: flex; gap: var(--s-2); align-items: center;">
-                                                    <label class="group-label-editor">{TXT.label_seed}</label>
-                                                    <div class="tooltip-wrapper-editor">
-                                                        <Info size={12} />
-                                                        <div class="tooltip-editor">{TXT.desc_seed}</div>
-                                                    </div>
-                                                </div>
-                                                <span class="drift-val-pill-editor">
-                                                    {move || global_state.seed.get().map(|s: u32| s.to_string()).unwrap_or_else(|| "AUTO".to_string())}
-                                                </span>
+                                        // Engine Logic (Style & Creativity)
+                                        <div class="sidebar-group-v2">
+                                            <div class="card-tag-editor-v2">
+                                                <Zap size={10} />
+                                                <span>"RECONSTRUCTION ENGINE"</span>
                                             </div>
-                                            <div class="seed-control-editor">
-                                                <input 
-                                                    type="number" 
-                                                    class="studio-input-editor seed-input-editor"
-                                                    placeholder="000000"
-                                                    prop:value=move || global_state.seed.get().map(|s: u32| s.to_string()).unwrap_or_default()
-                                                    on:input=move |ev| {
-                                                        let val = event_target_value(&ev);
-                                                        if val.is_empty() {
-                                                            global_state.set_seed.set(None);
-                                                        } else if let Ok(s) = val.parse::<u32>() {
-                                                            global_state.set_seed.set(Some(s));
-                                                        }
-                                                    }
-                                                />
-                                                <div class="seed-actions-editor">
+
+                                            <div class="control-card-v2">
+                                                <label class="control-label-v2">{TXT.label_style.to_uppercase()}</label>
+                                                <div class="style-switcher-v2">
                                                     <button 
-                                                        class="seed-btn-editor" 
-                                                        on:click=move |_| {
-                                                            let val = (js_sys::Math::random() * (u32::MAX as f64)) as u32;
-                                                            global_state.set_seed.set(Some(val));
-                                                        }
+                                                        class:active=move || global_state.style.get() == "PHOTOGRAPHY"
+                                                        on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
                                                     >
-                                                        <RefreshCw size={14} />
+                                                        "PHOTOGRAPHY"
                                                     </button>
                                                     <button 
-                                                        class="seed-btn-editor"
-                                                        on:click=move |_| global_state.set_seed.set(None)
+                                                        class:active=move || global_state.style.get() == "ILLUSTRATION"
+                                                        on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
                                                     >
-                                                        <LogOut size={14} custom_style="transform: rotate(90deg)".to_string() />
+                                                        "ILLUSTRATION"
                                                     </button>
                                                 </div>
                                             </div>
-                                        </div>
 
-                                        // Advanced
-                                        <div class="input-group-editor">
-                                            <div class="label-row-editor">
-                                                <label class="group-label-editor">{TXT.label_locks}</label>
-                                                <div class="tooltip-wrapper-editor">
-                                                    <Info size={12} />
-                                                    <div class="tooltip-editor">{TXT.desc_locks}</div>
+                                            <div class="control-card-v2">
+                                                <div class="label-row-v2">
+                                                     <label class="control-label-v2">{TXT.label_creativity.to_uppercase()}</label>
+                                                     <span class="control-val-v2">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                                                </div>
+                                                <div class="slider-box-v2">
+                                                    <input 
+                                                        type="range" min="0.0" max="2.0" step="0.1"
+                                                        prop:value=move || global_state.temperature.get().to_string()
+                                                        on:input=move |ev| global_state.set_temperature.set(leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0))
+                                                    />
+                                                    <div class="slider-meta-v2">
+                                                        <span>"STRICT"</span>
+                                                        <span>"CREATIVE"</span>
+                                                    </div>
                                                 </div>
                                             </div>
+                                        </div>
+
+                                        // Advanced Telemetry (Seed & DOF)
+                                        <div class="sidebar-group-v2">
+                                            <div class="card-tag-editor-v2">
+                                                <Settings size={10} />
+                                                <span>"STUDIO TELEMETRY"</span>
+                                            </div>
+
+                                            <div class="control-card-v2">
+                                                <div class="label-row-v2">
+                                                     <label class="control-label-v2">{TXT.label_seed.to_uppercase()}</label>
+                                                     <span class="seed-pill-v2">
+                                                         {move || global_state.seed.get().map(|s: u32| format!("#{}", s)).unwrap_or_else(|| "AUTO".to_string())}
+                                                     </span>
+                                                </div>
+                                                <div class="seed-input-wrapper-v2">
+                                                    <input 
+                                                        type="number" 
+                                                        class="seed-input-v2"
+                                                        placeholder="000000"
+                                                        prop:value=move || global_state.seed.get().map(|s: u32| s.to_string()).unwrap_or_default()
+                                                        on:input=move |ev| {
+                                                            let val = event_target_value(&ev);
+                                                            if val.is_empty() {
+                                                                global_state.set_seed.set(None);
+                                                            } else if let Ok(s) = val.parse::<u32>() {
+                                                                global_state.set_seed.set(Some(s));
+                                                            }
+                                                        }
+                                                    />
+                                                    <div class="seed-actions-v2">
+                                                        <button 
+                                                            class="seed-action-btn-v2" 
+                                                            on:click=move |_| {
+                                                                let val = (js_sys::Math::random() * (u32::MAX as f64)) as u32;
+                                                                global_state.set_seed.set(Some(val));
+                                                            }
+                                                        >
+                                                            <RefreshCw size={12} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+
                                             <div 
-                                                class="advanced-toggle-editor" 
+                                                class="lock-card-v2" 
                                                 class:active=move || global_state.keep_depth_of_field.get()
                                                 on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
                                             >
-                                                <div class="toggle-icon-editor"><Target size={14} /></div>
-                                                <div class="toggle-meta-editor">
-                                                    <span class="toggle-title-editor">"DEPTH-OF-FIELD"</span>
-                                                    <span class="toggle-sub-editor">"Preserve focal planes"</span>
+                                                <div class="lock-info-v2">
+                                                    <span class="lock-title-v2">"DEPTH-OF-FIELD LOCK"</span>
+                                                    <span class="lock-sub-v2">"Preserve focal planes"</span>
                                                 </div>
-                                                <div class="toggle-check-editor">
-                                                    <div class="check-dot-editor"></div>
+                                                <div class="lock-toggle-v2">
+                                                    <div class="toggle-track-v2">
+                                                        <div class="toggle-thumb-v2"></div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        // Lighting
-                                        <div class="input-group-editor">
-                                            <div class="label-row-editor">
-                                                <label class="group-label-editor">{TXT.label_lighting}</label>
-                                                <div class="tooltip-wrapper-editor">
-                                                    <Info size={12} />
-                                                    <div class="tooltip-editor">{TXT.desc_lighting}</div>
-                                                </div>
+                                        // Environment
+                                        <div class="sidebar-group-v2">
+                                            <div class="card-tag-editor-v2">
+                                                <Info size={10} />
+                                                <span>"SCENE LIGHTING"</span>
                                             </div>
-                                            <div class="studio-select-wrapper-editor">
+                                            <div class="studio-select-v2">
                                                 <select 
-                                                    class="studio-select-editor"
                                                     on:change=move |ev| global_state.set_lighting.set(leptos::prelude::event_target_value(&ev))
                                                     prop:value=move || global_state.lighting.get()
                                                 >
                                                     <option value="Original">"ORIGINAL LIGHTING"</option>
                                                     <option value="Studio">"STUDIO LIGHTING"</option>
                                                     <option value="Cinematic">"CINEMATIC SHADOWS"</option>
-                                                    <option value="Vivid">"VIVID DYNAMICS"</option>
-                                                    <option value="Natural">"NATURAL OVERCAST"</option>
+                                                     <option value="Vivid">"VIVID DYNAMICS"</option>
+                                                     <option value="Natural">"NATURAL OVERCAST"</option>
                                                 </select>
-                                                <div class="select-arrow-editor"></div>
+                                                <ChevronRight size={12} custom_style="transform: rotate(90deg); position: absolute; right: 12px; pointer-events: none; opacity: 0.5;".to_string() />
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="sidebar-footer">
+                                    <div class="sidebar-footer-v2">
                                         <button 
-                                            class="editor-submit-btn"
+                                            class="initiate-btn-v2"
                                             on:click=handle_upscale
                                             disabled=move || global_state.temp_file.get().is_none()
                                         >
-                                            <div class="btn-inner">
-                                                <Zap size={18} />
-                                                <span>"INITIATE"</span>
-                                                <div class="btn-cost">
+                                            <div class="initiate-btn-content">
+                                                <Zap size={16} />
+                                                <span>"INITIATE RECONSTRUCTION"</span>
+                                                <span class="initiate-btn-cost">
                                                     {move || if global_state.quality.get() == "4K" { "4 CREDITS" } else { "2 CREDITS" }}
-                                                </div>
+                                                </span>
                                             </div>
-                                            <div class="btn-glow"></div>
+                                            <div class="initiate-btn-shine"></div>
                                         </button>
                                     </div>
                                 </div>
@@ -640,135 +610,134 @@ pub fn Configure() -> impl IntoView {
             .telemetry-pill .value { color: white; }
             .telemetry-pill .value.accent { color: hsl(var(--accent)); }
 
-            /* ─── SIDEBAR ─── */
+            /* ─── SIDEBAR V2 ─── */
             .editor-sidebar-wrapper {
-                width: 420px; position: relative; border-left: 1px solid #111;
-                background: #080808;
+                width: 380px; position: relative; border-left: 1px solid #111;
+                background: #060606;
             }
             .sidebar-backdrop {
-                position: absolute; inset: 0; background: radial-gradient(circle at top right, #0d0d0d, #080808);
+                position: absolute; inset: 0; background: radial-gradient(circle at 100% 0%, #0d0d0d, #060606);
             }
             .editor-sidebar {
                 position: relative; height: 100%; display: flex; flex-direction: column; z-index: 10;
             }
             .sidebar-content { display: flex; flex-direction: column; height: 100%; }
-            .sidebar-header { padding: var(--s-10) var(--s-10) var(--s-6); }
-            .sidebar-title { font-size: 1.5rem; font-weight: 850; margin-top: var(--s-2); letter-spacing: -0.04em; }
-
-            .sidebar-scrollable {
-                flex: 1; overflow-y: auto; padding: 0 var(--s-10) var(--s-10);
-            }
             
+            .sidebar-scrollable {
+                flex: 1; overflow-y: auto; padding: var(--s-8) var(--s-8);
+            }
             .sidebar-scrollable::-webkit-scrollbar { width: 2px; }
-            .sidebar-scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.05); }
+            .sidebar-scrollable::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); }
 
-            .input-group-editor { margin-bottom: var(--s-10); }
-            .group-label-editor { 
-                font-size: 0.625rem; font-weight: 850; color: hsl(var(--text-dim) / 0.6); 
-                letter-spacing: 0.15em; margin-bottom: 0px; display: flex; align-items: center; gap: var(--s-3); 
+            .sidebar-group-v2 {
+                background: rgba(255,255,255,0.02);
+                border: 1px solid rgba(255,255,255,0.04);
+                border-radius: var(--radius-xl);
+                padding: var(--s-6);
+                margin-bottom: var(--s-6);
+                transition: border-color 0.3s;
             }
+            .sidebar-group-v2:hover { border-color: rgba(255,255,255,0.08); }
 
-            .tooltip-wrapper-editor { position: relative; display: flex; align-items: center; color: hsl(var(--text-dim) / 0.3); cursor: help; }
-            .tooltip-editor { 
-                position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%) translateY(-10px);
-                background: #111; color: hsl(var(--text-dim)); padding: 12px; border-radius: 8px; width: 220px;
-                font-size: 0.6875rem; font-weight: 600; line-height: 1.5; opacity: 0; pointer-events: none;
-                transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); border: 1px solid rgba(255,255,255,0.08); 
-                box-shadow: 0 15px 40px rgba(0,0,0,0.8); z-index: 1000; text-align: center;
+            .card-tag-editor-v2 {
+                display: flex; align-items: center; gap: 8px;
+                margin-bottom: var(--s-6);
             }
-            .tooltip-wrapper-editor:hover .tooltip-editor { opacity: 1; transform: translateX(-50%) translateY(-6px); }
+            .card-tag-editor-v2 span {
+                font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim) / 0.5);
+                letter-spacing: 0.1em;
+            }
+            .card-tag-editor-v2 svg { color: hsl(var(--accent)); }
 
-            .resolution-grid-editor { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-4); }
-            .res-tile-editor {
-                background: #0a0a0a; border: 1px solid rgba(255,255,255,0.03);
-                border-radius: var(--radius-lg); padding: var(--s-6);
-                cursor: pointer; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); position: relative; overflow: hidden;
+            .resolution-grid-v2 { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s-3); }
+            .res-tile-v2 {
+                background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+                border-radius: var(--radius-lg); padding: var(--s-4);
+                cursor: pointer; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             }
-            .res-tile-editor:hover { background: #0f0f0f; border-color: rgba(255,255,255,0.1); }
-            .res-tile-editor.active { background: #111; border-color: hsl(var(--accent)); box-shadow: 0 0 30px hsl(var(--accent) / 0.12); }
-            .res-num-editor { display: block; font-size: 1.5rem; font-weight: 900; color: white; letter-spacing: -0.05em; }
-            .res-desc-editor { display: block; font-size: 0.55rem; font-weight: 900; color: hsl(var(--text-dim) / 0.5); margin-top: 2px; letter-spacing: 0.1em; }
-            .res-tag-editor { 
-                position: absolute; top: 0; right: 0; background: rgba(255,255,255,0.02); 
-                padding: 4px 10px; font-size: 0.45rem; font-weight: 900; border-bottom-left-radius: 12px; color: hsl(var(--accent) / 0.5);
+            .res-tile-v2:hover { background: rgba(255,255,255,0.06); }
+            .res-tile-v2.active { 
+                background: hsl(var(--accent) / 0.1); 
+                border-color: hsl(var(--accent)); 
+                box-shadow: 0 0 20px hsl(var(--accent) / 0.1);
             }
+            .res-info-v2 { display: flex; flex-direction: column; }
+            .res-num-v2 { font-size: 1.25rem; font-weight: 950; color: white; }
+            .res-label-v2 { font-size: 0.55rem; font-weight: 800; color: hsl(var(--text-dim) / 0.4); letter-spacing: 0.05em; }
+            .res-cost-v2 { font-size: 0.5rem; font-weight: 900; color: hsl(var(--accent)); margin-top: var(--s-2); opacity: 0.7; }
 
-            .style-switcher-editor { 
-                display: flex; background: #0a0a0a; padding: 5px; border-radius: var(--radius-lg); 
+            .control-card-v2 { margin-bottom: var(--s-8); }
+            .control-card-v2:last-child { margin-bottom: 0; }
+            .control-label-v2 { font-size: 0.625rem; font-weight: 900; color: hsl(var(--text-dim) / 0.6); letter-spacing: 0.05em; margin-bottom: var(--s-4); display: block; }
+            
+            .style-switcher-v2 { 
+                display: flex; background: rgba(0,0,0,0.3); padding: 4px; border-radius: var(--radius-md); 
                 border: 1px solid rgba(255,255,255,0.03);
             }
-            .style-switcher-editor button {
-                flex: 1; border: none; background: transparent; color: hsl(var(--text-dim) / 0.4);
-                padding: var(--s-3) 0; font-size: 0.625rem; font-weight: 850; border-radius: calc(var(--radius-lg) - 5px);
-                cursor: pointer; transition: all 0.3s; letter-spacing: 0.1em;
+            .style-switcher-v2 button {
+                flex: 1; border: none; background: transparent; color: hsl(var(--text-dim) / 0.5);
+                padding: 10px 0; font-size: 0.625rem; font-weight: 900; border-radius: 6px;
+                cursor: pointer; transition: all 0.2s;
             }
-            .style-switcher-editor button.active { background: #161616; color: white; box-shadow: 0 8px 16px rgba(0,0,0,0.5); }
+            .style-switcher-v2 button.active { background: #111; color: white; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
 
-            .label-row-editor { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-5); min-height: 20px; }
-            .drift-val-editor { background: #111; color: white; font-size: 0.75rem; font-weight: 900; font-family: var(--font-mono); padding: 3px 10px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05); }
-            .drift-val-pill-editor { background: hsl(var(--accent) / 0.05); color: hsl(var(--accent)); font-size: 0.75rem; font-weight: 900; font-family: var(--font-mono); padding: 3px 12px; border-radius: 100px; border: 1px solid hsl(var(--accent) / 0.1); }
-
-            .slider-wrapper-editor { padding: var(--s-1) 0; }
-            .slider-wrapper-editor input { width: 100%; height: 4px; background: #1a1a1a; border-radius: 10px; appearance: none; outline: none; }
-            .slider-wrapper-editor input::-webkit-slider-thumb { 
-                appearance: none; width: 16px; height: 16px; background: white; border-radius: 50%; cursor: pointer;
-                box-shadow: 0 0 15px rgba(255,255,255,0.3); border: 4px solid #080808;
+            .label-row-v2 { display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--s-3); }
+            .control-val-v2 { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 900; color: hsl(var(--accent)); }
+            
+            .slider-box-v2 input { width: 100%; height: 2px; background: rgba(255,255,255,0.1); border-radius: 2px; appearance: none; outline: none; }
+            .slider-box-v2 input::-webkit-slider-thumb { 
+                appearance: none; width: 12px; height: 12px; background: white; border-radius: 50%; cursor: pointer;
+                border: 2px solid #000; box-shadow: 0 0 10px rgba(255,255,255,0.2);
             }
-            .slider-labels-editor { display: flex; justify-content: space-between; font-size: 0.5rem; font-weight: 900; color: hsl(var(--text-dim) / 0.2); letter-spacing: 0.2em; margin-top: 8px; }
+            .slider-meta-v2 { display: flex; justify-content: space-between; font-size: 0.5rem; font-weight: 900; color: hsl(var(--text-dim) / 0.2); margin-top: 6px; letter-spacing: 0.1em; }
 
-            .seed-control-editor { display: flex; gap: var(--s-2); margin-top: var(--s-2); }
-            .seed-input-editor { 
-                flex: 1; min-width: 0; font-family: var(--font-mono); font-size: 0.8125rem; text-align: center; 
-                background: #0a0a0a; border: 1px solid rgba(255,255,255,0.03); border-radius: var(--radius-md);
-                color: white; padding: var(--s-3); transition: all 0.3s;
+            .seed-pill-v2 { font-family: var(--font-mono); font-size: 0.75rem; font-weight: 900; color: hsl(var(--accent)); }
+            .seed-input-wrapper-v2 { display: flex; gap: var(--s-2); margin-top: var(--s-1); }
+            .seed-input-v2 { 
+                flex: 1; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); 
+                padding: 10px; border-radius: var(--radius-md); color: white; font-family: var(--font-mono); font-size: 0.75rem; text-align: center;
             }
-            .seed-input-editor:focus { border-color: hsl(var(--accent) / 0.4); background: #0f0f0f; outline: none; }
-            .seed-actions-editor { display: flex; gap: 6px; }
-            .seed-btn-editor { 
-                background: #0a0a0a; border: 1px solid rgba(255,255,255,0.03); 
-                width: 44px; border-radius: var(--radius-md); color: hsl(var(--text-dim) / 0.3); 
-                cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+            .seed-input-v2:focus { border-color: hsl(var(--accent) / 0.5); background: rgba(0,0,0,0.5); outline: none; }
+            .seed-action-btn-v2 { 
+                width: 40px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.05);
+                border-radius: var(--radius-md); color: hsl(var(--text-dim) / 0.4); cursor: pointer;
+                display: flex; align-items: center; justify-content: center; transition: all 0.2s;
             }
-            .seed-btn-editor:hover { background: #111; color: white; border-color: rgba(255,255,255,0.1); }
+            .seed-action-btn-v2:hover { background: rgba(255,255,255,0.1); color: white; }
 
-            .advanced-toggle-editor {
-                background: #0a0a0a; border: 1px solid rgba(255,255,255,0.03);
+            .lock-card-v2 {
+                background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.03);
                 padding: var(--s-4); border-radius: var(--radius-lg);
-                display: flex; align-items: center; gap: var(--s-4); cursor: pointer; transition: all 0.3s;
+                display: flex; align-items: center; justify-content: space-between; cursor: pointer; transition: all 0.3s;
             }
-            .advanced-toggle-editor.active { border-color: hsl(var(--accent) / 0.4); background: hsl(var(--accent) / 0.02); }
-            .toggle-icon-editor { width: 36px; height: 36px; background: #111; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: hsl(var(--text-dim) / 0.3); transition: all 0.3s; }
-            .advanced-toggle-editor.active .toggle-icon-editor { background: hsl(var(--accent) / 0.1); color: hsl(var(--accent)); }
-            .toggle-meta-editor { flex: 1; }
-            .toggle-title-editor { display: block; font-size: 0.6875rem; font-weight: 850; color: white; letter-spacing: 0.02em; }
-            .toggle-sub-editor { font-size: 0.55rem; font-weight: 700; color: hsl(var(--text-dim) / 0.4); }
-            .toggle-check-editor { width: 44px; height: 22px; background: #000; border-radius: 100px; position: relative; padding: 4px; border: 1px solid rgba(255,255,255,0.05); }
-            .check-dot-editor { width: 14px; height: 14px; background: #222; border-radius: 50%; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-            .advanced-toggle-editor.active .check-dot-editor { transform: translateX(20px); background: hsl(var(--accent)); box-shadow: 0 0 10px hsl(var(--accent)); }
+            .lock-card-v2:hover { background: rgba(255,255,255,0.02); }
+            .lock-card-v2.active { border-color: hsl(var(--accent) / 0.3); background: hsl(var(--accent) / 0.03); }
+            .lock-info-v2 { display: flex; flex-direction: column; }
+            .lock-title-v2 { font-size: 0.625rem; font-weight: 900; color: white; }
+            .lock-sub-v2 { font-size: 0.5rem; font-weight: 700; color: hsl(var(--text-dim) / 0.4); }
+            
+            .toggle-track-v2 { width: 34px; height: 18px; background: #111; border-radius: 100px; padding: 3px; position: relative; border: 1px solid rgba(255,255,255,0.05); }
+            .toggle-thumb-v2 { width: 12px; height: 12px; background: #333; border-radius: 50%; transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
+            .lock-card-v2.active .toggle-thumb-v2 { transform: translateX(16px); background: hsl(var(--accent)); box-shadow: 0 0 10px hsl(var(--accent)); }
 
-            .studio-select-wrapper-editor { position: relative; }
-            .studio-select-editor {
-                width: 100%; background: #0a0a0a; border: 1px solid rgba(255,255,255,0.03);
-                padding: var(--s-3) var(--s-4); border-radius: var(--radius-md); color: white; font-size: 0.75rem;
-                font-weight: 800; outline: none; appearance: none; cursor: pointer; letter-spacing: 0.05em;
-            }
-            .select-arrow-editor { 
-                position: absolute; right: 14px; top: 50%; transform: translateY(-50%) rotate(45deg);
-                width: 6px; height: 6px; border-right: 2px solid rgba(255,255,255,0.2); 
-                border-bottom: 2px solid rgba(255,255,255,0.2); pointer-events: none;
+            .studio-select-v2 { position: relative; }
+            .studio-select-v2 select {
+                width: 100%; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
+                padding: 12px 16px; border-radius: var(--radius-md); color: white; font-size: 0.6875rem;
+                font-weight: 900; letter-spacing: 0.05em; appearance: none; cursor: pointer; outline: none;
             }
 
-            .sidebar-footer { padding: var(--s-10); border-top: 1px solid #111; background: rgba(0,0,0,0.2); }
-            .editor-submit-btn {
-                width: 100%; height: 60px; background: hsl(var(--accent)); border: none; border-radius: var(--radius-xl);
+            .sidebar-footer-v2 { padding: var(--s-8); background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.03); }
+            .initiate-btn-v2 {
+                width: 100%; height: 56px; background: hsl(var(--accent)); border: none; border-radius: var(--radius-xl);
                 cursor: pointer; position: relative; overflow: hidden; transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
             }
-            .editor-submit-btn:disabled { opacity: 0.2; cursor: not_allowed; filter: grayscale(1); }
-            .btn-inner { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: var(--s-4); color: white; font-weight: 900; letter-spacing: 0.12em; font-size: 0.875rem; }
-            .btn-cost { background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 6px; font-size: 0.55rem; font-weight: 900; color: rgba(255,255,255,0.7); }
-            .btn-glow { position: absolute; inset: 0; background: radial-gradient(circle at center, rgba(255,255,255,0.3), transparent 75%); opacity: 0; transition: opacity 0.3s; }
-            .editor-submit-btn:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 20px 40px hsla(var(--accent-h), var(--accent-s), 50%, 0.3); }
-            .editor-submit-btn:active:not(:disabled) { transform: translateY(-1px); }
+            .initiate-btn-v2:disabled { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
+            .initiate-btn-content { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 12px; color: white; font-weight: 950; letter-spacing: 0.05em; font-size: 0.8125rem; }
+            .initiate-btn-cost { background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 6px; font-size: 0.55rem; font-weight: 900; color: rgba(255,255,255,0.8); }
+            .initiate-btn-shine { position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); transform: translateX(-100%); animation: shine 3s infinite; }
+            @keyframes shine { 100% { transform: translateX(100%); } }
+            .initiate-btn-v2:hover:not(:disabled) { transform: translateY(-3px); box-shadow: 0 15px 30px hsla(var(--accent-h), var(--accent-s), 50%, 0.4); }
 
             /* ─── PROCESSING STATE ─── */
             .processing-state { background: black; }

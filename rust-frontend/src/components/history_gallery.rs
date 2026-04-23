@@ -36,7 +36,7 @@ pub fn HistoryGallery() -> impl IntoView {
                     let h = auth.history.get();
                     match h {
                         Some(items) => {
-                            let filtered_items: Vec<_> = items.into_iter().filter(|item| item.status != "EXPIRED").collect();
+                            let filtered_items: Vec<_> = items.into_iter().filter(|item| item.status != "EXPIRED" && item.quality != "TOP-UP").collect();
                             if filtered_items.is_empty() {
                                 view! {
                                     <div class="empty-state stagger-2">

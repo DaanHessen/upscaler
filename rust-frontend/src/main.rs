@@ -452,9 +452,9 @@ fn Home() -> impl IntoView {
                                 <span>{crate::text::TXT.home_cta_start}</span>
                             </A>
                             {move || auth.user.get().is_some().then(|| view! {
-                                <A href="/history" attr:class="btn btn-secondary">
+                                <A href="/history" attr:class="btn btn-secondary cta-btn-hero">
                                     <ImageIcon size={18} />
-                                    "VIEW GALLERY"
+                                    <span>"VIEW GALLERY"</span>
                                 </A>
                             })}
                         </div>
@@ -541,7 +541,8 @@ fn Home() -> impl IntoView {
 
                 .cta-btn-hero { 
                     height: 56px; padding: 0 var(--s-10); font-weight: 900; letter-spacing: 0.1em;
-                    display: flex; align-items: center; gap: var(--s-3);
+                    display: flex; align-items: center; gap: var(--s-3); white-space: nowrap;
+                    min-width: 220px;
                 }
                 
                 @media (max-width: 1050px) {
@@ -577,7 +578,7 @@ fn NotFound() -> impl IntoView {
     view! {
         <div class="fade-in" style="text-align: center; padding: 10rem 0;">
             <h1 style="font-size: 5rem; font-weight: 800; opacity: 0.1;">"404"</h1>
-            <h2 style="margin-top: -2rem;">"Resource Not Found"</h2>
+            <h1 class="text-gradient" style="margin-top: -2.5rem; font-size: 2.5rem;">"Resource Not Found"</h1>
             <p class="muted" style="margin-top: 1rem; margin-bottom: 3rem;">"The requested coordinate does not exist in our infrastructure."</p>
             <a href="/" class="btn btn-primary">"Return Home"</a>
         </div>

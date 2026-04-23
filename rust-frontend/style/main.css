@@ -165,9 +165,6 @@ main:has(.editor-shell) {
   margin: 0;
 }
 
-body:has(.editor-shell) footer {
-  display: none;
-}
 
 .logo { 
   font-family: var(--font-heading);
@@ -206,6 +203,7 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   padding-bottom: 0.1em;
+  animation: textShimmer 8s linear infinite;
 }
 
 @keyframes textShimmer {
@@ -275,6 +273,19 @@ nav a.active { color: hsl(var(--accent)); background: hsl(var(--accent) / 0.08);
   background-color: hsl(var(--border)); 
   border-color: hsl(var(--text-dim) / 0.4);
   transform: translateY(-1px);
+}
+
+.cta-btn-hero {
+    min-width: 200px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    padding: 0 32px;
 }
 
 /* Hero Section */
