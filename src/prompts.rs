@@ -11,6 +11,81 @@ pub struct PromptSettings {
     pub thinking_level: String, // "MINIMAL", "HIGH"
     #[serde(default)]
     pub seed: Option<u32>,
+    #[serde(default)]
+    pub target_medium: String, // for STYLIZE
+    #[serde(default)]
+    pub render_style: String, // for SKETCH
+    #[serde(default)]
+    pub target_aspect_ratio: String, // for EXPAND
+}
+
+pub fn build_tool_prompt(tool_type: &str, style: &str, quality: &str, settings: &PromptSettings) -> String {
+    match tool_type {
+        "RELIGHT" => build_relight_prompt(settings),
+        "STYLIZE" => build_stylize_prompt(settings),
+        "SKETCH" => build_sketch_prompt(settings),
+        "EXPAND" => build_expand_prompt(settings),
+        _ => build_system_prompt(style, quality, settings), // Default upscale
+    }
+}
+
+pub fn build_relight_prompt(settings: &PromptSettings) -> String {
+    let mut prompt = String::new();
+    prompt.push_str("System Role: You are an expert lighting technician and geometry-preserving renderer.\n\n");
+    prompt.push_str("Objective: Modify the illumination of this scene without altering any underlying geometry, identities, or objects.\n\n");
+    prompt.push_str("Rules:\n");
+    prompt.push_str("1. Structural Lock: Preserve the exact silhouettes, proportions, and positioning of every element. Do not crop or mutate image boundaries.\n");
+    prompt.push_str("2. Identity Lock: Do not change the identity of subjects, facial features, or existing textures. Only change the light interacting with them.\n");
+
+    match settings.lighting.to_uppercase().as_str() {
+        "NEON" | "CYBERPUNK" => prompt.push_str("3. Lighting: Apply a vibrant Cyberpunk Neon lighting setup with strong magenta, cyan, and teal rim lights.\n"),
+        "STUDIO" => prompt.push_str("3. Lighting: Enhance the scene with professional studio high-key lighting, emphasizing form and volume naturally.\n"),
+        "CINEMATIC" => prompt.push_str("3. Lighting: Reconstruct the scene using dramatic cinematic lighting with rich, deep shadows and anamorphic-style contrast.\n"),
+        "GOLDEN HOUR" => prompt.push_str("3. Lighting: Bathe the scene in warm, directional Golden Hour sunlight with long, soft shadows.\n"),
+        "NATURAL" => prompt.push_str("3. Lighting: Balance the illumination with soft, natural overcast light to produce a gentle and even exposure.\n"),
+        _ => prompt.push_str("3. Lighting: Apply professional studio lighting to enhance the forms in the scene.\n"),
+    }
+    prompt.push_str("\nFinal Instruction: Do not hallucinate new semantic objects. Modify the light, not the world.");
+    prompt
+}
+
+pub fn build_stylize_prompt(settings: &PromptSettings) -> String {
+    let mut prompt = String::new();
+    prompt.push_str("System Role: You are a master art director and style-transfer engine.\n\n");
+    
+    let medium = if settings.target_medium.is_empty() { "3D Render" } else { &settings.target_medium };
+    prompt.push_str(&format!("Objective: Transform the artistic medium of this image into {} while perfectly maintaining the original composition, poses, and layout.\n\n", medium));
+    
+    prompt.push_str("Rules:\n");
+    prompt.push_str("1. Composition Lock: Maintain the exact framing, poses, and spatial relationships of all subjects.\n");
+    prompt.push_str(&format!("2. Medium Transformation: Completely overwrite the original texture and shading to flawlessly simulate {}.\n", medium));
+    prompt.push_str("3. Cohesion: Ensure the entire image shares a unified, consistent artistic style without any fragmented or un-stylized patches.\n");
+    prompt
+}
+
+pub fn build_sketch_prompt(settings: &PromptSettings) -> String {
+    let mut prompt = String::new();
+    prompt.push_str("System Role: You are a concept artist and photorealistic rendering engine.\n\n");
+    
+    let render = if settings.render_style.is_empty() { "a highly detailed, photorealistic 4K masterpiece" } else { &settings.render_style };
+    prompt.push_str(&format!("Objective: Interpret this rough sketch as a structural blueprint and render it into {}.\n\n", render));
+    
+    prompt.push_str("Rules:\n");
+    prompt.push_str("1. Blueprint Interpretation: Use the lines and shapes of the sketch to determine the core subject and composition.\n");
+    prompt.push_str("2. Texture Synthesis: Generate lifelike, high-frequency textures, realistic materials, and proper shading that the sketch implies but lacks.\n");
+    prompt.push_str("3. Cohesive Illumination: Apply realistic global illumination and physically accurate shadows to give the flat sketch 3D volume and depth.\n");
+    prompt
+}
+
+pub fn build_expand_prompt(settings: &PromptSettings) -> String {
+    let mut prompt = String::new();
+    prompt.push_str("System Role: You are an expert outpainting and background-generation engine.\n\n");
+    prompt.push_str("Objective: The provided image has been padded with blank space. Seamlessly outpaint and extend the environment into the blank margins to create a cohesive, expanded composition.\n\n");
+    prompt.push_str("Rules:\n");
+    prompt.push_str("1. Center Lock: Do not alter, overwrite, or enhance the original central pixels. They must remain exactly as they are.\n");
+    prompt.push_str("2. Seamless Blending: Generate new content in the margins that perfectly matches the lighting, perspective, depth of field, and texture of the original image.\n");
+    prompt.push_str("3. Contextual Extrapolation: Infer what should naturally exist just outside the original frame and render it convincingly without hallucinating distracting focal points.\n");
+    prompt
 }
 
 pub fn build_system_prompt(style: &str, quality: &str, settings: &PromptSettings) -> String {

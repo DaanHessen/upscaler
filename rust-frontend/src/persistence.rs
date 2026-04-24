@@ -20,7 +20,20 @@ pub struct UserSettings {
     pub thinking_level: String,
     pub seed: Option<u32>,
     pub theme: String,
+    #[serde(default = "default_tool")]
+    pub active_tool: String,
+    #[serde(default = "default_medium")]
+    pub target_medium: String,
+    #[serde(default = "default_render")]
+    pub render_style: String,
+    #[serde(default = "default_ratio")]
+    pub target_aspect_ratio: String,
 }
+
+fn default_tool() -> String { "UPSCALE".to_string() }
+fn default_medium() -> String { "3D Render".to_string() }
+fn default_render() -> String { "Photorealistic".to_string() }
+fn default_ratio() -> String { "16:9".to_string() }
 
 pub fn save_classification(style: Option<String>) {
     if let Some(s) = style {

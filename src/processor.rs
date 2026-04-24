@@ -423,34 +423,40 @@ pub fn get_ratio_name(data: &[u8]) -> Result<String, Box<dyn Error + Send + Sync
 pub fn preprocess_image(
     data: &[u8],
     mode: ResizeMode,
+    target_ratio_name: Option<&str>,
 ) -> Result<ProcessedImage, Box<dyn Error + Send + Sync>> {
     // 1. Validate MIME
     let _info = infer::get(data).ok_or("Unable to determine file format")?;
     
     // 2. Load
     let img = image::load_from_memory(data)?;
-    preprocess_image_internal(img, mode)
+    preprocess_image_internal(img, mode, target_ratio_name)
 }
 
 pub fn preprocess_image_internal(
     img: DynamicImage,
     mode: ResizeMode,
+    target_ratio_name: Option<&str>,
 ) -> Result<ProcessedImage, Box<dyn Error + Send + Sync>> {
     let (width, height) = img.dimensions();
     let current_ratio = width as f32 / height as f32;
     
     info!("Input image: {}x{} (ratio={:.3})", width, height, current_ratio);
 
-    // 3. Find nearest ratio
-    let nearest = SUPPORTED_RATIOS
-        .iter()
-        .min_by(|a, b| {
-            (a.ratio - current_ratio)
-                .abs()
-                .partial_cmp(&(b.ratio - current_ratio).abs())
-                .unwrap()
-        })
-        .ok_or("No supported ratios found")?;
+    // 3. Find nearest or requested ratio
+    let nearest = if let Some(tr) = target_ratio_name {
+        SUPPORTED_RATIOS.iter().find(|r| r.name == tr).ok_or("Invalid target ratio")?
+    } else {
+        SUPPORTED_RATIOS
+            .iter()
+            .min_by(|a, b| {
+                (a.ratio - current_ratio)
+                    .abs()
+                    .partial_cmp(&(b.ratio - current_ratio).abs())
+                    .unwrap()
+            })
+            .ok_or("No supported ratios found")?
+    };
 
     // Determine whether to use 1MP or 2MP target dimensions
     let input_pixels = (width as u64) * (height as u64);

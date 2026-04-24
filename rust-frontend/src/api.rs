@@ -7,6 +7,7 @@ pub struct SubmitResponse {
     pub success: bool,
     pub job_id: Uuid,
     pub final_style: String,
+    pub tool_type: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -21,6 +22,7 @@ pub struct PollResponse {
     pub usage_metadata: Option<serde_json::Value>,
     pub latency_ms: Option<i32>,
     pub style: Option<String>,
+    pub tool_type: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -31,6 +33,7 @@ pub struct HistoryItem {
     pub quality: String,
     pub style: Option<String>,
     pub temperature: f32,
+    pub tool_type: Option<String>,
     #[serde(default)]
     pub image_url: Option<String>,
     #[serde(default)]
@@ -60,6 +63,12 @@ pub struct PromptSettings {
     pub thinking_level: String,
     #[serde(default)]
     pub seed: Option<u32>,
+    #[serde(default)]
+    pub target_medium: String,
+    #[serde(default)]
+    pub render_style: String,
+    #[serde(default)]
+    pub target_aspect_ratio: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -179,6 +188,7 @@ impl ApiClient {
         style: &str,
         temperature: f32,
         prompt_settings: &PromptSettings,
+        tool_type: &str,
         token: Option<&str>
     ) -> Result<SubmitResponse, String> {
         let form_data = web_sys::FormData::new().map_err(|e| format!("{:?}", e))?;
@@ -186,6 +196,7 @@ impl ApiClient {
         form_data.append_with_str("quality", quality).map_err(|e| format!("{:?}", e))?;
         form_data.append_with_str("style", style).map_err(|e| format!("{:?}", e))?;
         form_data.append_with_str("temperature", &temperature.to_string()).map_err(|e| format!("{:?}", e))?;
+        form_data.append_with_str("tool_type", tool_type).map_err(|e| format!("{:?}", e))?;
         
         let settings_json = serde_json::to_string(prompt_settings).unwrap_or_default();
         form_data.append_with_str("prompt_settings", &settings_json).map_err(|e| format!("{:?}", e))?;

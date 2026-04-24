@@ -130,15 +130,19 @@ pub fn Configure() -> impl IntoView {
             let token = auth.session.get().map(|s| s.access_token);
             let s_val: String = global_state.style.get();
             let t_val: f32 = global_state.temperature.get();
+            let tool_val: String = global_state.active_tool.get();
             let auth_ctx = auth;
             let p_settings = PromptSettings {
                 keep_depth_of_field: global_state.keep_depth_of_field.get(),
                 lighting: global_state.lighting.get(),
                 thinking_level: global_state.thinking_level.get(),
                 seed: global_state.seed.get(),
+                target_medium: global_state.target_medium.get(),
+                render_style: global_state.render_style.get(),
+                target_aspect_ratio: global_state.target_aspect_ratio.get(),
             };
             leptos::task::spawn_local(async move {
-                match ApiClient::submit_upscale(&file, &q_val, &s_val, t_val, &p_settings, token.as_deref()).await {
+                match ApiClient::submit_upscale(&file, &q_val, &s_val, t_val, &p_settings, &tool_val, token.as_deref()).await {
                     Ok(resp) => {
                         auth_ctx.set_credits.update(|c| if let Some(cv) = c { *cv -= cost; });
                         auth_ctx.sync_telemetry(true);
@@ -359,35 +363,57 @@ pub fn Configure() -> impl IntoView {
                                         </div>
                                     })}
 
-                                    // ── Resolution ──────────────────
+                                    // ── Tool Selector ───────────────
                                     <div class="card editor-card">
                                         <div class="editor-card-body">
                                             <div class="card-tag" style="margin-bottom: var(--s-8);">
-                                                <Target size={10} />
-                                                <span>"RESOLUTION"</span>
+                                                <Zap size={10} />
+                                                <span>"ACTIVE TOOL"</span>
                                             </div>
-                                                <div class="res-grid">
-                                                    <div
-                                                        class=move || if global_state.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
-                                                        on:click=move |_| global_state.set_quality.set("2K".to_string())
-                                                    >
-                                                        <div class="pack-info">
-                                                            <span class="res-big-num">"2K"</span>
-                                                            <span class="pack-price">"2 credits"</span>
-                                                        </div>
-                                                    </div>
-                                                    <div
-                                                        class=move || if global_state.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
-                                                        on:click=move |_| global_state.set_quality.set("4K".to_string())
-                                                    >
-                                                        <div class="pack-info">
-                                                            <span class="res-big-num">"4K"</span>
-                                                            <span class="pack-price">"4 credits"</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                            <div class="select-wrap">
+                                                <select class="sb-select" on:change=move |ev| global_state.set_active_tool.set(event_target_value(&ev)) prop:value=move || global_state.active_tool.get()>
+                                                    <option value="UPSCALE">"Magic Upscale"</option>
+                                                    <option value="RELIGHT">"Relight Scene"</option>
+                                                    <option value="STYLIZE">"Style Transfer"</option>
+                                                    <option value="SKETCH">"Sketch to Real"</option>
+                                                    <option value="EXPAND">"Smart Expand"</option>
+                                                </select>
+                                                <div class="select-arrow"></div>
+                                            </div>
                                         </div>
                                     </div>
+
+                                    // ── Resolution ──────────────────
+                                    {move || if global_state.active_tool.get() == "UPSCALE" { view! {
+                                        <div class="card editor-card">
+                                            <div class="editor-card-body">
+                                                <div class="card-tag" style="margin-bottom: var(--s-8);">
+                                                    <Target size={10} />
+                                                    <span>"RESOLUTION"</span>
+                                                </div>
+                                                    <div class="res-grid">
+                                                        <div
+                                                            class=move || if global_state.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
+                                                            on:click=move |_| global_state.set_quality.set("2K".to_string())
+                                                        >
+                                                            <div class="pack-info">
+                                                                <span class="res-big-num">"2K"</span>
+                                                                <span class="pack-price">"2 credits"</span>
+                                                            </div>
+                                                        </div>
+                                                        <div
+                                                            class=move || if global_state.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
+                                                            on:click=move |_| global_state.set_quality.set("4K".to_string())
+                                                        >
+                                                            <div class="pack-info">
+                                                                <span class="res-big-num">"4K"</span>
+                                                                <span class="pack-price">"4 credits"</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                            </div>
+                                        </div>
+                                    }.into_any() } else { view! { <div></div> }.into_any() }}
 
                                     // ── Engine ──────────────────────
                                     <div class="card editor-card">
@@ -397,80 +423,134 @@ pub fn Configure() -> impl IntoView {
                                                 <span>"ENGINE"</span>
                                             </div>
 
-                                            // Style
-                                            <div class="sb-field">
-                                                <label class="sb-label">"Style"</label>
-                                                <div class="seg-control">
-                                                    <button
-                                                        class:active=move || global_state.style.get() == "PHOTOGRAPHY"
-                                                        on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())
-                                                    >"Photography"</button>
-                                                    <button
-                                                        class:active=move || global_state.style.get() == "ILLUSTRATION"
-                                                        on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())
-                                                    >"Illustration"</button>
-                                                </div>
-                                            </div>
-
-                                            // Lighting
-                                            <div class="sb-field" style="margin-top: var(--s-8);">
-                                                <label class="sb-label">"Lighting"</label>
-                                                <div class="select-wrap" style="margin-top: var(--s-3);">
-                                                    <select
-                                                        class="sb-select"
-                                                        on:change=move |ev| global_state.set_lighting.set(
-                                                            leptos::prelude::event_target_value(&ev)
-                                                        )
-                                                        prop:value=move || global_state.lighting.get()
-                                                    >
-                                                        <option value="Original">"Original"</option>
-                                                        <option value="Studio">"Studio"</option>
-                                                        <option value="Cinematic">"Cinematic"</option>
-                                                        <option value="Vivid">"Vivid"</option>
-                                                        <option value="Natural">"Natural"</option>
-                                                    </select>
-                                                    <div class="select-arrow"></div>
-                                                </div>
-                                            </div>
-
-                                            // Creativity
-                                            <div class="sb-field" style="margin-top: var(--s-8);">
-                                                <div class="sb-label-row" style="margin-bottom: var(--s-3);">
-                                                    <label class="sb-label">"Creativity"</label>
-                                                    <span class="sb-val-badge">{move || format!("{:.1}", global_state.temperature.get())}</span>
-                                                </div>
-                                                <div class="slider-wrap">
-                                                    <input
-                                                        type="range" min="0.0" max="2.0" step="0.1"
-                                                        class="studio-slider"
-                                                        prop:value=move || global_state.temperature.get().to_string()
-                                                        on:input=move |ev| global_state.set_temperature.set(
-                                                            leptos::prelude::event_target_value(&ev).parse().unwrap_or(0.0)
-                                                        )
-                                                    />
-                                                    <div class="slider-ends">
-                                                        <span>"Strict"</span>
-                                                        <span>"Creative"</span>
+                                            {move || match global_state.active_tool.get().as_str() {
+                                                "UPSCALE" => view! {
+                                                    <div>
+                                                        <div class="sb-field">
+                                                            <label class="sb-label">"Style"</label>
+                                                            <div class="seg-control">
+                                                                <button class:active=move || global_state.style.get() == "PHOTOGRAPHY" on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())>"Photography"</button>
+                                                                <button class:active=move || global_state.style.get() == "ILLUSTRATION" on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())>"Illustration"</button>
+                                                            </div>
+                                                        </div>
+                                                        <div class="sb-field" style="margin-top: var(--s-8);">
+                                                            <div class="sb-label-row" style="margin-bottom: var(--s-3);">
+                                                                <label class="sb-label">"Creativity"</label>
+                                                                <span class="sb-val-badge">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                                                            </div>
+                                                            <div class="slider-wrap">
+                                                                <input type="range" min="0.0" max="2.0" step="0.1" class="studio-slider" prop:value=move || global_state.temperature.get().to_string() on:input=move |ev| global_state.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0)) />
+                                                                <div class="slider-ends"><span>"Strict"</span><span>"Creative"</span></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="sb-field" style="margin-top: var(--s-8);">
+                                                            <label class="sb-label">"Processing Depth"</label>
+                                                            <div class="seg-control">
+                                                                <button class:active=move || global_state.thinking_level.get() == "MINIMAL" on:click=move |_| global_state.set_thinking_level.set("MINIMAL".to_string())>"Standard"</button>
+                                                                <button class:active=move || global_state.thinking_level.get() == "HIGH" on:click=move |_| global_state.set_thinking_level.set("HIGH".to_string())>"Deep"</button>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            </div>
+                                                }.into_any(),
+                                                
+                                                "RELIGHT" => view! {
+                                                    <div>
+                                                        <div class="sb-field">
+                                                            <label class="sb-label">"Lighting Preset"</label>
+                                                            <div class="select-wrap" style="margin-top: var(--s-3);">
+                                                                <select class="sb-select" on:change=move |ev| global_state.set_lighting.set(event_target_value(&ev)) prop:value=move || global_state.lighting.get()>
+                                                                    <option value="Studio">"Studio Lighting"</option>
+                                                                    <option value="Cinematic">"Cinematic Shadow"</option>
+                                                                    <option value="Neon">"Cyberpunk Neon"</option>
+                                                                    <option value="Golden Hour">"Golden Hour"</option>
+                                                                    <option value="Natural">"Natural Overcast"</option>
+                                                                </select>
+                                                                <div class="select-arrow"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="sb-field" style="margin-top: var(--s-8);">
+                                                            <div class="sb-label-row" style="margin-bottom: var(--s-3);">
+                                                                <label class="sb-label">"Relight Strength"</label>
+                                                                <span class="sb-val-badge">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                                                            </div>
+                                                            <div class="slider-wrap">
+                                                                <input type="range" min="0.0" max="2.0" step="0.1" class="studio-slider" prop:value=move || global_state.temperature.get().to_string() on:input=move |ev| global_state.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0)) />
+                                                                <div class="slider-ends"><span>"Subtle"</span><span>"Dramatic"</span></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }.into_any(),
 
-                                            // Processing Depth
-                                            <div class="sb-field" style="margin-top: var(--s-8);">
-                                                <label class="sb-label">"Processing Depth"</label>
-                                                <div class="seg-control">
-                                                    <button
-                                                        class:active=move || global_state.thinking_level.get() == "MINIMAL"
-                                                        on:click=move |_| global_state.set_thinking_level.set("MINIMAL".to_string())
-                                                    >"Standard"</button>
-                                                    <button
-                                                        class:active=move || global_state.thinking_level.get() == "HIGH"
-                                                        on:click=move |_| global_state.set_thinking_level.set("HIGH".to_string())
-                                                    >"Deep"</button>
-                                                </div>
-                                            </div>
+                                                "STYLIZE" => view! {
+                                                    <div>
+                                                        <div class="sb-field">
+                                                            <label class="sb-label">"Target Medium"</label>
+                                                            <div class="select-wrap" style="margin-top: var(--s-3);">
+                                                                <select class="sb-select" on:change=move |ev| global_state.set_target_medium.set(event_target_value(&ev)) prop:value=move || global_state.target_medium.get()>
+                                                                    <option value="3D Render">"3D Pixar Render"</option>
+                                                                    <option value="Anime">"90s Anime"</option>
+                                                                    <option value="Watercolor">"Watercolor"</option>
+                                                                    <option value="Oil Painting">"Oil Painting"</option>
+                                                                    <option value="Pencil Sketch">"Pencil Sketch"</option>
+                                                                </select>
+                                                                <div class="select-arrow"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="sb-field" style="margin-top: var(--s-8);">
+                                                            <div class="sb-label-row" style="margin-bottom: var(--s-3);">
+                                                                <label class="sb-label">"Stylization Strength"</label>
+                                                                <span class="sb-val-badge">{move || format!("{:.1}", global_state.temperature.get())}</span>
+                                                            </div>
+                                                            <div class="slider-wrap">
+                                                                <input type="range" min="0.0" max="2.0" step="0.1" class="studio-slider" prop:value=move || global_state.temperature.get().to_string() on:input=move |ev| global_state.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0)) />
+                                                                <div class="slider-ends"><span>"Mild"</span><span>"Aggressive"</span></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }.into_any(),
 
-                                            // Seed
+                                                "SKETCH" => view! {
+                                                    <div>
+                                                        <div class="sb-field">
+                                                            <label class="sb-label">"Render Style"</label>
+                                                            <div class="select-wrap" style="margin-top: var(--s-3);">
+                                                                <select class="sb-select" on:change=move |ev| global_state.set_render_style.set(event_target_value(&ev)) prop:value=move || global_state.render_style.get()>
+                                                                    <option value="Photorealistic">"Photorealistic"</option>
+                                                                    <option value="Vector Art">"Vector Art"</option>
+                                                                    <option value="Conceptual Art">"Conceptual Art"</option>
+                                                                </select>
+                                                                <div class="select-arrow"></div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="sb-field" style="margin-top: var(--s-8);">
+                                                            <label class="sb-label">"Processing Depth (Locked)"</label>
+                                                            <div class="seg-control">
+                                                                <button class="active" disabled=true>"Maximum"</button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }.into_any(),
+
+                                                "EXPAND" => view! {
+                                                    <div>
+                                                        <div class="sb-field">
+                                                            <label class="sb-label">"Target Aspect Ratio"</label>
+                                                            <div class="select-wrap" style="margin-top: var(--s-3);">
+                                                                <select class="sb-select" on:change=move |ev| global_state.set_target_aspect_ratio.set(event_target_value(&ev)) prop:value=move || global_state.target_aspect_ratio.get()>
+                                                                    <option value="16:9">"16:9 Landscape"</option>
+                                                                    <option value="9:16">"9:16 Vertical"</option>
+                                                                    <option value="1:1">"1:1 Square"</option>
+                                                                    <option value="4:3">"4:3 Standard"</option>
+                                                                </select>
+                                                                <div class="select-arrow"></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                }.into_any(),
+                                                _ => view! { <div></div> }.into_any(),
+                                            }}
+
+                                            // Seed (Always present for all tools)
                                             <div class="sb-field" style="margin-top: var(--s-8);">
                                                 <div class="sb-label-row" style="margin-bottom: var(--s-3);">
                                                     <label class="sb-label">"Seed"</label>
@@ -523,10 +603,24 @@ pub fn Configure() -> impl IntoView {
                                     >
                                         <div class="sb-cta-inner">
                                             <Zap size={16} />
-                                            <span>"Initiate Upscale"</span>
+                                            <span>{move || match global_state.active_tool.get().as_str() {
+                                                "RELIGHT" => "Apply Relight",
+                                                "STYLIZE" => "Apply Style",
+                                                "SKETCH" => "Render Sketch",
+                                                "EXPAND" => "Expand Image",
+                                                _ => "Initiate Upscale",
+                                            }}</span>
                                         </div>
                                         <div class="sb-cta-badge">
-                                            {move || if global_state.quality.get() == "4K" { "4" } else { "2" }}
+                                            {move || {
+                                                let t = global_state.active_tool.get();
+                                                let q = global_state.quality.get();
+                                                if t == "SKETCH" || (t == "UPSCALE" && q == "4K") {
+                                                    "4"
+                                                } else {
+                                                    "2"
+                                                }
+                                            }}
                                             <span style="font-size: 0.625rem; opacity: 0.5; margin-left: 2px;">"CR"</span>
                                         </div>
                                     </button>

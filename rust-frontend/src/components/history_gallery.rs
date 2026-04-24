@@ -97,6 +97,7 @@ fn HistoryCard(item: HistoryItem) -> impl IntoView {
                 }
                 <div class="visual-overlay"></div>
                 <div class="badge-overlay-v2">
+                    <span class="quality-badge-v2">{item.tool_type.unwrap_or_else(|| "UPSCALE".to_string())}</span>
                     <span class="quality-badge-v2">{item.quality.replace(" RECON", "")}</span>
                 </div>
             </div>

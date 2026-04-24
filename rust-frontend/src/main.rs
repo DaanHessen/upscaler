@@ -47,6 +47,14 @@ pub struct GlobalState {
     pub set_preview_base64: WriteSignal<Option<String>>,
     pub theme: ReadSignal<String>,
     pub set_theme: WriteSignal<String>,
+    pub active_tool: ReadSignal<String>,
+    pub set_active_tool: WriteSignal<String>,
+    pub target_medium: ReadSignal<String>,
+    pub set_target_medium: WriteSignal<String>,
+    pub render_style: ReadSignal<String>,
+    pub set_render_style: WriteSignal<String>,
+    pub target_aspect_ratio: ReadSignal<String>,
+    pub set_target_aspect_ratio: WriteSignal<String>,
 }
 
 pub fn provide_global_state() {
@@ -61,6 +69,10 @@ pub fn provide_global_state() {
     let (temp_classification, set_temp_classification) = signal(None::<String>);
     let (preview_base64, set_preview_base64) = signal(None::<String>);
     let (theme, set_theme) = signal("dark".to_string());
+    let (active_tool, set_active_tool) = signal("UPSCALE".to_string());
+    let (target_medium, set_target_medium) = signal("3D Render".to_string());
+    let (render_style, set_render_style) = signal("Photorealistic".to_string());
+    let (target_aspect_ratio, set_target_aspect_ratio) = signal("16:9".to_string());
 
     provide_context(GlobalState {
         quality, set_quality,
@@ -74,6 +86,10 @@ pub fn provide_global_state() {
         temp_classification, set_temp_classification,
         preview_base64, set_preview_base64,
         theme, set_theme,
+        active_tool, set_active_tool,
+        target_medium, set_target_medium,
+        render_style, set_render_style,
+        target_aspect_ratio, set_target_aspect_ratio,
     });
 }
 
@@ -97,6 +113,10 @@ fn App() -> impl IntoView {
             thinking_level: gs.thinking_level.get(),
             seed: gs.seed.get(),
             theme: theme_val.clone(),
+            active_tool: gs.active_tool.get(),
+            target_medium: gs.target_medium.get(),
+            render_style: gs.render_style.get(),
+            target_aspect_ratio: gs.target_aspect_ratio.get(),
         };
         persistence::save_settings(&settings);
         
@@ -123,6 +143,10 @@ fn App() -> impl IntoView {
             gs.set_thinking_level.set(s.thinking_level);
             gs.set_seed.set(s.seed);
             gs.set_theme.set(s.theme);
+            gs.set_active_tool.set(s.active_tool);
+            gs.set_target_medium.set(s.target_medium);
+            gs.set_render_style.set(s.render_style);
+            gs.set_target_aspect_ratio.set(s.target_aspect_ratio);
         }
 
         // Hydrate file (async)

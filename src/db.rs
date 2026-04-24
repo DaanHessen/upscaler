@@ -22,6 +22,7 @@ pub struct UpscaleRecord {
     pub prompt_settings: serde_json::Value,
     pub usage_metadata: serde_json::Value,
     pub latency_ms: i32,
+    pub tool_type: String,
 }
 
 #[derive(Clone)]
@@ -44,6 +45,7 @@ pub trait DbProvider: Send + Sync {
         quality: &str,
         prompt_settings: &serde_json::Value,
         credits_charged: i32,
+        tool_type: &str,
     ) -> Result<Uuid, Box<dyn Error + Send + Sync>>;
 
     async fn claim_pending_job(&self) -> Result<Option<UpscaleRecord>, Box<dyn Error + Send + Sync>>;
@@ -94,6 +96,7 @@ pub trait DbProvider: Send + Sync {
         quality: &str,
         prompt_settings: &serde_json::Value,
         credits_charged: i32,
+        tool_type: &str,
     ) -> Result<(), Box<dyn Error + Send + Sync>>;
 }
 
@@ -137,9 +140,10 @@ impl DbProvider for DbService {
         quality: &str,
         prompt_settings: &serde_json::Value,
         credits_charged: i32,
+        tool_type: &str,
     ) -> Result<Uuid, Box<dyn Error + Send + Sync>> {
         let rec: (Uuid,) = sqlx::query_as(
-            "INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged) VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7, $8) RETURNING id"
+            "INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged, tool_type) VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7, $8, $9) RETURNING id"
         )
         .bind(id)
         .bind(user_id)
@@ -149,6 +153,7 @@ impl DbProvider for DbService {
         .bind(quality)
         .bind(prompt_settings)
         .bind(credits_charged)
+        .bind(tool_type)
         .fetch_one(&self.pool)
         .await?;
 
@@ -159,7 +164,7 @@ impl DbProvider for DbService {
         let rec = sqlx::query_as::<_, UpscaleRecord>(
             "UPDATE upscales SET status = 'PROCESSING' WHERE id = (
                 SELECT id FROM upscales WHERE status = 'PENDING' ORDER BY created_at ASC FOR UPDATE SKIP LOCKED LIMIT 1
-            ) RETURNING id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms"
+            ) RETURNING id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms, tool_type"
         )
         .fetch_optional(&self.pool)
         .await?;
@@ -204,7 +209,7 @@ impl DbProvider for DbService {
 
     async fn get_job_status(&self, id: Uuid) -> Result<Option<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let rec = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE id = $1"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms, tool_type FROM upscales WHERE id = $1"
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -214,7 +219,7 @@ impl DbProvider for DbService {
 
     async fn get_user_history(&self, user_id: Uuid) -> Result<Vec<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let mut records = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status::text as status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms, tool_type FROM upscales WHERE user_id = $1 ORDER BY created_at DESC LIMIT 50"
         )
         .bind(user_id)
         .fetch_all(&self.pool)
@@ -243,6 +248,7 @@ impl DbProvider for DbService {
                 prompt_settings: serde_json::json!({}),
                 usage_metadata: serde_json::json!({}),
                 latency_ms: 0,
+                tool_type: "TOP-UP".to_string(),
             });
         }
 
@@ -364,6 +370,7 @@ impl DbProvider for DbService {
         quality: &str,
         prompt_settings: &serde_json::Value,
         credits_charged: i32,
+        tool_type: &str,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut tx = self.pool.begin().await?;
 
@@ -403,7 +410,7 @@ impl DbProvider for DbService {
 
         // 4. Insert job
         sqlx::query(
-            "INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged) VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7, $8)"
+            "INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged, tool_type) VALUES ($1, $2, $3, $4, 'PENDING', $5, $6, $7, $8, $9)"
         )
         .bind(job_id)
         .bind(user_id)
@@ -413,6 +420,7 @@ impl DbProvider for DbService {
         .bind(quality)
         .bind(prompt_settings)
         .bind(credits_charged)
+        .bind(tool_type)
         .execute(&mut *tx)
         .await?;
 
@@ -431,7 +439,7 @@ impl SqliteDb {
         
         // Manual schema setup for mock
         sqlx::query("CREATE TABLE users (id BLOB PRIMARY KEY, credit_balance INTEGER DEFAULT 10, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP)").execute(&pool).await?;
-        sqlx::query("CREATE TABLE upscales (id BLOB PRIMARY KEY, user_id BLOB, style TEXT, input_path TEXT, output_path TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT, error_msg TEXT, temperature REAL, quality TEXT, credits_charged INTEGER DEFAULT 0, prompt_settings TEXT, usage_metadata TEXT)").execute(&pool).await?;
+        sqlx::query("CREATE TABLE upscales (id BLOB PRIMARY KEY, user_id BLOB, style TEXT, input_path TEXT, output_path TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, status TEXT, error_msg TEXT, temperature REAL, quality TEXT, credits_charged INTEGER DEFAULT 0, prompt_settings TEXT, usage_metadata TEXT, tool_type TEXT DEFAULT 'UPSCALE')").execute(&pool).await?;
         sqlx::query("CREATE TABLE moderation_logs (id BLOB PRIMARY KEY, user_id BLOB, path TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)").execute(&pool).await?;
         sqlx::query("CREATE TABLE credit_transactions (id BLOB PRIMARY KEY, user_id BLOB, amount INTEGER, balance_after INTEGER, tx_type TEXT, reference_id TEXT, description TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)").execute(&pool).await?;
 
@@ -455,8 +463,9 @@ impl DbProvider for SqliteDb {
         quality: &str,
         prompt_settings: &serde_json::Value,
         credits_charged: i32,
+        tool_type: &str,
     ) -> Result<Uuid, Box<dyn Error + Send + Sync>> {
-        sqlx::query("INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged, usage_metadata) VALUES (?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, '{}')")
+        sqlx::query("INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged, usage_metadata, tool_type) VALUES (?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, '{}', ?)")
             .bind(id)
             .bind(user_id)
             .bind(input_path)
@@ -465,6 +474,7 @@ impl DbProvider for SqliteDb {
             .bind(quality)
             .bind(prompt_settings.to_string())
             .bind(credits_charged)
+            .bind(tool_type)
             .execute(&self.pool)
             .await?;
         Ok(id)
@@ -474,7 +484,7 @@ impl DbProvider for SqliteDb {
         // SQLite doesn't support FOR UPDATE SKIP LOCKED exactly the same way, 
         // but for a single-threaded test mock it's fine
         let rec = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE status = 'PENDING' LIMIT 1"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms, tool_type FROM upscales WHERE status = 'PENDING' LIMIT 1"
         )
         .fetch_optional(&self.pool)
         .await?;
@@ -509,7 +519,7 @@ impl DbProvider for SqliteDb {
 
     async fn get_job_status(&self, id: Uuid) -> Result<Option<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let rec = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE id = ?"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms, tool_type FROM upscales WHERE id = ?"
         )
         .bind(id)
         .fetch_optional(&self.pool)
@@ -519,7 +529,7 @@ impl DbProvider for SqliteDb {
 
     async fn get_user_history(&self, user_id: Uuid) -> Result<Vec<UpscaleRecord>, Box<dyn Error + Send + Sync>> {
         let mut records = sqlx::query_as::<_, UpscaleRecord>(
-            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms FROM upscales WHERE user_id = ? ORDER BY created_at DESC"
+            "SELECT id, user_id, style, input_path, output_path, created_at, status, error_msg, temperature, quality, credits_charged, prompt_settings, usage_metadata, latency_ms, tool_type FROM upscales WHERE user_id = ? ORDER BY created_at DESC"
         )
         .bind(user_id)
         .fetch_all(&self.pool)
@@ -548,6 +558,7 @@ impl DbProvider for SqliteDb {
                 prompt_settings: serde_json::json!({}),
                 usage_metadata: serde_json::json!({}),
                 latency_ms: 0,
+                tool_type: "TOP-UP".to_string(),
             });
         }
 
@@ -673,6 +684,7 @@ impl DbProvider for SqliteDb {
         quality: &str,
         prompt_settings: &serde_json::Value,
         credits_charged: i32,
+        tool_type: &str,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut tx = self.pool.begin().await?;
 
@@ -694,7 +706,7 @@ impl DbProvider for SqliteDb {
             .bind(Uuid::new_v4()).bind(user_id).bind(-credits_charged).bind(new_balance).bind(job_id.to_string()).bind("Upscale debit").execute(&mut *tx).await?;
 
         // 4. Insert job
-        sqlx::query("INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged, usage_metadata) VALUES (?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, '{}')")
+        sqlx::query("INSERT INTO upscales (id, user_id, input_path, style, status, temperature, quality, prompt_settings, credits_charged, usage_metadata, tool_type) VALUES (?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, '{}', ?)")
             .bind(job_id)
             .bind(user_id)
             .bind(input_path)
@@ -703,6 +715,7 @@ impl DbProvider for SqliteDb {
             .bind(quality)
             .bind(prompt_settings.to_string())
             .bind(credits_charged)
+            .bind(tool_type)
             .execute(&mut *tx)
             .await?;
 
