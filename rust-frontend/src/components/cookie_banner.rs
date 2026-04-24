@@ -34,8 +34,9 @@ pub fn CookieBanner() -> impl IntoView {
             <div class="cookie-banner-v3 fade-in" style="
                 position: fixed;
                 bottom: 32px;
-                left: 50%;
-                transform: translateX(-50%);
+                left: 0;
+                right: 0;
+                margin: 0 auto;
                 background: var(--glass);
                 backdrop-filter: blur(30px) saturate(180%);
                 border: 1px solid var(--glass-border);

@@ -52,19 +52,19 @@ pub fn Credits() -> impl IntoView {
             <div class="card unified-billing-card shadow-lg" style="margin-top: var(--s-8);">
                 <div class="unified-billing-grid" style="display: grid; grid-template-columns: 1fr 1fr;">
                     /* Balance Section */
-                    <div class="billing-section balance-section" style="padding: var(--s-10) var(--s-12); border-right: 1px solid hsl(var(--border) / 0.5); display: flex; flex-direction: column;">
+                    <div class="billing-section balance-section" style="padding: var(--s-8) var(--s-10); border-right: 1px solid hsl(var(--border) / 0.5); display: flex; flex-direction: column;">
                         <div class="card-tag">
                             <Zap size={10} />
                             <span>"VAULT BALANCE"</span>
                         </div>
-                        <div class="balance-display" style="margin-top: var(--s-12); display: flex; flex-direction: column; align-items: flex-start;">
+                        <div class="balance-display" style="margin-top: var(--s-6); display: flex; flex-direction: column; align-items: flex-start;">
                             <span class="credit-count" style="font-size: 5.5rem; line-height: 0.9; font-family: var(--font-heading); font-weight: 800; letter-spacing: -0.04em;">
                                 {move || auth.credits.get().map(|c| c.to_string()).unwrap_or_else(|| "---".to_string())}
                             </span>
                             <span class="credit-symbol" style="margin-top: var(--s-2); font-size: 0.875rem; font-weight: 600; color: hsl(var(--text-dim));">"Credits Available"</span>
                         </div>
                         
-                        <div class="meta-stats" style="margin-top: auto; padding-top: var(--s-8); border-top: 1px solid hsl(var(--border-muted));">
+                        <div class="meta-stats" style="margin-top: auto; padding-top: var(--s-6); border-top: 1px solid hsl(var(--border-muted));">
                             <div class="stat-box">
                                 <span class="stat-label">"Last Top Up"</span>
                                 <span class="stat-value" style="font-size: 0.9375rem;">"N/A"</span>
@@ -77,8 +77,8 @@ pub fn Credits() -> impl IntoView {
                     </div>
 
                     /* Replenish Section */
-                    <div class="billing-section replenish-section" style="padding: var(--s-10) var(--s-12); display: flex; flex-direction: column;">
-                        <div class="card-tag" style="margin-bottom: var(--s-8);">
+                    <div class="billing-section replenish-section" style="padding: var(--s-8) var(--s-10); display: flex; flex-direction: column;">
+                        <div class="card-tag" style="margin-bottom: var(--s-6);">
                             <CreditCard size={10} />
                             <span>"BUY CREDITS"</span>
                         </div>
@@ -142,7 +142,7 @@ pub fn Credits() -> impl IntoView {
                                         <tr>
                                             <th>"ID"</th>
                                             <th>"TIMESTAMP"</th>
-                                            <th class="text-center">"QUALITY"</th>
+                                            <th class="text-center">"TYPE"</th>
                                             <th class="text-center">"STYLE"</th>
                                             <th class="text-center">"CREDITS"</th>
                                             <th class="text-center">"STATUS"</th>
