@@ -19,7 +19,7 @@ Our service providers may set cookies during your interaction with their embedde
 - **Supabase**: Uses cookies for authentication and session management.
 
 ## 4. Managing Your Cookies
-Most browsers allow you to block or delete cookies through their settings. However, **disabling mandatory cookies will prevent you from signing in or using the upscaling service**.
+We provide a **Cookie Settings** menu that appears the first time you visit our site, allowing you to choose which non-essential cookies to allow (such as Analytics or Marketing cookies, if present). Most browsers also allow you to block or delete cookies through their settings. However, **disabling mandatory cookies will prevent you from signing in or using the upscaling service**.
 
 ## 5. Changes to This Policy
 We may update this policy to reflect changes in our service or regulatory requirements.

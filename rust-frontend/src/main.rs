@@ -338,7 +338,7 @@ fn AuthNav() -> impl IntoView {
                                     set_theme.set(next.to_string());
                                 }>
                                     {move || if theme.get() == "light" { view! { <Moon size={16} /> }.into_any() } else { view! { <Sun size={16} /> }.into_any() }}
-                                    {move || if theme.get() == "light" { "DARK MODE" } else { "LIGHT MODE" }}
+                                    {move || if theme.get() == "light" { "dark mode" } else { "light mode" }}
                                 </div>
                                 
                                 <A href="/account" attr:class="dropdown-item" attr:style="text-decoration: none;">
