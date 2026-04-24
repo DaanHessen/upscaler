@@ -77,7 +77,7 @@ pub fn build_sketch_prompt(settings: &PromptSettings) -> String {
     prompt
 }
 
-pub fn build_expand_prompt(settings: &PromptSettings) -> String {
+pub fn build_expand_prompt(_settings: &PromptSettings) -> String {
     let mut prompt = String::new();
     prompt.push_str("System Role: You are an expert outpainting and background-generation engine.\n\n");
     prompt.push_str("Objective: The provided image has been padded with blank space. Seamlessly outpaint and extend the environment into the blank margins to create a cohesive, expanded composition.\n\n");
@@ -91,7 +91,7 @@ pub fn build_expand_prompt(settings: &PromptSettings) -> String {
 pub fn build_system_prompt(style: &str, quality: &str, settings: &PromptSettings) -> String {
     let mut prompt = String::new();
 
-    prompt.push_str("System Role: You are the UPSYL high-fidelity reconstruction and super-resolution engine.\n\n");
+    prompt.push_str("System Role: You are the Novura high-fidelity reconstruction and super-resolution engine.\n\n");
     prompt.push_str(&format!("Objective: Perform a precise 1:1 super-resolution enhancement of this image to {} resolution.\n\n", quality));
 
     prompt.push_str("Rules:\n");
@@ -136,10 +136,13 @@ mod tests {
             lighting: "VIVID".to_string(),
             thinking_level: "HIGH".to_string(),
             seed: None,
+            target_medium: String::new(),
+            render_style: String::new(),
+            target_aspect_ratio: String::new(),
         };
         let prompt = build_system_prompt("PHOTOGRAPHY", "4K", &settings);
         
-        assert!(prompt.contains("UPSYL high-fidelity reconstruction"));
+        assert!(prompt.contains("Novura high-fidelity reconstruction"));
         assert!(prompt.contains("organic micro-textures"));
         assert!(prompt.contains("exact original focal planes"));
         assert!(prompt.contains("Amplify color vibrancy"));
@@ -153,6 +156,9 @@ mod tests {
             lighting: "Original".to_string(),
             thinking_level: "MINIMAL".to_string(),
             seed: None,
+            target_medium: String::new(),
+            render_style: String::new(),
+            target_aspect_ratio: String::new(),
         };
         let prompt = build_system_prompt("ILLUSTRATION", "2K", &settings);
         
@@ -170,6 +176,9 @@ mod tests {
             lighting: "STUDIO".to_string(),
             thinking_level: "HIGH".to_string(),
             seed: None,
+            target_medium: String::new(),
+            render_style: String::new(),
+            target_aspect_ratio: String::new(),
         };
         let prompt = build_system_prompt("PHOTOGRAPHY", "4K", &settings);
         assert!(prompt.contains("Enhance edge clarity"));

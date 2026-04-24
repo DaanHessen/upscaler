@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose, Engine as _};
 use image::{DynamicImage, GenericImageView};
 use std::error::Error;
 use std::io::Cursor;

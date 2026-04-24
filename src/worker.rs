@@ -1,6 +1,5 @@
 use crate::AppState;
 use crate::models::{Content, GenerateContentRequest, GenerationConfig, ImageConfig, Part, InlineData};
-use crate::prompts::build_system_prompt;
 use base64::{engine::general_purpose, Engine as _};
 use std::error::Error;
 use std::sync::Arc;
@@ -61,13 +60,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
                 image_size: job.quality.clone(),
             }),
             temperature: Some(job.temperature),
-            thinking_config: if prompt_settings.thinking_level.is_empty() {
-                None
-            } else {
-                Some(crate::models::ThinkingConfig {
-                    thinking_level: prompt_settings.thinking_level.clone(),
-                })
-            },
+            thinking_config: None, // gemini-3-pro-image-preview does not support thinking_config
             seed: prompt_settings.seed,
         },
     };

@@ -41,8 +41,8 @@ pub async fn moderate_handler(
     };
 
     let (is_explicit, style_str, preview_b64) = match tokio::task::spawn_blocking(move || {
-        let mut reader = image::io::Reader::new(std::io::Cursor::new(&data)).with_guessed_format().map_err(|e| e.to_string())?;
-        let mut limits = image::io::Limits::default();
+        let mut reader = image::ImageReader::new(std::io::Cursor::new(&data)).with_guessed_format().map_err(|e| e.to_string())?;
+        let mut limits = image::Limits::default();
         limits.max_alloc = Some(256 * 1024 * 1024);
         reader.limits(limits);
         let img = reader.decode().map_err(|e| e.to_string())?;
@@ -418,10 +418,10 @@ pub async fn upscale_handler(
     // Process & Moderate & Transcode
     let data_clone = data.clone();
     let style_result = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
-        let mut reader = image::io::Reader::new(std::io::Cursor::new(&data_clone)).with_guessed_format()
+        let mut reader = image::ImageReader::new(std::io::Cursor::new(&data_clone)).with_guessed_format()
             .map_err(|_| "Invalid format".to_string())?;
         
-        let mut limits = image::io::Limits::default();
+        let mut limits = image::Limits::default();
         limits.max_alloc = Some(256 * 1024 * 1024); // Protect against decompression bombs (max 256MB)
         reader.limits(limits);
         let img = reader.decode().map_err(|_| "Decode failed".to_string())?;

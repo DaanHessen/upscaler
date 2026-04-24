@@ -49,7 +49,7 @@ pub struct UiText {
 }
 
 pub static TXT: UiText = UiText {
-    brand_name: "UPSYL",
+    brand_name: "Novura",
     brand_suffix: "STUDIO",
 
     nav_home: "HOME",
@@ -57,8 +57,8 @@ pub static TXT: UiText = UiText {
     nav_history: "HISTORY",
     nav_billing: "BILLING",
 
-    home_hero_title: "PROFESSIONAL IMAGE RECONSTRUCTION",
-    home_hero_subtitle: "Harness the power of Gemini Vision for high-fidelity 4K upscaling and detail synthesis.",
+    home_hero_title: "INFINITE RESOLUTION",
+    home_hero_subtitle: "Harness the power of Gemini 3.1 Vision for high-fidelity 4K upscaling, restyling, and detail synthesis.",
     home_cta_start: "ENTER STUDIO",
     home_features_title: "ENGINE CAPABILITIES",
 

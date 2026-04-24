@@ -10,7 +10,7 @@ use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
 use crate::api::ApiClient;
 use leptos_router::hooks::use_location;
-use crate::components::icons::{Zap, LogOut, Sun, Moon, UserIcon, Target, RefreshCw, ImageIcon};
+use crate::components::icons::{Zap, LogOut, Sun, Moon, UserIcon, Target, RefreshCw, ImageIcon, NovuraLogo};
 use crate::components::auth::{Login, Register, ForgotPassword};
 use crate::components::comparison_slider::ComparisonSlider;
 use crate::components::configure::Configure;
@@ -209,7 +209,7 @@ fn MainLayout() -> impl IntoView {
             </div>
             <header class="glass">
                 <A href="/" attr:class="logo" attr:style="text-decoration: none; display: flex; align-items: center; gap: var(--s-3); color: inherit;">
-                    <div class="logo-icon"><Zap size={18} /></div>
+                    <div class="logo-icon"><NovuraLogo size={18} /></div>
                     {crate::text::TXT.brand_name}
                     <span>{crate::text::TXT.brand_suffix}</span>
                 </A>
@@ -268,7 +268,7 @@ fn Footer() -> impl IntoView {
             <div class="footer-content">
                 <div class="footer-left">
                     <A href="/" attr:class="logo">
-                        <div class="logo-icon"><crate::components::icons::Zap size={24} /></div>
+                        <div class="logo-icon"><crate::components::icons::NovuraLogo size={24} /></div>
                         {crate::text::TXT.brand_name} <span>{crate::text::TXT.brand_suffix}</span>
                     </A>
                 </div>
