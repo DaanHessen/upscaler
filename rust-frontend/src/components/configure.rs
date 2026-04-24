@@ -412,6 +412,27 @@ pub fn Configure() -> impl IntoView {
                                                 </div>
                                             </div>
 
+                                            // Lighting
+                                            <div class="sb-field" style="margin-top: var(--s-8);">
+                                                <label class="sb-label">"Lighting"</label>
+                                                <div class="select-wrap" style="margin-top: var(--s-3);">
+                                                    <select
+                                                        class="sb-select"
+                                                        on:change=move |ev| global_state.set_lighting.set(
+                                                            leptos::prelude::event_target_value(&ev)
+                                                        )
+                                                        prop:value=move || global_state.lighting.get()
+                                                    >
+                                                        <option value="Original">"Original"</option>
+                                                        <option value="Studio">"Studio"</option>
+                                                        <option value="Cinematic">"Cinematic"</option>
+                                                        <option value="Vivid">"Vivid"</option>
+                                                        <option value="Natural">"Natural"</option>
+                                                    </select>
+                                                    <div class="select-arrow"></div>
+                                                </div>
+                                            </div>
+
                                             // Creativity
                                             <div class="sb-field" style="margin-top: var(--s-8);">
                                                 <div class="sb-label-row" style="margin-bottom: var(--s-3);">
@@ -448,19 +469,9 @@ pub fn Configure() -> impl IntoView {
                                                     >"Deep"</button>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-
-                                    // ── Advanced ────────────────────
-                                    <div class="card editor-card">
-                                        <div class="editor-card-body">
-                                            <div class="card-tag" style="margin-bottom: var(--s-8);">
-                                                <Settings size={10} />
-                                                <span>"ADVANCED"</span>
-                                            </div>
 
                                             // Seed
-                                            <div class="sb-field">
+                                            <div class="sb-field" style="margin-top: var(--s-8);">
                                                 <div class="sb-label-row" style="margin-bottom: var(--s-3);">
                                                     <label class="sb-label">"Seed"</label>
                                                     <span class="sb-val-badge mono">
@@ -497,47 +508,6 @@ pub fn Configure() -> impl IntoView {
                                                         <RefreshCw size={13} />
                                                     </button>
                                                 </div>
-                                            </div>
-
-                                            // DOF toggle
-                                            <div
-                                                class=move || if global_state.keep_depth_of_field.get() { "pack-item active dof-row" } else { "pack-item dof-row" }
-                                                style="margin-top: var(--s-4); cursor: pointer;"
-                                                on:click=move |_| global_state.set_keep_depth_of_field.update(|v| *v = !*v)
-                                            >
-                                                <div class="pack-info">
-                                                    <span class="pack-name">"Depth-of-field lock"</span>
-                                                    <span style="font-size: 0.6875rem; color: hsl(var(--text-dim));">"Preserve original focal planes"</span>
-                                                </div>
-                                                <div class="toggle-track">
-                                                    <div class="toggle-thumb"></div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    // ── Lighting ────────────────────
-                                    <div class="card editor-card">
-                                        <div class="editor-card-body">
-                                            <div class="card-tag" style="margin-bottom: var(--s-8);">
-                                                <Info size={10} />
-                                                <span>"LIGHTING"</span>
-                                            </div>
-                                            <div class="select-wrap">
-                                                <select
-                                                    class="sb-select"
-                                                    on:change=move |ev| global_state.set_lighting.set(
-                                                        leptos::prelude::event_target_value(&ev)
-                                                    )
-                                                    prop:value=move || global_state.lighting.get()
-                                                >
-                                                    <option value="Original">"Original"</option>
-                                                    <option value="Studio">"Studio"</option>
-                                                    <option value="Cinematic">"Cinematic"</option>
-                                                    <option value="Vivid">"Vivid"</option>
-                                                    <option value="Natural">"Natural"</option>
-                                                </select>
-                                                <div class="select-arrow"></div>
                                             </div>
                                         </div>
                                     </div>
