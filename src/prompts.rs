@@ -31,11 +31,11 @@ pub fn build_upscale_prompt(style: &str, quality: &str, temperature: f32, settin
 
     // Creativity / Temperature Logic
     if temperature <= 0.1 {
-        prompt.push_str("This is a strict, perfectly faithful restoration. You must EXACTLY preserve the original image. DO NOT hallucinate, DO NOT add new details, DO NOT change facial features, DO NOT add whiskers, wrinkles, or pores that do not exist in the original. Simply remove noise, blur, and pixelation. The output must be an exact 1:1 structural match to the input, just higher quality.\n\n");
+        prompt.push_str("This is a strict, perfectly faithful mathematical upscaling. Your only task is to increase the resolution, remove noise, and remove pixelation. You must maintain the exact semantic content, structural anatomy, and attributes of the original subject. Every output pixel must derive directly from the visible input data. If a texture or anatomical feature is absent from the input, it must remain completely absent from the output.\n\n");
     } else if temperature < 1.5 {
-        prompt.push_str("This is a high-detail enhancement. You may add realistic micro-details (like subtle skin texture, fabric weave, or natural lighting enhancements) to make it look like a high-quality macro photograph, but you MUST NOT alter the fundamental identity of the subject. DO NOT add anatomical features that are not there (like whiskers on an animal that has none). Keep it grounded in the original image.\n\n");
+        prompt.push_str("This is a high-detail enhancement. You may clarify existing micro-details to simulate a high-quality photograph, but your additions must remain strictly constrained by the original subject's anatomy. Retain the original identity entirely without introducing any ungrounded physical features.\n\n");
     } else {
-        prompt.push_str("This is a creative macro-photography upscale. You are allowed to aggressively enhance textures, lighting, and clarity to produce a stunning, highly detailed macro photograph. It is acceptable to interpret ambiguous areas with high-frequency details, but remain broadly faithful to the original subject.\n\n");
+        prompt.push_str("This is a creative macro-photography upscale. You are permitted to enhance textures, lighting, and clarity to produce a highly detailed macro photograph. Interpret ambiguous areas with high-frequency details while preserving the core identity of the original subject.\n\n");
     }
 
     if style == "PHOTOGRAPHY" {
@@ -64,8 +64,8 @@ mod tests {
     fn test_upscale_strict() {
         let settings = PromptSettings::default();
         let prompt = build_upscale_prompt("PHOTOGRAPHY", "4K", 0.0, &settings);
-        assert!(prompt.contains("perfectly faithful restoration"));
-        assert!(prompt.contains("DO NOT add whiskers"));
+        assert!(prompt.contains("perfectly faithful mathematical upscaling"));
+        assert!(prompt.contains("absent from the input"));
     }
 
     #[test]

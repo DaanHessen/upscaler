@@ -124,7 +124,7 @@ pub fn Configure() -> impl IntoView {
 
     let stage_info = move || {
         if gs.is_submitting.get() {
-            return ("INIT", "Preparing", "Securely uploading and analyzing asset...");
+            return ("INIT", "Uploading image", "Preprocessing image...");
         }
         match gs.engine_status.get().map(|s| s.status) {
             Some(s) if s == "PENDING"    => ("QUEUE",  "System Ready",   "Checking on safety filters..."),
@@ -329,7 +329,6 @@ pub fn Configure() -> impl IntoView {
                                             <div class="card-tag" style="margin-bottom: var(--s-8);">
                                                 <Target size={10} />
                                                 <span>"RESOLUTION"</span>
-                                                <span title="The output resolution of the image. Higher resolution costs more credits." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span>
                                             </div>
                                                 <div class="res-grid">
                                                     <div
