@@ -325,7 +325,17 @@ impl DbProvider for DbService {
         .fetch_one(&self.pool)
         .await?;
         
-        Ok(row.0.unwrap_or(15000.0) as i32)
+        if let Some(avg) = row.0 {
+            return Ok(avg as i32);
+        }
+
+        let fallback_row: (Option<f64>,) = sqlx::query_as(
+            "SELECT AVG(latency_ms) FROM (SELECT latency_ms FROM upscales WHERE status = 'COMPLETED' ORDER BY created_at DESC LIMIT 10) sub"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(fallback_row.0.unwrap_or(15000.0) as i32)
     }
 
     async fn get_recent_moderation_logs(&self) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
@@ -633,7 +643,17 @@ impl DbProvider for SqliteDb {
         .fetch_one(&self.pool)
         .await?;
         
-        Ok(row.0.unwrap_or(15000.0) as i32)
+        if let Some(avg) = row.0 {
+            return Ok(avg as i32);
+        }
+
+        let fallback_row: (Option<f64>,) = sqlx::query_as(
+            "SELECT AVG(latency_ms) FROM (SELECT latency_ms FROM upscales WHERE status = 'COMPLETED' ORDER BY created_at DESC LIMIT 10)"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+
+        Ok(fallback_row.0.unwrap_or(15000.0) as i32)
     }
 
     async fn get_recent_moderation_logs(&self) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {

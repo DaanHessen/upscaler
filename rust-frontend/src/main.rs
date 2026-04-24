@@ -21,6 +21,7 @@ use crate::components::reset_password::ResetPassword;
 use leptos::ev;
 use leptos_router::hooks::use_navigate;
 use crate::components::profile::AccountSettings;
+use crate::components::admin::AdminPanel;
 use crate::components::cookie_banner::CookieBanner;
 
 #[derive(Copy, Clone, Debug)]
@@ -82,7 +83,7 @@ impl GlobalState {
 pub fn provide_global_state() {
     let (quality, set_quality) = signal("2K".to_string());
     let (style, set_style) = signal("PHOTOGRAPHY".to_string());
-    let (temperature, set_temperature) = signal(0.1);
+    let (temperature, set_temperature) = signal(0.0);
     let (keep_depth_of_field, set_keep_depth_of_field) = signal(false);
     let (lighting, set_lighting) = signal("Original".to_string());
     let (thinking_level, set_thinking_level) = signal("MINIMAL".to_string());
@@ -322,6 +323,7 @@ fn MainLayout() -> impl IntoView {
                     <Route path=path!("/history") view=|| view! { <AuthGuard><History /></AuthGuard> } />
                     <Route path=path!("/settings") view=|| view! { <AuthGuard><Credits /></AuthGuard> } />
                     <Route path=path!("/account") view=|| view! { <AuthGuard><AccountSettings /></AuthGuard> } />
+                    <Route path=path!("/admin") view=|| view! { <AuthGuard><AdminPanel /></AuthGuard> } />
                     <Route path=path!("/terms") view=Terms />
                     <Route path=path!("/privacy") view=Privacy />
                     <Route path=path!("/rules") view=AUP />

@@ -27,37 +27,31 @@ pub fn build_tool_prompt(_tool_type: &str, style: &str, quality: &str, temperatu
 pub fn build_upscale_prompt(style: &str, quality: &str, temperature: f32, settings: &PromptSettings) -> String {
     let mut prompt = String::new();
 
-    prompt.push_str("System Role: You are the Novura high-fidelity reconstruction and super-resolution engine.\n\n");
-    prompt.push_str(&format!("Objective: Perform a professional super-resolution enhancement of this asset to {} resolution.\n\n", quality));
+    prompt.push_str("You are an expert image restoration and upscaling AI. Your sole objective is to enhance the resolution, sharpness, and clarity of the provided image without altering its original contents, shapes, or subjects in any way.\n\n");
 
-    prompt.push_str("## Reconstruction Pipeline:\n");
-    prompt.push_str("1. Signal Integrity: Maintain absolute geometric and structural parity. Every edge, silhouette, and volume must be a direct derivative of the source's spatial data.\n");
-    prompt.push_str("2. Phenomenological Restoration: Reconstruct the surface properties (reflections, textures, micro-shadows) based exclusively on the luminosity and color shifts present in the source. Do not 'guess' what the subject might be; enhance the data precisely as it exists.\n");
-
-    // Creativity / Temperature Logic (Fluid breakpoints)
+    // Creativity / Temperature Logic
     if temperature <= 0.1 {
-        prompt.push_str("3. Zero-Hallucination Mode: You are in 'Absolute Signal Proxy' mode. Your task is to mathematically resolve the high-frequency intent of the source. You are FORBIDDEN from generating new anatomical or structural features (e.g., extra hairs, whiskers, pores, or wrinkles) that are not visibly suggested by sub-pixel clusters in the original. If a feature is not in the source, it must not be in the output.\n");
-    } else if temperature < 0.9 {
-        prompt.push_str("3. Enhanced Handshake: You are in 'Signal Clarification' mode. Enhance the clarity of existing textures. Derive fine detail from the local frequency of the source data. Maintain the strict identity of every surface.\n");
+        prompt.push_str("This is a strict, perfectly faithful restoration. You must EXACTLY preserve the original image. DO NOT hallucinate, DO NOT add new details, DO NOT change facial features, DO NOT add whiskers, wrinkles, or pores that do not exist in the original. Simply remove noise, blur, and pixelation. The output must be an exact 1:1 structural match to the input, just higher quality.\n\n");
+    } else if temperature < 1.5 {
+        prompt.push_str("This is a high-detail enhancement. You may add realistic micro-details (like subtle skin texture, fabric weave, or natural lighting enhancements) to make it look like a high-quality macro photograph, but you MUST NOT alter the fundamental identity of the subject. DO NOT add anatomical features that are not there (like whiskers on an animal that has none). Keep it grounded in the original image.\n\n");
     } else {
-        prompt.push_str("3. Artistic Resolution: You are in 'Generative Handshake' mode. You have latitude to clarify ambiguous textures with high-fidelity patterns, provided they integrate seamlessly with the source's lighting and material properties.\n");
+        prompt.push_str("This is a creative macro-photography upscale. You are allowed to aggressively enhance textures, lighting, and clarity to produce a stunning, highly detailed macro photograph. It is acceptable to interpret ambiguous areas with high-frequency details, but remain broadly faithful to the original subject.\n\n");
     }
 
     if style == "PHOTOGRAPHY" {
-        prompt.push_str("4. Optic Reconstruction: Simulate a high-end sensor. Extract realistic material properties—surface roughness, specular scattering, and micro-textures—solely from the source's color gradients. Do not apply pre-trained SUBJECT prototypes.\n");
+        prompt.push_str("Target Style: High-resolution professional photography. Ensure realistic lighting, shadows, and natural color balance.\n");
         if settings.keep_depth_of_field {
-            prompt.push_str("5. Optic Lock: Preserve the original lens characteristics and focal planes. Maintain existing background blur (bokeh) consistency.\n");
+            prompt.push_str("Preserve the original depth of field and bokeh (background blur) exactly as it appears in the input.\n");
         }
     } else {
-        prompt.push_str("4. Illustration Purity: Reconstruct clean, aliasing-free outlines and sophisticated gradients. Maintain the purity of solid colors and the specific signature of the original medium.\n");
+        prompt.push_str("Target Style: High-quality illustration/digital art. Preserve the original color palette, flat colors, gradients, and linework without introducing photographic artifacts or realistic textures.\n");
     }
 
-    // Thinking Level / Depth
     if settings.thinking_level == "HIGH" {
-        prompt.push_str("\n## Deep Signal Analysis:\nAnalyze the underlying luminosity data to derive physically consistent surface details. Ensure these additions are 100% anchored to the source radiance and do not introduce new, un-suggested features.\n");
+        prompt.push_str("\nPerform a deep pass on removing compression artifacts, chromatic aberration, and noise before upscaling.\n");
     }
 
-    prompt.push_str("\nFinal Instruction: Deliver a literal, technically superior version of the input. You are a SIGNAL PROCESSOR, not an artist. Output a version of the input that is clear, sharp, and high-fidelity, while adhering to a 'NO NEW ANATOMY' rule. Do not interpret. Reconstruct.");
+    prompt.push_str(&format!("\nFinal output should be a clean, pristine {} image.", quality));
 
     prompt
 }
@@ -70,16 +64,14 @@ mod tests {
     fn test_upscale_strict() {
         let settings = PromptSettings::default();
         let prompt = build_upscale_prompt("PHOTOGRAPHY", "4K", 0.0, &settings);
-        assert!(prompt.contains("Zero-Hallucination"));
-        assert!(prompt.contains("Signal Integrity"));
-        assert!(prompt.contains("to 4K resolution"));
+        assert!(prompt.contains("perfectly faithful restoration"));
+        assert!(prompt.contains("DO NOT add whiskers"));
     }
 
     #[test]
     fn test_upscale_creative() {
         let settings = PromptSettings::default();
-        let prompt = build_upscale_prompt("PHOTOGRAPHY", "4K", 1.0, &settings);
-        assert!(prompt.contains("Artistic"));
-        assert!(prompt.contains("latitude"));
+        let prompt = build_upscale_prompt("PHOTOGRAPHY", "4K", 1.6, &settings);
+        assert!(prompt.contains("creative macro-photography upscale"));
     }
 }

@@ -137,6 +137,19 @@ impl ApiClient {
         }
     }
 
+    pub async fn get_admin_insights(token: Option<&str>) -> Result<Vec<serde_json::Value>, String> {
+        let resp = Self::authenticated_request("GET", "/api/admin/insights", token)
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if resp.ok() {
+            resp.json().await.map_err(|e| e.to_string())
+        } else {
+            Err("Failed to fetch insights".to_string())
+        }
+    }
+
     pub async fn poll_job(job_id: Uuid, token: Option<&str>) -> Result<PollResponse, String> {
         let endpoint = format!("/api/upscales/{}", job_id);
         let resp = Self::authenticated_request("GET", &endpoint, token)

@@ -6,6 +6,7 @@ use crate::components::icons::{ChevronLeft, ChevronRight};
 pub fn ComparisonSlider(
     images: Vec<(String, String)>,
     #[prop(default = 1.0)] zoom: f64,
+    #[prop(into, default = "compare".to_string().into())] view_mode: Signal<String>,
 ) -> impl IntoView {
     let (current_index, set_current_index) = signal(0usize);
     let (position, set_position) = signal(50.0);
@@ -58,6 +59,8 @@ pub fn ComparisonSlider(
 
     let is_multi_image = images_count > 1;
 
+    let vm = move || view_mode.get();
+
     view! {
         <div 
             class="comparison-slider" 
@@ -78,20 +81,30 @@ pub fn ComparisonSlider(
                 class="image-after" 
                 style:background-image=move || format!("url('{}')", current_pair_after())
                 style:background-color="#f0f0f2"
-                style:clip-path=move || format!("inset(0 0 0 {}%)", position.get())
+                style:clip-path=move || {
+                    match vm().as_str() {
+                        "original" => "inset(0 0 0 100%)".to_string(),
+                        "upscaled" => "inset(0 0 0 0%)".to_string(),
+                        _ => format!("inset(0 0 0 {}%)", position.get())
+                    }
+                }
                 style:transform=move || format!("scale({})", zoom)
             ></div>
 
-            <span class="label before-label">"BEFORE"</span>
-            <span class="label after-label">"AFTER"</span>
+            <Show when=move || vm() == "compare">
+                <span class="label before-label">"BEFORE"</span>
+                <span class="label after-label">"AFTER"</span>
+            </Show>
 
             // Navigation Buttons
-            <div class="nav-btn prev-btn" on:click=prev title="Previous Image">
-                <ChevronLeft size={20} />
-            </div>
-            <div class="nav-btn next-btn" on:click=next title="Next Image">
-                <ChevronRight size={20} />
-            </div>
+            <Show when=move || is_multi_image>
+                <div class="nav-btn prev-btn" on:click=prev title="Previous Image">
+                    <ChevronLeft size={20} />
+                </div>
+                <div class="nav-btn next-btn" on:click=next title="Next Image">
+                    <ChevronRight size={20} />
+                </div>
+            </Show>
 
             // Indicator dots
             <Show when=move || is_multi_image>
@@ -113,15 +126,15 @@ pub fn ComparisonSlider(
                 </div>
             </Show>
 
-            <div class="slider-handle" style:left=move || format!("{}%", position.get())>
-                <div class="handle-circle">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="4">
-                        <path d="M11 5l-7 7 7 7M13 5l7 7-7 7" />
-                    </svg>
+            <Show when=move || vm() == "compare">
+                <div class="slider-handle" style:left=move || format!("{}%", position.get())>
+                    <div class="handle-circle">
+                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="4">
+                            <path d="M11 5l-7 7 7 7M13 5l7 7-7 7" />
+                        </svg>
+                    </div>
                 </div>
-            </div>
-
-            
+            </Show>
         </div>
     }
 }

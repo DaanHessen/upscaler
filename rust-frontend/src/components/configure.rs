@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use crate::{use_global_state, use_auth};
 use crate::api::{ApiClient, PromptSettings};
-use crate::components::icons::{Zap, ImageIcon, Target, RefreshCw, Download, Maximize};
+use crate::components::icons::{Zap, ImageIcon, Target, RefreshCw, Download, ZoomIn, ZoomOut, Info};
 
 #[component]
 pub fn Configure() -> impl IntoView {
@@ -127,8 +127,8 @@ pub fn Configure() -> impl IntoView {
             return ("INIT", "Preparing", "Securely uploading and analyzing asset...");
         }
         match gs.engine_status.get().map(|s| s.status) {
-            Some(s) if s == "PENDING"    => ("QUEUE",  "System Ready",   "Analyzing asset for reconstruction..."),
-            Some(s) if s == "PROCESSING" => ("ACTIVE", "Reconstructing", "Gemini Vision is synthesizing high-frequency details."),
+            Some(s) if s == "PENDING"    => ("QUEUE",  "System Ready",   "Checking on safety filters..."),
+            Some(s) if s == "PROCESSING" => ("ACTIVE", "Upscaling Image", "Rescaling image..."),
             Some(s) if s == "COMPLETED"  => ("DONE",   "Export Ready",   "Enhancement complete. Ready for download."),
             _ =>                            ("IDLE",   "Standby",        "Awaiting engine handshake."),
         }
@@ -156,6 +156,7 @@ pub fn Configure() -> impl IntoView {
                                     <crate::components::comparison_slider::ComparisonSlider 
                                         images=vec![(before, after.clone())] 
                                         zoom=zoom_level.get()
+                                        view_mode=view_mode
                                     />
                                 </div>
 
@@ -182,11 +183,11 @@ pub fn Configure() -> impl IntoView {
                                         <button 
                                             on:click=move |_| set_zoom_level.update(|z| *z = (*z + 0.5).min(4.0))
                                             title="Zoom In"
-                                        ><Maximize size={14} /></button>
+                                        ><ZoomIn size={14} /></button>
                                         <button 
                                             on:click=move |_| set_zoom_level.update(|z| *z = (*z - 0.5).max(1.0))
                                             title="Zoom Out"
-                                        ><Target size={14} /></button>
+                                        ><ZoomOut size={14} /></button>
                                     </div>
 
                                     <div class="viewer-ctrl-divider"></div>
@@ -225,11 +226,11 @@ pub fn Configure() -> impl IntoView {
                                         <button 
                                             on:click=move |_| set_zoom_level.update(|z| *z = (*z + 0.5).min(4.0))
                                             title="Zoom In"
-                                        ><Maximize size={14} /></button>
+                                        ><ZoomIn size={14} /></button>
                                         <button 
                                             on:click=move |_| set_zoom_level.update(|z| *z = (*z - 0.5).max(1.0))
                                             title="Zoom Out"
-                                        ><Target size={14} /></button>
+                                        ><ZoomOut size={14} /></button>
                                     </div>
                                 </div>
                             </div>
@@ -306,14 +307,14 @@ pub fn Configure() -> impl IntoView {
                                             <span class="p-tele-label">"LATENCY"</span>
                                             <span class="p-tele-val">{move || gs.engine_status.get().and_then(|s| s.latency_ms).map(|l| format!("{}ms", l)).unwrap_or_else(|| "---".to_string())}</span>
                                         </div>
-                                        <div class="p-tele_item">
+                                        <div class="p-tele-item">
                                             <span class="p-tele-label">"TOKEN"</span>
-                                            <span class="p_tele-val">{move || job.map(|id| id.to_string().chars().take(8).collect::<String>()).unwrap_or_else(|| "---".to_string())}</span>
+                                            <span class="p-tele-val">{move || job.map(|id| id.to_string().chars().take(8).collect::<String>()).unwrap_or_else(|| "---".to_string())}</span>
                                         </div>
                                     </div>
 
                                     <div class="p-footer">
-                                        <p class="p-hint">"Gemini is analyzing and reconstructing high-frequency details. Please remain on this page."</p>
+                                        <p class="p-hint">"Please keep this tab open while your asset is being processed."</p>
                                     </div>
                                 </div>
                             </div>
@@ -328,6 +329,7 @@ pub fn Configure() -> impl IntoView {
                                             <div class="card-tag" style="margin-bottom: var(--s-8);">
                                                 <Target size={10} />
                                                 <span>"RESOLUTION"</span>
+                                                <span title="The output resolution of the image. Higher resolution costs more credits." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span>
                                             </div>
                                                 <div class="res-grid">
                                                     <div
@@ -361,7 +363,7 @@ pub fn Configure() -> impl IntoView {
                                             </div>
 
                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <label class="sb-label">"STYLE"</label>
+                                                <label class="sb-label" style="display: flex; align-items: center;">"STYLE"<span title="The visual style of the reconstructed image. Use Illustration for drawings/art." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
                                                 <div class="seg-control">
                                                     <button 
                                                         class:active=move || gs.style.get() == "PHOTOGRAPHY"
@@ -380,14 +382,14 @@ pub fn Configure() -> impl IntoView {
 
                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
                                                 <div class="sb-label-row">
-                                                    <label class="sb-label">"CREATIVITY"</label>
+                                                    <label class="sb-label" style="display: flex; align-items: center;">"CREATIVITY"<span title="0.0 for perfectly faithful restoration, higher values add micro-details or hallucinations." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
                                                     <span class="sb-val-badge">{move || format!("{:.1}", gs.temperature.get())}</span>
                                                 </div>
                                                 <input 
-                                                    type="range" min="0.0" max="1.3" step="0.1" 
+                                                    type="range" min="0.0" max="2.0" step="0.1" 
                                                     class="studio-slider"
                                                     prop:value=move || gs.temperature.get()
-                                                    on:input=move |ev| gs.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.1))
+                                                    on:input=move |ev| gs.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0))
                                                 />
                                                 <div class="slider-ends">
                                                     <span>"STRICT"</span>
@@ -396,7 +398,7 @@ pub fn Configure() -> impl IntoView {
                                             </div>
 
                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <label class="sb-label">"PROCESSING DEPTH"</label>
+                                                <label class="sb-label" style="display: flex; align-items: center;">"PROCESSING DEPTH"<span title="Higher depth allows the AI to perform a deeper analysis to remove compression artifacts before upscaling." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
                                                 <div class="seg-control">
                                                     <button 
                                                         class:active=move || gs.thinking_level.get() == "MINIMAL"
@@ -411,7 +413,7 @@ pub fn Configure() -> impl IntoView {
 
                                             <div class="sb-field">
                                                 <div class="sb-label-row">
-                                                    <label class="sb-label">"RECONSTRUCTION SEED"</label>
+                                                    <label class="sb-label" style="display: flex; align-items: center;">"RECONSTRUCTION SEED"<span title="Use a specific seed number to reproduce exactly the same results across identical upscales." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
                                                     <span class="sb-val-badge">{move || if let Some(s) = gs.seed.get() { s.to_string() } else { "AUTO".to_string() }}</span>
                                                 </div>
                                                 <div class="seed-row">

@@ -88,15 +88,15 @@ where F: Fn(()) + 'static + Copy {
             match res.status.as_str() {
                 "PENDING" => {
                     let pos = res.queue_position.unwrap_or(1);
-                    ("QUEUEING", format!("Position #{} in queue", pos), "Waiting for an available compute node...".to_string())
+                    ("QUEUEING", format!("Position #{} in queue", pos), "Checking on safety filters...".to_string())
                 },
                 "PROCESSING" => {
-                    ("SYNTHESIZING", "Processing Image...".to_string(), "Gemini Vision is reconstructing high-frequency details...".to_string())
+                    ("UPSCALING", "Upscaling Image...".to_string(), "Rescaling image...".to_string())
                 },
                 _ => ("FINALIZING", "Resizing & Saving...".to_string(), "Finalizing and storing your high-res asset...".to_string())
             }
         } else {
-            ("STARTING", "Checking Safety...".to_string(), "Establishing connection and validating image...".to_string())
+            ("STARTING", "Preparing...".to_string(), "Establishing connection and validating image...".to_string())
         }
     };
 
