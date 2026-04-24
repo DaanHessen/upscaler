@@ -27,7 +27,7 @@ pub async fn janitor_service(state: Arc<AppState>) {
                     if let Some(out) = output_path {
                         let _ = state.storage.delete_object(&out).await;
                         // Also try to delete the thumbnail
-                        let thumb = out.replace(".png", "_thumb.webp");
+                        let thumb = out.replace(".png", "_thumb.jpg");
                         let _ = state.storage.delete_object(&thumb).await;
                     }
 

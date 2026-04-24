@@ -89,30 +89,33 @@ pub enum ImageStyle {
 
 struct GeminiRatio {
     name: &'static str,
-    target_width: u32,
-    target_height: u32,
+    target_width_1mp: u32,
+    target_height_1mp: u32,
+    target_width_2mp: u32,
+    target_height_2mp: u32,
     ratio: f32,
 }
 
+// Support 1MP and 2MP resolutions depending on input image size
 const SUPPORTED_RATIOS: &[GeminiRatio] = &[
-    GeminiRatio { name: "1:1", target_width: 1024, target_height: 1024, ratio: 1.0 },
-    GeminiRatio { name: "2:3", target_width: 832, target_height: 1248, ratio: 0.6666667 },
-    GeminiRatio { name: "3:2", target_width: 1248, target_height: 832, ratio: 1.5 },
-    GeminiRatio { name: "3:4", target_width: 864, target_height: 1152, ratio: 0.75 },
-    GeminiRatio { name: "4:3", target_width: 1152, target_height: 864, ratio: 1.3333333 },
-    GeminiRatio { name: "4:5", target_width: 896, target_height: 1120, ratio: 0.8 },
-    GeminiRatio { name: "5:4", target_width: 1120, target_height: 896, ratio: 1.25 },
-    GeminiRatio { name: "9:16", target_width: 768, target_height: 1344, ratio: 0.5625 },
-    GeminiRatio { name: "16:9", target_width: 1344, target_height: 768, ratio: 1.7777778 },
-    GeminiRatio { name: "21:9", target_width: 1536, target_height: 640, ratio: 2.3333333 },
-    GeminiRatio { name: "1:4", target_width: 512, target_height: 2048, ratio: 0.25 },
-    GeminiRatio { name: "4:1", target_width: 2048, target_height: 512, ratio: 4.0 },
-    GeminiRatio { name: "1:8", target_width: 256, target_height: 2048, ratio: 0.125 },
-    GeminiRatio { name: "8:1", target_width: 2048, target_height: 256, ratio: 8.0 },
+    GeminiRatio { name: "1:1", target_width_1mp: 1024, target_height_1mp: 1024, target_width_2mp: 1440, target_height_2mp: 1440, ratio: 1.0 },
+    GeminiRatio { name: "2:3", target_width_1mp: 832, target_height_1mp: 1248, target_width_2mp: 1184, target_height_2mp: 1760, ratio: 0.6666667 },
+    GeminiRatio { name: "3:2", target_width_1mp: 1248, target_height_1mp: 832, target_width_2mp: 1760, target_height_2mp: 1184, ratio: 1.5 },
+    GeminiRatio { name: "3:4", target_width_1mp: 864, target_height_1mp: 1152, target_width_2mp: 1216, target_height_2mp: 1632, ratio: 0.75 },
+    GeminiRatio { name: "4:3", target_width_1mp: 1152, target_height_1mp: 864, target_width_2mp: 1632, target_height_2mp: 1216, ratio: 1.3333333 },
+    GeminiRatio { name: "4:5", target_width_1mp: 896, target_height_1mp: 1120, target_width_2mp: 1280, target_height_2mp: 1600, ratio: 0.8 },
+    GeminiRatio { name: "5:4", target_width_1mp: 1120, target_height_1mp: 896, target_width_2mp: 1600, target_height_2mp: 1280, ratio: 1.25 },
+    GeminiRatio { name: "9:16", target_width_1mp: 768, target_height_1mp: 1344, target_width_2mp: 1088, target_height_2mp: 1888, ratio: 0.5625 },
+    GeminiRatio { name: "16:9", target_width_1mp: 1344, target_height_1mp: 768, target_width_2mp: 1888, target_height_2mp: 1088, ratio: 1.7777778 },
+    GeminiRatio { name: "21:9", target_width_1mp: 1536, target_height_1mp: 640, target_width_2mp: 2176, target_height_2mp: 896, ratio: 2.3333333 },
+    GeminiRatio { name: "1:4", target_width_1mp: 512, target_height_1mp: 2048, target_width_2mp: 704, target_height_2mp: 2880, ratio: 0.25 },
+    GeminiRatio { name: "4:1", target_width_1mp: 2048, target_height_1mp: 512, target_width_2mp: 2880, target_height_2mp: 704, ratio: 4.0 },
+    GeminiRatio { name: "1:8", target_width_1mp: 256, target_height_1mp: 2048, target_width_2mp: 384, target_height_2mp: 2880, ratio: 0.125 },
+    GeminiRatio { name: "8:1", target_width_1mp: 2048, target_height_1mp: 256, target_width_2mp: 2880, target_height_2mp: 384, ratio: 8.0 },
 ];
 
 pub struct ProcessedImage {
-    pub base64_data: String,
+    pub jpeg_bytes: Vec<u8>,
     pub ratio_name: String,
 }
 
@@ -401,6 +404,22 @@ pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle 
     }
 }
 
+pub fn get_ratio_name(data: &[u8]) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let img = image::load_from_memory(data)?;
+    let (width, height) = img.dimensions();
+    let current_ratio = width as f32 / height as f32;
+    let nearest = SUPPORTED_RATIOS
+        .iter()
+        .min_by(|a, b| {
+            (a.ratio - current_ratio)
+                .abs()
+                .partial_cmp(&(b.ratio - current_ratio).abs())
+                .unwrap()
+        })
+        .ok_or("No supported ratios found")?;
+    Ok(nearest.name.to_string())
+}
+
 pub fn preprocess_image(
     data: &[u8],
     mode: ResizeMode,
@@ -433,30 +452,42 @@ pub fn preprocess_image_internal(
         })
         .ok_or("No supported ratios found")?;
 
-    info!("Matched ratio: {} (target: {}x{})", nearest.name, nearest.target_width, nearest.target_height);
+    // Determine whether to use 1MP or 2MP target dimensions
+    let input_pixels = (width as u64) * (height as u64);
+    let pixels_1mp = (nearest.target_width_1mp as u64) * (nearest.target_height_1mp as u64);
+    let pixels_2mp = (nearest.target_width_2mp as u64) * (nearest.target_height_2mp as u64);
+
+    let dist_1mp = (input_pixels as i64 - pixels_1mp as i64).abs();
+    let dist_2mp = (input_pixels as i64 - pixels_2mp as i64).abs();
+
+    let (target_width, target_height) = if dist_2mp < dist_1mp {
+        (nearest.target_width_2mp, nearest.target_height_2mp)
+    } else {
+        (nearest.target_width_1mp, nearest.target_height_1mp)
+    };
+
+    info!("Matched ratio: {} (target: {}x{})", nearest.name, target_width, target_height);
 
     // 4. Resize and Pad
     let processed_img = match mode {
         ResizeMode::Pad => {
-            let scaled = img.resize(nearest.target_width, nearest.target_height, image::imageops::FilterType::Lanczos3);
-            let mut canvas = DynamicImage::new_rgb8(nearest.target_width, nearest.target_height);
+            let scaled = img.resize(target_width, target_height, image::imageops::FilterType::Lanczos3);
+            let mut canvas = DynamicImage::new_rgb8(target_width, target_height);
             let (sw, sh) = scaled.dimensions();
-            let x = (nearest.target_width - sw) / 2;
-            let y = (nearest.target_height - sh) / 2;
+            let x = (target_width - sw) / 2;
+            let y = (target_height - sh) / 2;
             image::imageops::replace(&mut canvas, &scaled, x as i64, y as i64);
             canvas
         }
     };
 
-    // 5. Encode to Base64
+    // 5. Encode to JPEG bytes
     let mut buffer = Cursor::new(Vec::new());
     let jpeg_encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 95);
     processed_img.write_with_encoder(jpeg_encoder)?;
-    
-    let base64_data = general_purpose::STANDARD.encode(buffer.into_inner());
 
     Ok(ProcessedImage {
-        base64_data,
+        jpeg_bytes: buffer.into_inner(),
         ratio_name: nearest.name.to_string(),
     })
 }

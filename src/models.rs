@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GenerateContentRequest {
     pub contents: Vec<Content>,
     #[serde(rename = "generationConfig")]
@@ -9,13 +9,13 @@ pub struct GenerateContentRequest {
     pub system_instruction: Option<Content>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Content {
     pub role: String,
     pub parts: Vec<Part>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Part {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
@@ -23,14 +23,14 @@ pub struct Part {
     pub inline_data: Option<InlineData>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct InlineData {
     #[serde(rename = "mimeType")]
     pub mime_type: String,
     pub data: String,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct GenerationConfig {
     #[serde(rename = "responseModalities")]
     pub response_modalities: Vec<String>,
@@ -43,13 +43,13 @@ pub struct GenerationConfig {
     pub seed: Option<u32>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ThinkingConfig {
     #[serde(rename = "thinkingLevel")]
     pub thinking_level: String, // 'MINIMAL', 'LOW', 'MEDIUM', 'HIGH'
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ImageConfig {
     #[serde(rename = "aspectRatio")]
     pub aspect_ratio: String,
@@ -57,14 +57,14 @@ pub struct ImageConfig {
     pub image_size: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct GenerateContentResponse {
     pub candidates: Vec<Candidate>,
     #[serde(rename = "usageMetadata", default)]
     pub usage_metadata: UsageMetadata,
 }
 
-#[derive(Debug, Deserialize, Serialize, Default)]
+#[derive(Debug, Deserialize, Serialize, Default, Clone)]
 pub struct UsageMetadata {
     #[serde(rename = "promptTokenCount", default)]
     pub prompt_token_count: i32,
@@ -74,7 +74,7 @@ pub struct UsageMetadata {
     pub total_token_count: i32,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct Candidate {
     pub content: Content,
     #[serde(rename = "finishReason")]

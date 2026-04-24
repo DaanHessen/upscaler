@@ -117,8 +117,8 @@ pub fn CookieBanner() -> impl IntoView {
         })}
 
         {move || show_settings.get().then(|| view! {
-            <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(12px);">
-                <div class="fade-in" style="background: var(--card); border: 1px solid var(--glass-border); border-radius: 20px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; padding: 32px; display: flex; flex-direction: column; gap: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05); position: relative;">
+            <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(12px);">
+                <div class="fade-in" style="background: hsl(var(--surface-bright)); border: 1px solid var(--border); border-radius: 20px; width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto; padding: 32px; display: flex; flex-direction: column; gap: 28px; box-shadow: 0 30px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.05); position: relative;">
                     
                     <button 
                         on:click=move |_| set_show_settings.set(false)

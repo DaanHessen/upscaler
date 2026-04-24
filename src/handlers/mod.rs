@@ -41,7 +41,11 @@ pub async fn moderate_handler(
     };
 
     let (is_explicit, style_str, preview_b64) = match tokio::task::spawn_blocking(move || {
-        let img = image::load_from_memory(&data).map_err(|e| e.to_string())?;
+        let mut reader = image::io::Reader::new(std::io::Cursor::new(&data)).with_guessed_format().map_err(|e| e.to_string())?;
+        let mut limits = image::io::Limits::default();
+        limits.max_alloc = Some(256 * 1024 * 1024);
+        reader.limits(limits);
+        let img = reader.decode().map_err(|e| e.to_string())?;
         
         let is_explicit = is_nsfw(&img).unwrap_or(false);
         if is_explicit {
@@ -55,8 +59,10 @@ pub async fn moderate_handler(
         };
 
         let preview = preprocess_image_internal(img, ResizeMode::Pad).map_err(|e| e.to_string())?;
+        use base64::{engine::general_purpose, Engine as _};
+        let b64 = general_purpose::STANDARD.encode(&preview.jpeg_bytes);
         
-        Ok::<(bool, String, Option<String>), String>((false, style_str.to_string(), Some(preview.base64_data)))
+        Ok::<(bool, String, Option<String>), String>((false, style_str.to_string(), Some(b64)))
     }).await {
         Ok(Ok(res)) => res,
         Ok(Err(e)) => {
@@ -118,39 +124,49 @@ pub async fn history_handler(
         }
     };
 
-    let history: Vec<_> = records.into_iter().map(|rec| {
-        let mut item = serde_json::json!({
-            "id": rec.id,
-            "status": rec.status,
-            "created_at": rec.created_at,
-            "quality": rec.quality,
-            "style": rec.style,
-            "temperature": rec.temperature,
-            "error": rec.error_msg,
-            "prompt_settings": rec.prompt_settings,
-            "usage_metadata": rec.usage_metadata,
-            "latency_ms": rec.latency_ms,
-            "credits_charged": rec.credits_charged,
-            "image_url": serde_json::Value::Null,
-            "preview_url": serde_json::Value::Null,
-        });
+    let mut tasks = Vec::new();
+    for rec in records {
+        let state_clone = state.clone();
+        tasks.push(tokio::spawn(async move {
+            let mut item = serde_json::json!({
+                "id": rec.id,
+                "status": rec.status,
+                "created_at": rec.created_at,
+                "quality": rec.quality,
+                "style": rec.style,
+                "temperature": rec.temperature,
+                "error": rec.error_msg,
+                "prompt_settings": rec.prompt_settings,
+                "usage_metadata": rec.usage_metadata,
+                "latency_ms": rec.latency_ms,
+                "credits_charged": rec.credits_charged,
+                "image_url": serde_json::Value::Null,
+                "preview_url": serde_json::Value::Null,
+            });
 
-        if rec.status == "COMPLETED" {
-            if let Some(path) = rec.output_path {
-                let image_url = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(state.storage.get_signed_url(&path))
-                }).unwrap_or_default();
-                item["image_url"] = serde_json::Value::String(image_url);
-                
-                let preview_path = path.replace(".png", "_thumb.webp");
-                let preview_url = tokio::task::block_in_place(|| {
-                    tokio::runtime::Handle::current().block_on(state.storage.get_signed_url(&preview_path))
-                }).unwrap_or_default();
-                item["preview_url"] = serde_json::Value::String(preview_url);
+            if rec.status == "COMPLETED" {
+                if let Some(path) = rec.output_path {
+                    let image_url_fut = state_clone.storage.get_signed_url(&path);
+                    
+                    let preview_path = path.replace(".png", "_thumb.jpg");
+                    let preview_url_fut = state_clone.storage.get_signed_url(&preview_path);
+                    
+                    let (image_url_res, preview_url_res) = tokio::join!(image_url_fut, preview_url_fut);
+                    
+                    item["image_url"] = serde_json::Value::String(image_url_res.unwrap_or_default());
+                    item["preview_url"] = serde_json::Value::String(preview_url_res.unwrap_or_default());
+                }
             }
+            item
+        }));
+    }
+
+    let mut history = Vec::new();
+    for task in tasks {
+        if let Ok(item) = task.await {
+            history.push(item);
         }
-        item
-    }).collect();
+    }
 
     Ok((StatusCode::OK, Json(history)).into_response())
 }
@@ -310,7 +326,7 @@ pub async fn poll_upscale_handler(
             if job.status == "COMPLETED" {
                 if let Some(path) = &job.output_path {
                     res["image_url"] = serde_json::Value::String(state.storage.get_signed_url(path).await.unwrap_or_default());
-                    let preview_path = path.replace(".png", "_thumb.webp");
+                    let preview_path = path.replace(".png", "_thumb.jpg");
                     res["preview_url"] = serde_json::Value::String(state.storage.get_signed_url(&preview_path).await.unwrap_or_default());
                 }
                 res["before_url"] = serde_json::Value::String(state.storage.get_signed_url(&job.input_path).await.unwrap_or_default());
@@ -338,6 +354,7 @@ pub async fn upscale_handler(
 
     let mut image_data = None;
     let mut quality = "2K".to_string();
+    let mut style = "PHOTOGRAPHY".to_string();
     let mut temperature: f32 = 0.0;
     let mut prompt_settings_raw = None;
 
@@ -345,6 +362,7 @@ pub async fn upscale_handler(
         match field.name() {
             Some("image") => { image_data = field.bytes().await.ok(); }
             Some("quality") => { quality = field.text().await.unwrap_or_else(|_| "2K".to_string()).to_uppercase(); }
+            Some("style") => { style = field.text().await.unwrap_or_else(|_| "PHOTOGRAPHY".to_string()).to_uppercase(); }
             Some("temperature") => { temperature = field.text().await.unwrap_or_default().parse().unwrap_or(0.0); }
             Some("prompt_settings") => { prompt_settings_raw = field.text().await.ok(); }
             _ => {}
@@ -354,6 +372,9 @@ pub async fn upscale_handler(
     // Input Validation
     if !["2K", "4K"].contains(&quality.as_str()) {
         quality = "2K".to_string();
+    }
+    if !["PHOTOGRAPHY", "ILLUSTRATION"].contains(&style.as_str()) {
+        style = "PHOTOGRAPHY".to_string();
     }
     if !temperature.is_finite() || temperature < 0.0 || temperature > 1.0 {
         temperature = 0.0;
@@ -374,7 +395,7 @@ pub async fn upscale_handler(
 
     // Process & Moderate & Transcode
     let data_clone = data.clone();
-    let style_result = tokio::task::spawn_blocking(move || -> Result<(String, Vec<u8>), String> {
+    let style_result = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
         let mut reader = image::io::Reader::new(std::io::Cursor::new(&data_clone)).with_guessed_format()
             .map_err(|_| "Invalid format".to_string())?;
         
@@ -387,17 +408,14 @@ pub async fn upscale_handler(
             return Err("NSFW".to_string()); 
         }
         
-        let s = analyze_style(&img, Some(&data_clone));
-        let style_str = match s { ImageStyle::Illustration => "ILLUSTRATION", ImageStyle::Photography => "PHOTOGRAPHY" }.to_string();
+        // Single-pass preprocessing: Resize and compress to JPEG immediately
+        let processed = preprocess_image_internal(img, ResizeMode::Pad)
+            .map_err(|_| "Preprocess failed".to_string())?;
         
-        // Transcode to clean PNG bytes to strip metadata and mitigate polyglot files
-        let mut buffer = std::io::Cursor::new(Vec::new());
-        img.write_to(&mut buffer, image::ImageFormat::Png).map_err(|_| "Transcode failed".to_string())?;
-        
-        Ok((style_str, buffer.into_inner()))
+        Ok(processed.jpeg_bytes)
     }).await.unwrap();
 
-    let (style_str, clean_png_bytes) = match style_result {
+    let jpeg_bytes = match style_result {
         Ok(res) => res,
         Err(e) if e == "NSFW" => {
             // NSFW detected - do NOT store the image due to severe legal/liability risks (CSAM, etc).
@@ -410,12 +428,12 @@ pub async fn upscale_handler(
         }
     };
 
-    // Upload clean image
+    // Upload preprocessed image
     let job_id = Uuid::new_v4();
     let original_id = Uuid::new_v4();
-    let original_path = format!("{}/originals/{}.png", user_id, original_id);
+    let original_path = format!("{}/originals/{}.jpg", user_id, original_id);
     
-    if let Err(_) = state.storage.upload_object(&original_path, clean_png_bytes, "image/png").await {
+    if let Err(_) = state.storage.upload_object(&original_path, jpeg_bytes, "image/jpeg").await {
         return Err(crate::errors::ApiError::Internal("Upload error".to_string()));
     }
 
@@ -425,10 +443,10 @@ pub async fn upscale_handler(
     };
 
     // Atomic Deduct and Insert
-    if let Err(_) = state.db.create_job_with_deduction(job_id, user_id, &original_path, &style_str, temperature, &quality, &prompt_settings_json, credit_cost).await {
+    if let Err(_) = state.db.create_job_with_deduction(job_id, user_id, &original_path, &style, temperature, &quality, &prompt_settings_json, credit_cost).await {
         let _ = state.storage.delete_object(&original_path).await; // Cleanup on DB failure
         return Err(crate::errors::ApiError::Internal("Enqueue or credit error".to_string()));
     }
 
-    Ok((StatusCode::ACCEPTED, Json(serde_json::json!({ "success": true, "job_id": job_id, "final_style": style_str }))).into_response())
+    Ok((StatusCode::ACCEPTED, Json(serde_json::json!({ "success": true, "job_id": job_id, "final_style": style }))).into_response())
 }

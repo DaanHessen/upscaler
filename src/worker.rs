@@ -1,6 +1,5 @@
 use crate::AppState;
 use crate::models::{Content, GenerateContentRequest, GenerationConfig, ImageConfig, Part, InlineData};
-use crate::processor::{preprocess_image, ResizeMode};
 use crate::prompts::build_system_prompt;
 use base64::{engine::general_purpose, Engine as _};
 use std::error::Error;
@@ -9,14 +8,12 @@ use uuid::Uuid;
 use tracing::{info, warn};
 
 pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::UpscaleRecord) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // 1. Download original image
-    info!("Downloading original image for job {}", job.id);
+    // 1. Download preprocessed image
+    info!("Downloading preprocessed original image for job {}", job.id);
     let original_data = state.storage.download_object(&job.input_path).await?;
 
-    // 2. Preprocess image
-    let processed = tokio::task::spawn_blocking(move || {
-        preprocess_image(&original_data, ResizeMode::Pad)
-    }).await??;
+    let ratio_name = crate::processor::get_ratio_name(&original_data)?;
+    let base64_data = general_purpose::STANDARD.encode(&original_data);
 
     let prompt_settings: crate::prompts::PromptSettings = serde_json::from_value(job.prompt_settings.clone()).unwrap_or_default();
     let system_prompt = build_system_prompt(job.style.as_deref().unwrap_or("PHOTOGRAPHY"), &prompt_settings);
@@ -44,7 +41,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
                     text: None,
                     inline_data: Some(InlineData {
                         mime_type: "image/jpeg".to_string(),
-                        data: processed.base64_data,
+                        data: base64_data,
                     }),
                 },
             ],
@@ -52,7 +49,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         generation_config: GenerationConfig {
             response_modalities: vec!["IMAGE".to_string()],
             image_config: Some(ImageConfig {
-                aspect_ratio: processed.ratio_name,
+                aspect_ratio: ratio_name,
                 image_size: job.quality.clone(),
             }),
             temperature: Some(job.temperature),
@@ -64,7 +61,29 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     info!("Sending request to Vertex AI for job {} (temp={}, quality={})", job.id, job.temperature, job.quality);
     
     let start_time = std::time::Instant::now();
-    let gemini_response = state.client.generate_image(token_data.as_str(), request).await;
+    
+    let mut attempt = 0;
+    let max_attempts = 3;
+    let gemini_response;
+    
+    loop {
+        match state.client.generate_image(token_data.as_str(), request.clone()).await {
+            Ok(res) => {
+                gemini_response = Ok(res);
+                break;
+            }
+            Err(e) => {
+                attempt += 1;
+                if attempt >= max_attempts {
+                    gemini_response = Err(e);
+                    break;
+                }
+                warn!("Vertex API error on attempt {}: {}. Retrying in 2 seconds...", attempt, e);
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+        }
+    }
+    
     let duration = start_time.elapsed();
     let latency_ms = duration.as_millis() as i32;
 
@@ -106,6 +125,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     if candidate.finish_reason == "SAFETY" {
         state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
+        let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
         return Err("Image rejected by internal safety filters.".into());
     }
 
@@ -123,13 +143,14 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     if is_blocked {
         state.db.update_job_failed(job.id, "Image rejected by internal safety filters.", latency_ms).await?;
+        let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
         return Err("Image rejected by internal safety filters.".into());
     }
 
     // 5. Upload result and generate preview
     let processed_id = Uuid::new_v4();
     let processed_path = format!("{}/processed/{}.png", job.user_id, processed_id);
-    let preview_path = format!("{}/processed/{}_thumb.webp", job.user_id, processed_id);
+    let preview_path = format!("{}/processed/{}_thumb.jpg", job.user_id, processed_id);
 
     info!("Uploading result to storage for job {}", job.id);
     state.storage.upload_object(&processed_path, image_bytes.clone(), "image/png").await?;
@@ -142,7 +163,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     match thumb_res {
         Ok(thumb_data) => {
             info!("Uploading thumbnail to storage for job {}", job.id);
-            if let Err(e) = state.storage.upload_object(&preview_path, thumb_data, "image/webp").await {
+            if let Err(e) = state.storage.upload_object(&preview_path, thumb_data, "image/jpeg").await {
                 warn!("Thumbnail upload failed for job {}: {}", job.id, e);
             }
         },

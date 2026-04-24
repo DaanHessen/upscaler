@@ -59,7 +59,11 @@ pub fn Configure() -> impl IntoView {
                                 set_processing_job.set(None);
                                 break;
                             }
-                            if r.status == "FAILED" { break; }
+                            if r.status == "FAILED" {
+                                set_error_msg.set(Some(r.error.unwrap_or_else(|| "Upscale failed.".to_string())));
+                                set_processing_job.set(None);
+                                break;
+                            }
                         },
                         Err(_) => break,
                     }
