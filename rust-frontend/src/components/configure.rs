@@ -487,8 +487,8 @@ pub fn Configure() -> impl IntoView {
                                                             <label class="sb-label">"Target Medium"</label>
                                                             <div class="select-wrap" style="margin-top: var(--s-3);">
                                                                 <select class="sb-select" on:change=move |ev| global_state.set_target_medium.set(event_target_value(&ev)) prop:value=move || global_state.target_medium.get()>
-                                                                    <option value="3D Render">"3D Pixar Render"</option>
-                                                                    <option value="Anime">"90s Anime"</option>
+                                                                    <option value="3D Pixar Render">"3D Pixar Render"</option>
+                                                                    <option value="90s Anime">"90s Anime"</option>
                                                                     <option value="Watercolor">"Watercolor"</option>
                                                                     <option value="Oil Painting">"Oil Painting"</option>
                                                                     <option value="Pencil Sketch">"Pencil Sketch"</option>

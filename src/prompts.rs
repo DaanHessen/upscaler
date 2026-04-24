@@ -19,10 +19,10 @@ pub struct PromptSettings {
     pub target_aspect_ratio: String, // for EXPAND
 }
 
-pub fn build_tool_prompt(tool_type: &str, style: &str, quality: &str, settings: &PromptSettings) -> String {
+pub fn build_tool_prompt(tool_type: &str, style: &str, quality: &str, temperature: f32, settings: &PromptSettings) -> String {
     match tool_type {
         "RELIGHT" => build_relight_prompt(settings),
-        "STYLIZE" => build_stylize_prompt(settings),
+        "STYLIZE" => build_stylize_prompt(temperature, settings),
         "SKETCH" => build_sketch_prompt(settings),
         "EXPAND" => build_expand_prompt(settings),
         _ => build_system_prompt(style, quality, settings), // Default upscale
@@ -49,17 +49,50 @@ pub fn build_relight_prompt(settings: &PromptSettings) -> String {
     prompt
 }
 
-pub fn build_stylize_prompt(settings: &PromptSettings) -> String {
+pub fn build_stylize_prompt(temperature: f32, settings: &PromptSettings) -> String {
     let mut prompt = String::new();
-    prompt.push_str("System Role: You are a master art director and style-transfer engine.\n\n");
+    prompt.push_str("System Role: You are a master art director and style-transfer engine specialized in high-end visual metamorphosis.\n\n");
     
-    let medium = if settings.target_medium.is_empty() { "3D Render" } else { &settings.target_medium };
-    prompt.push_str(&format!("Objective: Transform the artistic medium of this image into {} while perfectly maintaining the original composition, poses, and layout.\n\n", medium));
+    let medium_raw = if settings.target_medium.is_empty() { "3D Pixar Render" } else { &settings.target_medium };
+    
+    let (medium_name, medium_desc) = match medium_raw.to_uppercase().as_str() {
+        "3D RENDER" | "3D PIXAR RENDER" => (
+            "3D Pixar Animation style",
+            "the aesthetic of high-end 3D feature animation. Use soft subsurface scattering for skin, stylized anatomical proportions, large expressive features, and professional cinematic ambient occlusion. Surfaces should be smooth and perfectly shaded."
+        ),
+        "ANIME" | "90S ANIME" => (
+            "90s Japanese Anime",
+            "the aesthetic of vintage 90s cel-shaded anime. Use distinct ink outlines, flat color fields with subtle cel-shading, and traditional painted backgrounds. Emphasize hand-drawn imperfections and high-contrast highlights."
+        ),
+        "WATERCOLOR" => (
+            "Fine Art Watercolor",
+            "traditional watercolor painting on heavy grain paper. Use soft color bleeds, visible brush strokes, varied pigment density, and natural paper texture. Let colors flow organically across boundaries."
+        ),
+        "OIL PAINTING" => (
+            "Classic Oil Painting",
+            "a thick impasto oil painting. Use heavy texture, visible brushwork, rich buttery colors, and dramatic chiaroscuro lighting. Surfaces should show the physical depth of the paint."
+        ),
+        "PENCIL SKETCH" => (
+            "Detailed Graphite Sketch",
+            "a masterful graphite pencil drawing. Use varied hatching techniques, soft blending for gradients, and sharp precise lines for edges. Maintain the texture of high-quality sketchbook paper."
+        ),
+        _ => (medium_raw, "a professional artistic interpretation of the requested style.")
+    };
+
+    prompt.push_str(&format!("Objective: Transform the entire artistic medium of this image into {} while maintaining the base composition.\n\n", medium_name));
     
     prompt.push_str("Rules:\n");
-    prompt.push_str("1. Composition Lock: Maintain the exact framing, poses, and spatial relationships of all subjects.\n");
-    prompt.push_str(&format!("2. Medium Transformation: Completely overwrite the original texture and shading to flawlessly simulate {}.\n", medium));
-    prompt.push_str("3. Cohesion: Ensure the entire image shares a unified, consistent artistic style without any fragmented or un-stylized patches.\n");
+    
+    if temperature > 1.2 {
+        prompt.push_str("1. Aggressive Transformation: You have high creative freedom. Proactively stylize shapes, body proportions, and facial features to perfectly match the target aesthetic. Prioritize style over literal anatomical accuracy.\n");
+    } else if temperature > 0.6 {
+        prompt.push_str("1. Balanced Transformation: Reconstruct every surface and material using the target aesthetic. Maintain the original poses and layout, but completely replace textures and shading.\n");
+    } else {
+        prompt.push_str("1. Conservative Style Transfer: Apply the target aesthetic while staying extremely close to the original image's specific details and textures. Ensure a subtle but noticeable medium shift.\n");
+    }
+
+    prompt.push_str(&format!("2. Style Specifics: Flawlessly simulate {}.\n", medium_desc));
+    prompt.push_str("3. Total Cohesion: Every single pixel must be stylized. No patches of the original photo should remain. The final output must look like it was natively created in this medium.\n");
     prompt
 }
 
