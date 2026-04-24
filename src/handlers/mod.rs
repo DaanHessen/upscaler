@@ -13,8 +13,9 @@ use crate::processor::{preprocess_image_internal, ResizeMode, is_nsfw, analyze_s
 
 // --- Handlers ---
 
-pub async fn health_check() -> impl IntoResponse {
-    Json(serde_json::json!({ "status": "healthy", "version": "2.0.0" }))
+pub async fn health_check(State(state): State<Arc<AppState>>) -> impl IntoResponse {
+    let latency = state.db.get_average_latency().await.unwrap_or(15000);
+    Json(serde_json::json!({ "status": "healthy", "version": "2.0.0", "avg_latency_ms": latency }))
 }
 
 pub async fn moderate_handler(
@@ -357,7 +358,6 @@ pub async fn upscale_handler(
     let mut style = "PHOTOGRAPHY".to_string();
     let mut temperature: f32 = 0.0;
     let mut prompt_settings_raw = None;
-    let mut tool_type = "UPSCALE".to_string();
 
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
@@ -366,7 +366,6 @@ pub async fn upscale_handler(
             Some("style") => { style = field.text().await.unwrap_or_else(|_| "PHOTOGRAPHY".to_string()).to_uppercase(); }
             Some("temperature") => { temperature = field.text().await.unwrap_or_default().parse().unwrap_or(0.0); }
             Some("prompt_settings") => { prompt_settings_raw = field.text().await.ok(); }
-            Some("tool_type") => { tool_type = field.text().await.unwrap_or_else(|_| "UPSCALE".to_string()).to_uppercase(); }
             _ => {}
         }
     }
@@ -377,9 +376,6 @@ pub async fn upscale_handler(
     }
     if !["PHOTOGRAPHY", "ILLUSTRATION"].contains(&style.as_str()) {
         style = "PHOTOGRAPHY".to_string();
-    }
-    if !["UPSCALE", "RELIGHT", "STYLIZE", "SKETCH", "EXPAND"].contains(&tool_type.as_str()) {
-        tool_type = "UPSCALE".to_string();
     }
     if !temperature.is_finite() || temperature < 0.0 || temperature > 2.0 {
         temperature = 0.0;
@@ -395,19 +391,7 @@ pub async fn upscale_handler(
         None => serde_json::Value::Null,
     };
     
-    let target_aspect_ratio = if tool_type == "EXPAND" {
-        prompt_settings_json.get("target_aspect_ratio")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-    } else {
-        None
-    };
-
-    let credit_cost = if tool_type == "SKETCH" || (tool_type == "UPSCALE" && quality == "4K") {
-        4
-    } else {
-        2
-    };
+    let credit_cost = if quality == "4K" { 4 } else { 2 };
 
     // Credit check
     let balance = state.db.get_balance(user_id).await.map_err(|_| crate::errors::ApiError::Internal("DB Error".to_string()))?;
@@ -431,7 +415,7 @@ pub async fn upscale_handler(
         }
         
         // Single-pass preprocessing: Resize and compress to JPEG immediately
-        let processed = preprocess_image_internal(img, ResizeMode::Pad, target_aspect_ratio.as_deref())
+        let processed = preprocess_image_internal(img, ResizeMode::Pad, None)
             .map_err(|_| "Preprocess failed".to_string())?;
         
         Ok(processed.jpeg_bytes)
@@ -460,10 +444,10 @@ pub async fn upscale_handler(
     }
 
     // Atomic Deduct and Insert
-    if let Err(_) = state.db.create_job_with_deduction(job_id, user_id, &original_path, &style, temperature, &quality, &prompt_settings_json, credit_cost, &tool_type).await {
+    if let Err(_) = state.db.create_job_with_deduction(job_id, user_id, &original_path, &style, temperature, &quality, &prompt_settings_json, credit_cost, "UPSCALE").await {
         let _ = state.storage.delete_object(&original_path).await; // Cleanup on DB failure
         return Err(crate::errors::ApiError::Internal("Enqueue or credit error".to_string()));
     }
 
-    Ok((StatusCode::ACCEPTED, Json(serde_json::json!({ "success": true, "job_id": job_id, "final_style": style, "tool_type": tool_type }))).into_response())
+    Ok((StatusCode::ACCEPTED, Json(serde_json::json!({ "success": true, "job_id": job_id, "final_style": style, "tool_type": "UPSCALE" }))).into_response())
 }

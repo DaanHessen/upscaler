@@ -77,6 +77,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 prompt_settings: serde_json::to_value(PromptSettings::default()).unwrap(),
                 usage_metadata: serde_json::json!({}),
                 latency_ms: 5000,
+                tool_type: "UPSCALE".to_string(),
             };
             
             // Invoke processing logic

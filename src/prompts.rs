@@ -19,141 +19,45 @@ pub struct PromptSettings {
     pub target_aspect_ratio: String, // for EXPAND
 }
 
-pub fn build_tool_prompt(tool_type: &str, style: &str, quality: &str, temperature: f32, settings: &PromptSettings) -> String {
-    match tool_type {
-        "RELIGHT" => build_relight_prompt(settings),
-        "STYLIZE" => build_stylize_prompt(temperature, settings),
-        "SKETCH" => build_sketch_prompt(settings),
-        "EXPAND" => build_expand_prompt(settings),
-        _ => build_system_prompt(style, quality, settings), // Default upscale
-    }
+pub fn build_tool_prompt(_tool_type: &str, style: &str, quality: &str, temperature: f32, settings: &PromptSettings) -> String {
+    // We now focus exclusively on upscale
+    build_upscale_prompt(style, quality, temperature, settings)
 }
 
-pub fn build_relight_prompt(settings: &PromptSettings) -> String {
-    let mut prompt = String::new();
-    prompt.push_str("System Role: You are an expert lighting technician and geometry-preserving renderer.\n\n");
-    prompt.push_str("Objective: Modify the illumination of this scene without altering any underlying geometry, identities, or objects.\n\n");
-    prompt.push_str("Rules:\n");
-    prompt.push_str("1. Structural Lock: Preserve the exact silhouettes, proportions, and positioning of every element. Do not crop or mutate image boundaries.\n");
-    prompt.push_str("2. Identity Lock: Do not change the identity of subjects, facial features, or existing textures. Only change the light interacting with them.\n");
-
-    match settings.lighting.to_uppercase().as_str() {
-        "NEON" | "CYBERPUNK" => prompt.push_str("3. Lighting: Apply a vibrant Cyberpunk Neon lighting setup with strong magenta, cyan, and teal rim lights.\n"),
-        "STUDIO" => prompt.push_str("3. Lighting: Enhance the scene with professional studio high-key lighting, emphasizing form and volume naturally.\n"),
-        "CINEMATIC" => prompt.push_str("3. Lighting: Reconstruct the scene using dramatic cinematic lighting with rich, deep shadows and anamorphic-style contrast.\n"),
-        "GOLDEN HOUR" => prompt.push_str("3. Lighting: Bathe the scene in warm, directional Golden Hour sunlight with long, soft shadows.\n"),
-        "NATURAL" => prompt.push_str("3. Lighting: Balance the illumination with soft, natural overcast light to produce a gentle and even exposure.\n"),
-        _ => prompt.push_str("3. Lighting: Apply professional studio lighting to enhance the forms in the scene.\n"),
-    }
-    prompt.push_str("\nFinal Instruction: Do not hallucinate new semantic objects. Modify the light, not the world.");
-    prompt
-}
-
-pub fn build_stylize_prompt(temperature: f32, settings: &PromptSettings) -> String {
-    let mut prompt = String::new();
-    prompt.push_str("System Role: You are a master art director and style-transfer engine specialized in high-end visual metamorphosis.\n\n");
-    
-    let medium_raw = if settings.target_medium.is_empty() { "3D Pixar Render" } else { &settings.target_medium };
-    
-    let (medium_name, medium_desc) = match medium_raw.to_uppercase().as_str() {
-        "3D RENDER" | "3D PIXAR RENDER" => (
-            "3D Pixar Animation style",
-            "the aesthetic of high-end 3D feature animation. Use soft subsurface scattering for skin, stylized anatomical proportions, large expressive features, and professional cinematic ambient occlusion. Surfaces should be smooth and perfectly shaded."
-        ),
-        "ANIME" | "90S ANIME" => (
-            "90s Japanese Anime",
-            "the aesthetic of vintage 90s cel-shaded anime. Use distinct ink outlines, flat color fields with subtle cel-shading, and traditional painted backgrounds. Emphasize hand-drawn imperfections and high-contrast highlights."
-        ),
-        "WATERCOLOR" => (
-            "Fine Art Watercolor",
-            "traditional watercolor painting on heavy grain paper. Use soft color bleeds, visible brush strokes, varied pigment density, and natural paper texture. Let colors flow organically across boundaries."
-        ),
-        "OIL PAINTING" => (
-            "Classic Oil Painting",
-            "a thick impasto oil painting. Use heavy texture, visible brushwork, rich buttery colors, and dramatic chiaroscuro lighting. Surfaces should show the physical depth of the paint."
-        ),
-        "PENCIL SKETCH" => (
-            "Detailed Graphite Sketch",
-            "a masterful graphite pencil drawing. Use varied hatching techniques, soft blending for gradients, and sharp precise lines for edges. Maintain the texture of high-quality sketchbook paper."
-        ),
-        _ => (medium_raw, "a professional artistic interpretation of the requested style.")
-    };
-
-    prompt.push_str(&format!("Objective: Transform the entire artistic medium of this image into {} while maintaining the base composition.\n\n", medium_name));
-    
-    prompt.push_str("Rules:\n");
-    
-    if temperature > 1.2 {
-        prompt.push_str("1. Aggressive Transformation: You have high creative freedom. Proactively stylize shapes, body proportions, and facial features to perfectly match the target aesthetic. Prioritize style over literal anatomical accuracy.\n");
-    } else if temperature > 0.6 {
-        prompt.push_str("1. Balanced Transformation: Reconstruct every surface and material using the target aesthetic. Maintain the original poses and layout, but completely replace textures and shading.\n");
-    } else {
-        prompt.push_str("1. Conservative Style Transfer: Apply the target aesthetic while staying extremely close to the original image's specific details and textures. Ensure a subtle but noticeable medium shift.\n");
-    }
-
-    prompt.push_str(&format!("2. Style Specifics: Flawlessly simulate {}.\n", medium_desc));
-    prompt.push_str("3. Total Cohesion: Every single pixel must be stylized. No patches of the original photo should remain. The final output must look like it was natively created in this medium.\n");
-    prompt
-}
-
-pub fn build_sketch_prompt(settings: &PromptSettings) -> String {
-    let mut prompt = String::new();
-    prompt.push_str("System Role: You are a concept artist and photorealistic rendering engine.\n\n");
-    
-    let render = if settings.render_style.is_empty() { "a highly detailed, photorealistic 4K masterpiece" } else { &settings.render_style };
-    prompt.push_str(&format!("Objective: Interpret this rough sketch as a structural blueprint and render it into {}.\n\n", render));
-    
-    prompt.push_str("Rules:\n");
-    prompt.push_str("1. Blueprint Interpretation: Use the lines and shapes of the sketch to determine the core subject and composition.\n");
-    prompt.push_str("2. Texture Synthesis: Generate lifelike, high-frequency textures, realistic materials, and proper shading that the sketch implies but lacks.\n");
-    prompt.push_str("3. Cohesive Illumination: Apply realistic global illumination and physically accurate shadows to give the flat sketch 3D volume and depth.\n");
-    prompt
-}
-
-pub fn build_expand_prompt(_settings: &PromptSettings) -> String {
-    let mut prompt = String::new();
-    prompt.push_str("System Role: You are an expert outpainting and background-generation engine.\n\n");
-    prompt.push_str("Objective: The provided image has been padded with blank space. Seamlessly outpaint and extend the environment into the blank margins to create a cohesive, expanded composition.\n\n");
-    prompt.push_str("Rules:\n");
-    prompt.push_str("1. Center Lock: Do not alter, overwrite, or enhance the original central pixels. They must remain exactly as they are.\n");
-    prompt.push_str("2. Seamless Blending: Generate new content in the margins that perfectly matches the lighting, perspective, depth of field, and texture of the original image.\n");
-    prompt.push_str("3. Contextual Extrapolation: Infer what should naturally exist just outside the original frame and render it convincingly without hallucinating distracting focal points.\n");
-    prompt
-}
-
-pub fn build_system_prompt(style: &str, quality: &str, settings: &PromptSettings) -> String {
+pub fn build_upscale_prompt(style: &str, quality: &str, temperature: f32, settings: &PromptSettings) -> String {
     let mut prompt = String::new();
 
     prompt.push_str("System Role: You are the Novura high-fidelity reconstruction and super-resolution engine.\n\n");
-    prompt.push_str(&format!("Objective: Perform a precise 1:1 super-resolution enhancement of this image to {} resolution.\n\n", quality));
+    prompt.push_str(&format!("Objective: Perform a professional super-resolution enhancement of this asset to {} resolution.\n\n", quality));
 
-    prompt.push_str("Rules:\n");
+    prompt.push_str("## Reconstruction Pipeline:\n");
+    prompt.push_str("1. Signal Integrity: Maintain absolute geometric and structural parity. Every edge, silhouette, and volume must be a direct derivative of the source's spatial data.\n");
+    prompt.push_str("2. Phenomenological Restoration: Reconstruct the surface properties (reflections, textures, micro-shadows) based exclusively on the luminosity and color shifts present in the source. Do not 'guess' what the subject might be; enhance the data precisely as it exists.\n");
+
+    // Creativity / Temperature Logic (Fluid breakpoints)
+    if temperature <= 0.1 {
+        prompt.push_str("3. Zero-Hallucination Mode: You are in 'Absolute Signal Proxy' mode. Your task is to mathematically resolve the high-frequency intent of the source. You are FORBIDDEN from generating new anatomical or structural features (e.g., extra hairs, whiskers, pores, or wrinkles) that are not visibly suggested by sub-pixel clusters in the original. If a feature is not in the source, it must not be in the output.\n");
+    } else if temperature < 0.9 {
+        prompt.push_str("3. Enhanced Handshake: You are in 'Signal Clarification' mode. Enhance the clarity of existing textures. Derive fine detail from the local frequency of the source data. Maintain the strict identity of every surface.\n");
+    } else {
+        prompt.push_str("3. Artistic Resolution: You are in 'Generative Handshake' mode. You have latitude to clarify ambiguous textures with high-fidelity patterns, provided they integrate seamlessly with the source's lighting and material properties.\n");
+    }
+
     if style == "PHOTOGRAPHY" {
-        prompt.push_str("1. Texture Balance: Synthesize photorealistic organic micro-textures (hair, pores, fabric, foliage) with maximum fidelity. Retain natural sensor grain seamlessly.\n");
-        prompt.push_str("2. Absolute Biological Fidelity: Render human subjects with flawless realism, keeping all natural skin features, pores, and distinct physiological traits exactly as they appear.\n");
-        
+        prompt.push_str("4. Optic Reconstruction: Simulate a high-end sensor. Extract realistic material properties—surface roughness, specular scattering, and micro-textures—solely from the source's color gradients. Do not apply pre-trained SUBJECT prototypes.\n");
         if settings.keep_depth_of_field {
-            prompt.push_str("3. Depth of Field: Reconstruct the exact original focal planes. Ensure background elements remain optically soft and beautifully blurred out of focus.\n");
-        } else {
-            prompt.push_str("3. Focal Clarity: Enhance edge clarity and fine details across all depth planes while retaining a believable photographic drop-off.\n");
+            prompt.push_str("5. Optic Lock: Preserve the original lens characteristics and focal planes. Maintain existing background blur (bokeh) consistency.\n");
         }
     } else {
-        prompt.push_str("1. Artistic Integrity: Recreate the precise original art style. Render primary outlines perfectly sharp, crisp, and flawlessly anti-aliased.\n");
-        prompt.push_str("2. Surface Purity: Generate clean, immaculate surfaces. Smooth out all compression artifacts, color banding, and digital noise into pristine color fields.\n");
-        prompt.push_str("3. Color & Gradients: Replicate the original flat color values perfectly. Render background gradients as completely smooth transitions devoid of unintended texture.\n");
+        prompt.push_str("4. Illustration Purity: Reconstruct clean, aliasing-free outlines and sophisticated gradients. Maintain the purity of solid colors and the specific signature of the original medium.\n");
     }
 
-    prompt.push_str("4. Structural Lock: Lock the exact silhouettes, relative proportions, and spatial positioning of every element. Ensure the entire composition matches the source frame flawlessly.\n");
-
-    match settings.lighting.to_uppercase().as_str() {
-        "STUDIO" => prompt.push_str("5. Lighting: Enhance the scene with professional studio high-key lighting, emphasizing form and volume naturally.\n"),
-        "CINEMATIC" => prompt.push_str("5. Lighting: Reconstruct the scene using dramatic cinematic lighting with rich, deep shadows and anamorphic-style contrast.\n"),
-        "VIVID" => prompt.push_str("5. Lighting: Amplify color vibrancy and perceived dynamic range to produce a strikingly rich, high-contrast finish.\n"),
-        "NATURAL" => prompt.push_str("5. Lighting: Balance the illumination with soft, natural overcast light to produce a gentle and even exposure.\n"),
-        _ => prompt.push_str("5. Lighting Preservation: Replicate the exact native lighting and illumination sources present in the original input.\n"),
+    // Thinking Level / Depth
+    if settings.thinking_level == "HIGH" {
+        prompt.push_str("\n## Deep Signal Analysis:\nAnalyze the underlying luminosity data to derive physically consistent surface details. Ensure these additions are 100% anchored to the source radiance and do not introduce new, un-suggested features.\n");
     }
 
-    prompt.push_str("\nFinal Instruction: Produce a literal, hyper-accurate representation of the input image. Ensure all generated details structurally align with the original source content.");
+    prompt.push_str("\nFinal Instruction: Deliver a literal, technically superior version of the input. You are a SIGNAL PROCESSOR, not an artist. Output a version of the input that is clear, sharp, and high-fidelity, while adhering to a 'NO NEW ANATOMY' rule. Do not interpret. Reconstruct.");
 
     prompt
 }
@@ -163,58 +67,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_photography_lighting_vivid() {
-        let settings = PromptSettings {
-            keep_depth_of_field: true,
-            lighting: "VIVID".to_string(),
-            thinking_level: "HIGH".to_string(),
-            seed: None,
-            target_medium: String::new(),
-            render_style: String::new(),
-            target_aspect_ratio: String::new(),
-        };
-        let prompt = build_system_prompt("PHOTOGRAPHY", "4K", &settings);
-        
-        assert!(prompt.contains("Novura high-fidelity reconstruction"));
-        assert!(prompt.contains("organic micro-textures"));
-        assert!(prompt.contains("exact original focal planes"));
-        assert!(prompt.contains("Amplify color vibrancy"));
+    fn test_upscale_strict() {
+        let settings = PromptSettings::default();
+        let prompt = build_upscale_prompt("PHOTOGRAPHY", "4K", 0.0, &settings);
+        assert!(prompt.contains("Zero-Hallucination"));
+        assert!(prompt.contains("Signal Integrity"));
         assert!(prompt.contains("to 4K resolution"));
     }
 
     #[test]
-    fn test_illustration_original_lighting() {
-        let settings = PromptSettings {
-            keep_depth_of_field: false,
-            lighting: "Original".to_string(),
-            thinking_level: "MINIMAL".to_string(),
-            seed: None,
-            target_medium: String::new(),
-            render_style: String::new(),
-            target_aspect_ratio: String::new(),
-        };
-        let prompt = build_system_prompt("ILLUSTRATION", "2K", &settings);
-        
-        assert!(prompt.contains("Recreate the precise original art style"));
-        assert!(prompt.contains("clean, immaculate surfaces"));
-        assert!(prompt.contains("Structural Lock"));
-        assert!(prompt.contains("exact native lighting"));
-        assert!(prompt.contains("to 2K resolution"));
-    }
-
-    #[test]
-    fn test_photography_shallow_focus() {
-        let settings = PromptSettings {
-            keep_depth_of_field: false,
-            lighting: "STUDIO".to_string(),
-            thinking_level: "HIGH".to_string(),
-            seed: None,
-            target_medium: String::new(),
-            render_style: String::new(),
-            target_aspect_ratio: String::new(),
-        };
-        let prompt = build_system_prompt("PHOTOGRAPHY", "4K", &settings);
-        assert!(prompt.contains("Enhance edge clarity"));
-        assert!(prompt.contains("professional studio high-key lighting"));
+    fn test_upscale_creative() {
+        let settings = PromptSettings::default();
+        let prompt = build_upscale_prompt("PHOTOGRAPHY", "4K", 1.0, &settings);
+        assert!(prompt.contains("Artistic"));
+        assert!(prompt.contains("latitude"));
     }
 }

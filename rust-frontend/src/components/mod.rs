@@ -10,3 +10,4 @@ pub mod auth_callback;
 pub mod reset_password;
 pub mod cookie_banner;
 pub mod profile;
+pub mod notifications;

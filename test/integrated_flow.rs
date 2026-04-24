@@ -67,7 +67,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         0.5,
         "2K",
         &settings_json,
-        2
+        2,
+        "UPSCALE"
     ).await?;
 
     tracing::info!("Job {} enqueued.", job_id);

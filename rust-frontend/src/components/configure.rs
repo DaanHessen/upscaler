@@ -1,20 +1,15 @@
 use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use crate::{use_global_state, use_auth};
-use crate::api::{ApiClient, PromptSettings, PollResponse};
-use crate::components::icons::{Zap, ImageIcon, Settings, Target, RefreshCw, AlertCircle, Download, Info, Maximize};
-use wasm_bindgen::JsCast;
+use crate::api::{ApiClient, PromptSettings};
+use crate::components::icons::{Zap, ImageIcon, Target, RefreshCw, Download, Maximize};
 
 #[component]
 pub fn Configure() -> impl IntoView {
-    let global_state = use_global_state();
+    let gs = use_global_state();
     let auth = use_auth();
-    let navigate = use_navigate();
+    let _navigate = use_navigate();
 
-    let (is_submitting, set_is_submitting) = signal(false);
-    let (processing_job, set_processing_job) = signal(Option::<uuid::Uuid>::None);
-    let (engine_status, set_engine_status) = signal(Option::<PollResponse>::None);
-    let (error_msg, set_error_msg) = signal(Option::<String>::None);
     let (is_dragging, set_is_dragging) = signal(false);
 
     let (before_url, set_before_url) = signal(Option::<String>::None);
@@ -22,7 +17,7 @@ pub fn Configure() -> impl IntoView {
     let (zoom_level, set_zoom_level) = signal(1.0f64);
 
     Effect::new(move |_| {
-        if let Some(file) = global_state.temp_file.get() {
+        if let Some(file) = gs.temp_file.get() {
             if let Ok(url) = web_sys::Url::create_object_url_with_blob(&file) {
                 set_before_url.set(Some(url.clone()));
                 on_cleanup(move || {
@@ -34,60 +29,21 @@ pub fn Configure() -> impl IntoView {
         }
     });
 
-    let cancelled = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let c = cancelled.clone();
-    on_cleanup(move || c.store(true, std::sync::atomic::Ordering::Relaxed));
-
-    let c_effect = cancelled.clone();
-    Effect::new(move |_| {
-        if let Some(job_id) = processing_job.get() {
-            let token = auth.session.get().map(|s| s.access_token);
-            let state = global_state;
-            let c_loop = c_effect.clone();
-            leptos::task::spawn_local(async move {
-                loop {
-                    if c_loop.load(std::sync::atomic::Ordering::Relaxed) { break; }
-                    match ApiClient::poll_job(job_id, token.as_deref()).await {
-                        Ok(resp) => {
-                            let r: PollResponse = resp.clone();
-                            set_engine_status.set(Some(r.clone()));
-                            if r.status == "COMPLETED" {
-                                if let Some(url) = r.image_url {
-                                    state.set_preview_base64.set(Some(url));
-                                }
-                                // Return to editor state but keep the preview
-                                set_processing_job.set(None);
-                                break;
-                            }
-                            if r.status == "FAILED" {
-                                set_error_msg.set(Some(r.error.unwrap_or_else(|| "Upscale failed.".to_string())));
-                                set_processing_job.set(None);
-                                break;
-                            }
-                        },
-                        Err(_) => break,
-                    }
-                    gloo_timers::future::TimeoutFuture::new(2000).await;
-                }
-            });
-        }
-    });
-
     let on_file_input = move |ev: leptos::web_sys::Event| {
         let input: web_sys::HtmlInputElement = leptos::prelude::event_target(&ev);
         if let Some(files) = input.files() {
             if let Some(file) = files.get(0) {
                 if file.size() > 20_000_000.0 {
-                    set_error_msg.set(Some("File exceeds 20MB limit.".to_string()));
+                    gs.show_error("File exceeds 20MB limit.");
                     return;
                 }
                 if !file.type_().starts_with("image/") {
-                    set_error_msg.set(Some("Invalid file type. Only images are allowed.".to_string()));
+                    gs.show_error("Invalid file type. Only images are allowed.");
                     return;
                 }
-                set_error_msg.set(None);
-                global_state.set_temp_file.set(Some(file));
-                global_state.set_preview_base64.set(None);
+                gs.clear_notification();
+                gs.set_temp_file.set(Some(file));
+                gs.set_preview_base64.set(None);
             }
         }
     };
@@ -99,59 +55,60 @@ pub fn Configure() -> impl IntoView {
             if let Some(files) = data.files() {
                 if let Some(file) = files.get(0) {
                     if file.size() > 20_000_000.0 {
-                        set_error_msg.set(Some("File exceeds 20MB limit.".to_string()));
+                        gs.show_error("File exceeds 20MB limit.");
                         return;
                     }
                     if !file.type_().starts_with("image/") {
-                        set_error_msg.set(Some("Invalid file type. Only images are allowed.".to_string()));
+                        gs.show_error("Invalid file type. Only images are allowed.");
                         return;
                     }
-                    set_error_msg.set(None);
-                    global_state.set_temp_file.set(Some(file));
-                    global_state.set_preview_base64.set(None);
+                    gs.clear_notification();
+                    gs.set_temp_file.set(Some(file));
+                    gs.set_preview_base64.set(None);
                 }
             }
         }
     };
 
     let handle_upscale = move |_| {
-        if let Some(file) = global_state.temp_file.get() {
-            let q_val: String = global_state.quality.get();
+        if let Some(file) = gs.temp_file.get() {
+            let q_val: String = gs.quality.get();
             let cost = if q_val == "4K" { 4 } else { 2 };
             if let Some(current) = auth.credits.get() {
                 if current < cost {
-                    set_error_msg.set(Some("Insufficient credits.".to_string()));
+                    gs.show_error("Insufficient credits.");
                     return;
                 }
             }
             
-            set_is_submitting.set(true);
-            set_error_msg.set(None);
+            gs.set_is_submitting.set(true);
+            gs.clear_notification();
             let token = auth.session.get().map(|s| s.access_token);
-            let s_val: String = global_state.style.get();
-            let t_val: f32 = global_state.temperature.get();
-            let tool_val: String = global_state.active_tool.get();
+            let s_val: String = gs.style.get();
+            let t_val: f32 = gs.temperature.get();
+            let tool_val: String = gs.active_tool.get();
             let auth_ctx = auth;
+            let state = gs;
             let p_settings = PromptSettings {
-                keep_depth_of_field: global_state.keep_depth_of_field.get(),
-                lighting: global_state.lighting.get(),
-                thinking_level: global_state.thinking_level.get(),
-                seed: global_state.seed.get(),
-                target_medium: global_state.target_medium.get(),
-                render_style: global_state.render_style.get(),
-                target_aspect_ratio: global_state.target_aspect_ratio.get(),
+                keep_depth_of_field: gs.keep_depth_of_field.get(),
+                lighting: gs.lighting.get(),
+                thinking_level: gs.thinking_level.get(),
+                seed: gs.seed.get(),
+                target_medium: gs.target_medium.get(),
+                render_style: gs.render_style.get(),
+                target_aspect_ratio: gs.target_aspect_ratio.get(),
             };
             leptos::task::spawn_local(async move {
                 match ApiClient::submit_upscale(&file, &q_val, &s_val, t_val, &p_settings, &tool_val, token.as_deref()).await {
                     Ok(resp) => {
                         auth_ctx.set_credits.update(|c| if let Some(cv) = c { *cv -= cost; });
                         auth_ctx.sync_telemetry(true);
-                        set_processing_job.set(Some(resp.job_id));
-                        set_is_submitting.set(false);
+                        state.set_processing_job.set(Some(resp.job_id));
+                        state.set_is_submitting.set(false);
                     },
                     Err(e) => { 
-                        set_error_msg.set(Some(format!("Upload failed: {}", e))); 
-                        set_is_submitting.set(false);
+                        state.show_error(format!("Upload failed: {}", e)); 
+                        state.set_is_submitting.set(false);
                     }
                 }
             });
@@ -159,25 +116,23 @@ pub fn Configure() -> impl IntoView {
     };
 
     let handle_try_again = move |_| {
-        global_state.set_preview_base64.set(None);
-        set_engine_status.set(None);
-        set_processing_job.set(None);
+        gs.set_preview_base64.set(None);
+        gs.set_engine_status.set(None);
+        gs.set_processing_job.set(None);
         set_zoom_level.set(1.0);
     };
 
     let stage_info = move || {
-        if is_submitting.get() {
+        if gs.is_submitting.get() {
             return ("INIT", "Preparing", "Securely uploading and analyzing asset...");
         }
-        match engine_status.get().map(|s| s.status) {
+        match gs.engine_status.get().map(|s| s.status) {
             Some(s) if s == "PENDING"    => ("QUEUE",  "System Ready",   "Analyzing asset for reconstruction..."),
             Some(s) if s == "PROCESSING" => ("ACTIVE", "Reconstructing", "Gemini Vision is synthesizing high-frequency details."),
             Some(s) if s == "COMPLETED"  => ("DONE",   "Export Ready",   "Enhancement complete. Ready for download."),
             _ =>                            ("IDLE",   "Standby",        "Awaiting engine handshake."),
         }
     };
-
-    let nav_history = navigate.clone();
 
     view! {
         <div class="editor-shell fade-in">
@@ -191,7 +146,7 @@ pub fn Configure() -> impl IntoView {
                 <div class="canvas-grid"></div>
 
                 {move || {
-                    let preview = global_state.preview_base64.get();
+                    let preview = gs.preview_base64.get();
                     let before = before_url.get();
                     
                     match (before, preview) {
@@ -251,62 +206,75 @@ pub fn Configure() -> impl IntoView {
                                             on:click=handle_try_again
                                         >
                                             <RefreshCw size={14} />
-                                            <span>"Try Again"</span>
+                                            <span>"Again"</span>
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         }.into_any(),
-                        
+
                         (Some(before), None) => view! {
-                            <div class="asset-wrapper stagger-3">
-                                <img src=before class="studio-asset" alt="Original" />
-                                <div class="corner-accents">
-                                    <div class="corner tl"></div>
-                                    <div class="corner tr"></div>
-                                    <div class="corner bl"></div>
-                                    <div class="corner br"></div>
+                            <div class="canvas-view-container preview-only">
+                                <div class="asset-wrapper">
+                                    <div class="corner-accents"><div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div></div>
+                                    <img class="studio-asset" src=before alt="Original asset" style=move || format!("transform: scale({})", zoom_level.get()) />
+                                </div>
+                                
+                                <div class="viewer-controls">
+                                    <div class="viewer-ctrl-group">
+                                        <button 
+                                            on:click=move |_| set_zoom_level.update(|z| *z = (*z + 0.5).min(4.0))
+                                            title="Zoom In"
+                                        ><Maximize size={14} /></button>
+                                        <button 
+                                            on:click=move |_| set_zoom_level.update(|z| *z = (*z - 0.5).max(1.0))
+                                            title="Zoom Out"
+                                        ><Target size={14} /></button>
+                                    </div>
                                 </div>
                             </div>
                         }.into_any(),
-                        
-                        _ => view! {
-                            <div class="drop-zone-outer">
-                                <div class="drop-zone-inner" on:click=move |_| {
-                                    if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
-                                        if let Some(el) = doc.get_element_by_id("hidden_file_input") {
-                                            let html_el: web_sys::HtmlElement = el.unchecked_into();
-                                            html_el.click();
-                                        }
+
+                        _ => {
+                            let file_input_ref = NodeRef::<leptos::html::Input>::new();
+                            view! {
+                                <div class="drop-zone-outer stagger-1" on:click=move |_| {
+                                    if let Some(input) = file_input_ref.get() {
+                                        let _ = input.click();
                                     }
                                 }>
-                                    <div class="dz-icon-wrap">
-                                        <ImageIcon size={28} />
+                                    <div class="drop-zone-inner">
+                                        <div class="dz-icon-wrap">
+                                            <ImageIcon size={32} />
+                                        </div>
+                                        <h2 class="dz-title">{crate::text::TXT.editor_empty_title}</h2>
+                                        <p class="dz-sub">{crate::text::TXT.editor_empty_desc}</p>
+                                        <div class="dz-formats">"JPG, PNG, WEBP (MAX 20MB)"</div>
+                                        
+                                        <input type="file" accept="image/*" style="display: none;" 
+                                               on:change=on_file_input node_ref=file_input_ref />
                                     </div>
-                                    <p class="dz-title">"Drop image here"</p>
-                                    <p class="dz-sub">"or click to browse your files"</p>
-                                    <div class="dz-formats">"PNG · JPG · WEBP · MAX 20 MB"</div>
                                 </div>
-                                <input type="file" id="hidden_file_input" style="display:none;" on:change=on_file_input />
-                            </div>
-                        }.into_any()
+                            }.into_any()
+                        }
                     }
                 }}
 
-                // Drag overlay
-                {move || is_dragging.get().then(|| view! {
-                    <div class="drag-overlay fade-in">
-                        <Download size={40} />
-                        <span>"Drop to import"</span>
+                <Show when=move || is_dragging.get()>
+                    <div class="drag-overlay">
+                        <div class="drag-box">
+                            <Download size={32} />
+                            <span>"Drop to import asset"</span>
+                        </div>
                     </div>
-                })}
+                </Show>
             </div>
 
             // ── Sidebar ─────────────────────────────────────────
             <aside class="editor-sidebar">
                 {move || {
-                    let submitting = is_submitting.get();
-                    let job = processing_job.get();
+                    let submitting = gs.is_submitting.get();
+                    let job = gs.processing_job.get();
                     
                     if submitting || job.is_some() {
                         view! {
@@ -324,7 +292,7 @@ pub fn Configure() -> impl IntoView {
                                     <div class="p-progress-rail">
                                         <div class="p-progress-fill" style:width=move || {
                                             if submitting { return "15%".to_string(); }
-                                            match engine_status.get().map(|s| s.status) {
+                                            match gs.engine_status.get().map(|s| s.status) {
                                                 Some(s) if s == "PENDING" => "40%".to_string(),
                                                 Some(s) if s == "PROCESSING" => "75%".to_string(),
                                                 Some(s) if s == "COMPLETED" => "100%".to_string(),
@@ -336,7 +304,7 @@ pub fn Configure() -> impl IntoView {
                                     <div class="p-telemetry-grid">
                                         <div class="p-tele-item">
                                             <span class="p-tele-label">"LATENCY"</span>
-                                            <span class="p-tele-val">{move || engine_status.get().and_then(|s| s.latency_ms).map(|l| format!("{}ms", l)).unwrap_or_else(|| "---".to_string())}</span>
+                                            <span class="p-tele-val">{move || gs.engine_status.get().and_then(|s| s.latency_ms).map(|l| format!("{}ms", l)).unwrap_or_else(|| "---".to_string())}</span>
                                         </div>
                                         <div class="p-tele_item">
                                             <span class="p-tele-label">"TOKEN"</span>
@@ -355,65 +323,34 @@ pub fn Configure() -> impl IntoView {
                             <div class="sidebar-inner fade-in">
                                 <div class="sb-scroll">
 
-                                    // Error
-                                    {move || error_msg.get().map(|msg| view! {
-                                        <div class="sb-error">
-                                            <AlertCircle size={14} />
-                                            <span>{msg}</span>
-                                        </div>
-                                    })}
-
-                                    // ── Tool Selector ───────────────
                                     <div class="card editor-card">
                                         <div class="editor-card-body">
                                             <div class="card-tag" style="margin-bottom: var(--s-8);">
-                                                <Zap size={10} />
-                                                <span>"ACTIVE TOOL"</span>
+                                                <Target size={10} />
+                                                <span>"RESOLUTION"</span>
                                             </div>
-                                            <div class="select-wrap">
-                                                <select class="sb-select" on:change=move |ev| global_state.set_active_tool.set(event_target_value(&ev)) prop:value=move || global_state.active_tool.get()>
-                                                    <option value="UPSCALE">"Magic Upscale"</option>
-                                                    <option value="RELIGHT">"Relight Scene"</option>
-                                                    <option value="STYLIZE">"Style Transfer"</option>
-                                                    <option value="SKETCH">"Sketch to Real"</option>
-                                                    <option value="EXPAND">"Smart Expand"</option>
-                                                </select>
-                                                <div class="select-arrow"></div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    // ── Resolution ──────────────────
-                                    {move || if global_state.active_tool.get() == "UPSCALE" { view! {
-                                        <div class="card editor-card">
-                                            <div class="editor-card-body">
-                                                <div class="card-tag" style="margin-bottom: var(--s-8);">
-                                                    <Target size={10} />
-                                                    <span>"RESOLUTION"</span>
-                                                </div>
-                                                    <div class="res-grid">
-                                                        <div
-                                                            class=move || if global_state.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
-                                                            on:click=move |_| global_state.set_quality.set("2K".to_string())
-                                                        >
-                                                            <div class="pack-info">
-                                                                <span class="res-big-num">"2K"</span>
-                                                                <span class="pack-price">"2 credits"</span>
-                                                            </div>
-                                                        </div>
-                                                        <div
-                                                            class=move || if global_state.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
-                                                            on:click=move |_| global_state.set_quality.set("4K".to_string())
-                                                        >
-                                                            <div class="pack-info">
-                                                                <span class="res-big-num">"4K"</span>
-                                                                <span class="pack-price">"4 credits"</span>
-                                                            </div>
+                                                <div class="res-grid">
+                                                    <div
+                                                        class=move || if gs.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
+                                                        on:click=move |_| gs.set_quality.set("2K".to_string())
+                                                    >
+                                                        <div class="pack-info">
+                                                            <span class="res-big-num">"2K"</span>
+                                                            <span class="pack-price">"2 credits"</span>
                                                         </div>
                                                     </div>
-                                            </div>
+                                                    <div
+                                                        class=move || if gs.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
+                                                        on:click=move |_| gs.set_quality.set("4K".to_string())
+                                                    >
+                                                        <div class="pack-info">
+                                                            <span class="res-big-num">"4K"</span>
+                                                            <span class="pack-price">"4 credits"</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                         </div>
-                                    }.into_any() } else { view! { <div></div> }.into_any() }}
+                                    </div>
 
                                     // ── Engine ──────────────────────
                                     <div class="card editor-card">
@@ -423,205 +360,90 @@ pub fn Configure() -> impl IntoView {
                                                 <span>"ENGINE"</span>
                                             </div>
 
-                                            {move || match global_state.active_tool.get().as_str() {
-                                                "UPSCALE" => view! {
-                                                    <div>
-                                                        <div class="sb-field">
-                                                            <label class="sb-label">"Style"</label>
-                                                            <div class="seg-control">
-                                                                <button class:active=move || global_state.style.get() == "PHOTOGRAPHY" on:click=move |_| global_state.set_style.set("PHOTOGRAPHY".to_string())>"Photography"</button>
-                                                                <button class:active=move || global_state.style.get() == "ILLUSTRATION" on:click=move |_| global_state.set_style.set("ILLUSTRATION".to_string())>"Illustration"</button>
-                                                            </div>
-                                                        </div>
-                                                        <div class="sb-field" style="margin-top: var(--s-8);">
-                                                            <div class="sb-label-row" style="margin-bottom: var(--s-3);">
-                                                                <label class="sb-label">"Creativity"</label>
-                                                                <span class="sb-val-badge">{move || format!("{:.1}", global_state.temperature.get())}</span>
-                                                            </div>
-                                                            <div class="slider-wrap">
-                                                                <input type="range" min="0.0" max="2.0" step="0.1" class="studio-slider" prop:value=move || global_state.temperature.get().to_string() on:input=move |ev| global_state.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0)) />
-                                                                <div class="slider-ends"><span>"Strict"</span><span>"Creative"</span></div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="sb-field" style="margin-top: var(--s-8);">
-                                                            <label class="sb-label">"Processing Depth"</label>
-                                                            <div class="seg-control">
-                                                                <button class:active=move || global_state.thinking_level.get() == "MINIMAL" on:click=move |_| global_state.set_thinking_level.set("MINIMAL".to_string())>"Standard"</button>
-                                                                <button class:active=move || global_state.thinking_level.get() == "HIGH" on:click=move |_| global_state.set_thinking_level.set("HIGH".to_string())>"Deep"</button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                }.into_any(),
-                                                
-                                                "RELIGHT" => view! {
-                                                    <div>
-                                                        <div class="sb-field">
-                                                            <label class="sb-label">"Lighting Preset"</label>
-                                                            <div class="select-wrap" style="margin-top: var(--s-3);">
-                                                                <select class="sb-select" on:change=move |ev| global_state.set_lighting.set(event_target_value(&ev)) prop:value=move || global_state.lighting.get()>
-                                                                    <option value="Studio">"Studio Lighting"</option>
-                                                                    <option value="Cinematic">"Cinematic Shadow"</option>
-                                                                    <option value="Neon">"Cyberpunk Neon"</option>
-                                                                    <option value="Golden Hour">"Golden Hour"</option>
-                                                                    <option value="Natural">"Natural Overcast"</option>
-                                                                </select>
-                                                                <div class="select-arrow"></div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="sb-field" style="margin-top: var(--s-8);">
-                                                            <div class="sb-label-row" style="margin-bottom: var(--s-3);">
-                                                                <label class="sb-label">"Relight Strength"</label>
-                                                                <span class="sb-val-badge">{move || format!("{:.1}", global_state.temperature.get())}</span>
-                                                            </div>
-                                                            <div class="slider-wrap">
-                                                                <input type="range" min="0.0" max="2.0" step="0.1" class="studio-slider" prop:value=move || global_state.temperature.get().to_string() on:input=move |ev| global_state.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0)) />
-                                                                <div class="slider-ends"><span>"Subtle"</span><span>"Dramatic"</span></div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                }.into_any(),
+                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
+                                                <label class="sb-label">"STYLE"</label>
+                                                <div class="seg-control">
+                                                    <button 
+                                                        class:active=move || gs.style.get() == "PHOTOGRAPHY"
+                                                        on:click=move |_| gs.set_style.set("PHOTOGRAPHY".to_string())
+                                                    >
+                                                        "Photography"
+                                                    </button>
+                                                    <button 
+                                                        class:active=move || gs.style.get() == "ILLUSTRATION"
+                                                        on:click=move |_| gs.set_style.set("ILLUSTRATION".to_string())
+                                                    >
+                                                        "Illustration"
+                                                    </button>
+                                                </div>
+                                            </div>
 
-                                                "STYLIZE" => view! {
-                                                    <div>
-                                                        <div class="sb-field">
-                                                            <label class="sb-label">"Target Medium"</label>
-                                                            <div class="select-wrap" style="margin-top: var(--s-3);">
-                                                                <select class="sb-select" on:change=move |ev| global_state.set_target_medium.set(event_target_value(&ev)) prop:value=move || global_state.target_medium.get()>
-                                                                    <option value="3D Pixar Render">"3D Pixar Render"</option>
-                                                                    <option value="90s Anime">"90s Anime"</option>
-                                                                    <option value="Watercolor">"Watercolor"</option>
-                                                                    <option value="Oil Painting">"Oil Painting"</option>
-                                                                    <option value="Pencil Sketch">"Pencil Sketch"</option>
-                                                                </select>
-                                                                <div class="select-arrow"></div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="sb-field" style="margin-top: var(--s-8);">
-                                                            <div class="sb-label-row" style="margin-bottom: var(--s-3);">
-                                                                <label class="sb-label">"Stylization Strength"</label>
-                                                                <span class="sb-val-badge">{move || format!("{:.1}", global_state.temperature.get())}</span>
-                                                            </div>
-                                                            <div class="slider-wrap">
-                                                                <input type="range" min="0.0" max="2.0" step="0.1" class="studio-slider" prop:value=move || global_state.temperature.get().to_string() on:input=move |ev| global_state.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0)) />
-                                                                <div class="slider-ends"><span>"Mild"</span><span>"Aggressive"</span></div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                }.into_any(),
+                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
+                                                <div class="sb-label-row">
+                                                    <label class="sb-label">"CREATIVITY"</label>
+                                                    <span class="sb-val-badge">{move || format!("{:.1}", gs.temperature.get())}</span>
+                                                </div>
+                                                <input 
+                                                    type="range" min="0.0" max="1.3" step="0.1" 
+                                                    class="studio-slider"
+                                                    prop:value=move || gs.temperature.get()
+                                                    on:input=move |ev| gs.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.1))
+                                                />
+                                                <div class="slider-ends">
+                                                    <span>"STRICT"</span>
+                                                    <span>"CREATIVE"</span>
+                                                </div>
+                                            </div>
 
-                                                "SKETCH" => view! {
-                                                    <div>
-                                                        <div class="sb-field">
-                                                            <label class="sb-label">"Render Style"</label>
-                                                            <div class="select-wrap" style="margin-top: var(--s-3);">
-                                                                <select class="sb-select" on:change=move |ev| global_state.set_render_style.set(event_target_value(&ev)) prop:value=move || global_state.render_style.get()>
-                                                                    <option value="Photorealistic">"Photorealistic"</option>
-                                                                    <option value="Vector Art">"Vector Art"</option>
-                                                                    <option value="Conceptual Art">"Conceptual Art"</option>
-                                                                </select>
-                                                                <div class="select-arrow"></div>
-                                                            </div>
-                                                        </div>
-                                                        <div class="sb-field" style="margin-top: var(--s-8);">
-                                                            <label class="sb-label">"Processing Depth (Locked)"</label>
-                                                            <div class="seg-control">
-                                                                <button class="active" disabled=true>"Maximum"</button>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                }.into_any(),
+                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
+                                                <label class="sb-label">"PROCESSING DEPTH"</label>
+                                                <div class="seg-control">
+                                                    <button 
+                                                        class:active=move || gs.thinking_level.get() == "MINIMAL"
+                                                        on:click=move |_| gs.set_thinking_level.set("MINIMAL".to_string())
+                                                    >"Standard"</button>
+                                                    <button 
+                                                        class:active=move || gs.thinking_level.get() == "HIGH"
+                                                        on:click=move |_| gs.set_thinking_level.set("HIGH".to_string())
+                                                    >"Deep"</button>
+                                                </div>
+                                            </div>
 
-                                                "EXPAND" => view! {
-                                                    <div>
-                                                        <div class="sb-field">
-                                                            <label class="sb-label">"Target Aspect Ratio"</label>
-                                                            <div class="select-wrap" style="margin-top: var(--s-3);">
-                                                                <select class="sb-select" on:change=move |ev| global_state.set_target_aspect_ratio.set(event_target_value(&ev)) prop:value=move || global_state.target_aspect_ratio.get()>
-                                                                    <option value="16:9">"16:9 Landscape"</option>
-                                                                    <option value="9:16">"9:16 Vertical"</option>
-                                                                    <option value="1:1">"1:1 Square"</option>
-                                                                    <option value="4:3">"4:3 Standard"</option>
-                                                                </select>
-                                                                <div class="select-arrow"></div>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                }.into_any(),
-                                                _ => view! { <div></div> }.into_any(),
-                                            }}
-
-                                            // Seed (Always present for all tools)
-                                            <div class="sb-field" style="margin-top: var(--s-8);">
-                                                <div class="sb-label-row" style="margin-bottom: var(--s-3);">
-                                                    <label class="sb-label">"Seed"</label>
-                                                    <span class="sb-val-badge mono">
-                                                        {move || global_state.seed.get()
-                                                            .map(|s: u32| format!("#{}", s))
-                                                            .unwrap_or_else(|| "AUTO".to_string())}
-                                                    </span>
+                                            <div class="sb-field">
+                                                <div class="sb-label-row">
+                                                    <label class="sb-label">"RECONSTRUCTION SEED"</label>
+                                                    <span class="sb-val-badge">{move || if let Some(s) = gs.seed.get() { s.to_string() } else { "AUTO".to_string() }}</span>
                                                 </div>
                                                 <div class="seed-row">
-                                                    <input
-                                                        type="number"
+                                                    <input 
                                                         class="sb-input"
-                                                        placeholder="Leave empty for auto"
-                                                        prop:value=move || global_state.seed.get()
-                                                            .map(|s: u32| s.to_string())
-                                                            .unwrap_or_default()
+                                                        type="number" placeholder="Leave empty for auto" 
                                                         on:input=move |ev| {
-                                                            let val = event_target_value(&ev);
-                                                            if val.is_empty() {
-                                                                global_state.set_seed.set(None);
-                                                            } else if let Ok(s) = val.parse::<u32>() {
-                                                                global_state.set_seed.set(Some(s));
-                                                            }
+                                                            let v = event_target_value(&ev);
+                                                            gs.set_seed.set(if v.is_empty() { None } else { v.parse().ok() });
                                                         }
+                                                        prop:value=move || gs.seed.get().map(|s| s.to_string()).unwrap_or_default()
                                                     />
-                                                    <button
-                                                        class="seed-rng-btn"
-                                                        title="Randomize seed"
-                                                        on:click=move |_| {
-                                                            let val = (js_sys::Math::random() * (u32::MAX as f64)) as u32;
-                                                            global_state.set_seed.set(Some(val));
-                                                        }
-                                                    >
-                                                        <RefreshCw size={13} />
-                                                    </button>
+                                                    <button class="seed-rng-btn" on:click=move |_| gs.set_seed.set(None) title="Reset to Auto"><RefreshCw size={14} /></button>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-
                                 </div>
 
-                                // ── CTA ─────────────────────────────
                                 <div class="sb-footer">
-                                    <button
-                                        class="btn btn-primary btn-lg sb-cta"
+                                    <button 
+                                        class="btn btn-primary sb-cta" 
+                                        disabled=move || gs.temp_file.get().is_none() || gs.is_submitting.get()
                                         on:click=handle_upscale
-                                        disabled=move || global_state.temp_file.get().is_none()
                                     >
                                         <div class="sb-cta-inner">
                                             <Zap size={16} />
-                                            <span>{move || match global_state.active_tool.get().as_str() {
-                                                "RELIGHT" => "Apply Relight",
-                                                "STYLIZE" => "Apply Style",
-                                                "SKETCH" => "Render Sketch",
-                                                "EXPAND" => "Expand Image",
-                                                _ => "Initiate Upscale",
-                                            }}</span>
+                                            <span>"UPSCALE ASSET"</span>
                                         </div>
                                         <div class="sb-cta-badge">
-                                            {move || {
-                                                let t = global_state.active_tool.get();
-                                                let q = global_state.quality.get();
-                                                if t == "SKETCH" || (t == "UPSCALE" && q == "4K") {
-                                                    "4"
-                                                } else {
-                                                    "2"
-                                                }
-                                            }}
-                                            <span style="font-size: 0.625rem; opacity: 0.5; margin-left: 2px;">"CR"</span>
+                                            {move || if gs.quality.get() == "4K" { "4" } else { "2" }}
+                                            <span style="font-size:0.5rem; opacity:0.6; margin-left:2px;">"CR"</span>
                                         </div>
                                     </button>
                                 </div>
@@ -631,7 +453,5 @@ pub fn Configure() -> impl IntoView {
                 }}
             </aside>
         </div>
-
-        
     }
 }

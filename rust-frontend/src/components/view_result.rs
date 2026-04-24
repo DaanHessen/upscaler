@@ -88,15 +88,35 @@ where F: Fn(()) + 'static + Copy {
             match res.status.as_str() {
                 "PENDING" => {
                     let pos = res.queue_position.unwrap_or(1);
-                    ("IN QUEUE", format!("Position #{} in queue", pos), "Waiting for an available compute node...")
+                    ("QUEUEING", format!("Position #{} in queue", pos), "Waiting for an available compute node...".to_string())
                 },
                 "PROCESSING" => {
-                    ("RECONSTRUCTING", "Studio Engine Engaged...".to_string(), "Gemini Vision is enhancing your asset...")
+                    ("SYNTHESIZING", "Processing Image...".to_string(), "Gemini Vision is reconstructing high-frequency details...".to_string())
                 },
-                _ => ("FINALIZING", "Synchronizing Store...".to_string(), "Finalizing and storing your high-res asset...")
+                _ => ("FINALIZING", "Resizing & Saving...".to_string(), "Finalizing and storing your high-res asset...".to_string())
             }
         } else {
-            ("STARTING", "Initializing...".to_string(), "Establishing connection to Studio Backend...")
+            ("STARTING", "Checking Safety...".to_string(), "Establishing connection and validating image...".to_string())
+        }
+    };
+
+    let gs = crate::use_global_state();
+    let (seconds_elapsed, set_seconds_elapsed) = signal(0);
+    
+    Effect::new(move |_| {
+        let interval = gloo_timers::callback::Interval::new(1000, move || {
+            set_seconds_elapsed.update(|s| *s += 1);
+        });
+        move || drop(interval)
+    });
+
+    let est_remaining = move || {
+        let elapsed = seconds_elapsed.get();
+        let avg = gs.avg_latency_secs.get();
+        if elapsed < avg {
+            format!("~{}s remaining", avg - elapsed)
+        } else {
+            "Finalizing...".to_string()
         }
     };
 
@@ -124,6 +144,9 @@ where F: Fn(()) + 'static + Copy {
                             <span class="stage-tag">{move || stage_info().0}</span>
                             <h2 class="stage-title">{move || stage_info().1}</h2>
                             <p class="muted stage-desc">{move || stage_info().2}</p>
+                            <p class="est-timer" style="font-size: 0.75rem; font-family: var(--font-mono); color: hsl(var(--accent)); margin-top: 8px;">
+                                {move || est_remaining()}
+                            </p>
                         </div>
 
                         <div class="telemetry-bar">

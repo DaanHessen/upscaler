@@ -250,6 +250,20 @@ impl ApiClient {
         Ok(resp.ok())
     }
 
+    pub async fn get_avg_latency() -> Result<i32, String> {
+        let resp = Request::get("/api/health")
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+        
+        if resp.ok() {
+            let data: serde_json::Value = resp.json().await.map_err(|e| e.to_string())?;
+            Ok(data["avg_latency_ms"].as_i64().unwrap_or(15000) as i32)
+        } else {
+            Ok(15000)
+        }
+    }
+
     pub async fn change_password(token: Option<&str>, new_password: &str) -> Result<(), String> {
         let body = serde_json::json!({ "new_password": new_password });
         let resp = Self::authenticated_request("POST", "/api/auth/change-password", token)

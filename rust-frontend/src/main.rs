@@ -8,7 +8,7 @@ use leptos::prelude::*;
 use leptos_router::components::*;
 use leptos_router::path;
 use crate::auth::{AuthProvider, use_auth};
-use crate::api::ApiClient;
+use crate::api::{ApiClient, PollResponse};
 use leptos_router::hooks::use_location;
 use crate::components::icons::{Zap, LogOut, Sun, Moon, UserIcon, Target, RefreshCw, ImageIcon, NovuraLogo};
 use crate::components::auth::{Login, Register, ForgotPassword};
@@ -55,6 +55,28 @@ pub struct GlobalState {
     pub set_render_style: WriteSignal<String>,
     pub target_aspect_ratio: ReadSignal<String>,
     pub set_target_aspect_ratio: WriteSignal<String>,
+    pub notification: ReadSignal<Option<(String, String)>>,
+    pub set_notification: WriteSignal<Option<(String, String)>>,
+    pub processing_job: ReadSignal<Option<uuid::Uuid>>,
+    pub set_processing_job: WriteSignal<Option<uuid::Uuid>>,
+    pub engine_status: ReadSignal<Option<crate::api::PollResponse>>,
+    pub set_engine_status: WriteSignal<Option<crate::api::PollResponse>>,
+    pub is_submitting: ReadSignal<bool>,
+    pub set_is_submitting: WriteSignal<bool>,
+    pub avg_latency_secs: ReadSignal<i32>,
+    pub set_avg_latency_secs: WriteSignal<i32>,
+}
+
+impl GlobalState {
+    pub fn show_error(&self, msg: impl Into<String>) {
+        self.set_notification.set(Some((msg.into(), "error".to_string())));
+    }
+    pub fn show_success(&self, msg: impl Into<String>) {
+        self.set_notification.set(Some((msg.into(), "success".to_string())));
+    }
+    pub fn clear_notification(&self) {
+        self.set_notification.set(None);
+    }
 }
 
 pub fn provide_global_state() {
@@ -73,6 +95,11 @@ pub fn provide_global_state() {
     let (target_medium, set_target_medium) = signal("3D Render".to_string());
     let (render_style, set_render_style) = signal("Photorealistic".to_string());
     let (target_aspect_ratio, set_target_aspect_ratio) = signal("16:9".to_string());
+    let (notification, set_notification) = signal(Option::<(String, String)>::None);
+    let (processing_job, set_processing_job) = signal(Option::<uuid::Uuid>::None);
+    let (engine_status, set_engine_status) = signal(Option::<PollResponse>::None);
+    let (is_submitting, set_is_submitting) = signal(false);
+    let (avg_latency_secs, set_avg_latency_secs) = signal(20);
 
     provide_context(GlobalState {
         quality, set_quality,
@@ -90,6 +117,11 @@ pub fn provide_global_state() {
         target_medium, set_target_medium,
         render_style, set_render_style,
         target_aspect_ratio, set_target_aspect_ratio,
+        notification, set_notification,
+        processing_job, set_processing_job,
+        engine_status, set_engine_status,
+        is_submitting, set_is_submitting,
+        avg_latency_secs, set_avg_latency_secs,
     });
 }
 
@@ -155,6 +187,51 @@ fn App() -> impl IntoView {
                 gs.set_temp_file.set(Some(f));
             }
         });
+    });
+
+    let auth = crate::auth::use_auth();
+    
+    // Global Polling Loop for Upscale Jobs
+    Effect::new(move |_| {
+        if let Some(job_id) = gs.processing_job.get() {
+            let token = auth.session.get().map(|s| s.access_token);
+            let state = gs;
+            leptos::task::spawn_local(async move {
+                loop {
+                    // Check if job is still the active one
+                    if untrack(move || state.processing_job.get()) != Some(job_id) { break; }
+                    
+                    match ApiClient::poll_job(job_id, token.as_deref()).await {
+                        Ok(resp) => {
+                            state.set_engine_status.set(Some(resp.clone()));
+                            if resp.status == "COMPLETED" {
+                                if let Some(url) = resp.image_url {
+                                    state.set_preview_base64.set(Some(url));
+                                }
+                                state.set_processing_job.set(None);
+                                break;
+                            }
+                            if resp.status == "FAILED" {
+                                state.show_error(resp.error.unwrap_or_else(|| "Upscale failed.".to_string()));
+                                state.set_processing_job.set(None);
+                                break;
+                            }
+                        },
+                        Err(_) => {
+                            gloo_timers::future::TimeoutFuture::new(5000).await;
+                        }
+                    }
+                    gloo_timers::future::TimeoutFuture::new(2000).await;
+                }
+            });
+        }
+    });
+
+    // Global Avg Latency refresh on mount
+    leptos::task::spawn_local(async move {
+        if let Ok(ms) = ApiClient::get_avg_latency().await {
+            gs.set_avg_latency_secs.set((ms / 1000).max(5));
+        }
     });
 
     view! {
@@ -229,6 +306,7 @@ fn MainLayout() -> impl IntoView {
             </header>
 
             <CookieBanner />
+            <crate::components::notifications::NotificationOverlay />
 
             <main>
                 <Routes fallback=|| view! { <NotFound /> }>
@@ -386,7 +464,7 @@ fn AuthNav() -> impl IntoView {
             None => view! {
                 <div class="auth-cluster-guest" style="display: flex; gap: var(--s-3);">
                     <A href="/login" attr:class="btn btn-secondary">"Login"</A>
-                    <A href="/register" attr:class="btn btn-primary">"Start Free"</A>
+                    <A href="/register" attr:class="btn btn-primary">"Sign Up"</A>
                 </div>
             }.into_any(),
         }}

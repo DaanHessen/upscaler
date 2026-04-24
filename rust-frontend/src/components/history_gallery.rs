@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use crate::components::icons::{ImageIcon, Download, Calendar, Zap};
+use crate::components::icons::{ImageIcon, Download, Calendar};
 use crate::auth::use_auth;
 use crate::api::HistoryItem;
 use leptos_router::components::A;

@@ -56,12 +56,15 @@ pub fn ComparisonSlider(
         });
     };
 
+    let is_multi_image = images_count > 1;
+
     view! {
         <div 
             class="comparison-slider" 
             node_ref=slider_ref
             on:mousemove=on_move
             on:touchmove=on_touch
+            style=move || format!("--zoom: {};", zoom)
             style:cursor={move || if zoom > 1.0 { "grab" } else { "ew-resize" }}
         >
             <div 
@@ -91,22 +94,24 @@ pub fn ComparisonSlider(
             </div>
 
             // Indicator dots
-            <div class="slider-indicators">
-                {
-                    (0..images_count).map(|i| {
-                        view! {
-                            <div 
-                                class="indicator-dot" 
-                                class:active=move || current_index.get() == i
-                                on:click=move |ev| {
-                                    ev.stop_propagation();
-                                    set_current_index.set(i);
-                                }
-                            ></div>
-                        }
-                    }).collect_view()
-                }
-            </div>
+            <Show when=move || is_multi_image>
+                <div class="slider-indicators">
+                    {
+                        (0..images_count).map(|i| {
+                            view! {
+                                <div 
+                                    class="indicator-dot" 
+                                    class:active=move || current_index.get() == i
+                                    on:click=move |ev| {
+                                        ev.stop_propagation();
+                                        set_current_index.set(i);
+                                    }
+                                ></div>
+                            }
+                        }).collect_view()
+                    }
+                </div>
+            </Show>
 
             <div class="slider-handle" style:left=move || format!("{}%", position.get())>
                 <div class="handle-circle">

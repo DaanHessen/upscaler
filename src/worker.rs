@@ -20,16 +20,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     // 3. Get GCP token
     let token_data: String = state.auth.get_token().await?.as_str().to_string();
 
-    let user_text = match job.tool_type.as_str() {
-        "RELIGHT" => "Analyze this image and apply the requested lighting modifications.".to_string(),
-        "STYLIZE" => {
-            let medium = if prompt_settings.target_medium.is_empty() { "3D Pixar Render" } else { &prompt_settings.target_medium };
-            format!("Transform the artistic medium of this image into {} while strictly following the system instructions.", medium)
-        },
-        "SKETCH" => "Use this sketch as a structural blueprint and render it fully.".to_string(),
-        "EXPAND" => "Seamlessly outpaint the blank margins of this image.".to_string(),
-        _ => "Analyze this image and apply the UPSYL super-resolution enhancement according to the system instructions. Focus on restoring high-frequency details while strictly locking the underlying structure.".to_string(),
-    };
+    let user_text = "Perform a literal, 1:1 super-resolution reconstruction of this input image precisely following the provided system instructions.".to_string();
 
     // 4. Build and send request to Vertex
     let request = GenerateContentRequest {

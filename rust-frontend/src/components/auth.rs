@@ -6,16 +6,16 @@ use crate::components::icons::{GithubIcon, AppleIcon};
 
 #[component]
 pub fn Login() -> impl IntoView {
+    let gs = crate::use_global_state();
     let auth = use_auth();
     let (email, set_email) = signal(String::new());
     let (password, set_password) = signal(String::new());
-    let (error_msg, set_error_msg) = signal(Option::<String>::None);
     let (loading, set_loading) = signal(false);
 
     let on_submit = move |ev: leptos::web_sys::SubmitEvent| {
         ev.prevent_default();
         set_loading.set(true);
-        set_error_msg.set(None);
+        gs.clear_notification();
         
         let email_val = email.get();
         let pass_val = password.get();
@@ -27,7 +27,7 @@ pub fn Login() -> impl IntoView {
                     let _ = window.location().set_href("/");
                 }
                 Err(e) => {
-                    set_error_msg.set(Some(e));
+                    gs.show_error(e);
                     set_loading.set(false);
                 }
             }
@@ -46,7 +46,7 @@ pub fn Login() -> impl IntoView {
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
                             <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/>
-                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.66l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                         </svg>
                         "CONTINUE WITH GOOGLE"
                     </button>
@@ -89,13 +89,6 @@ pub fn Login() -> impl IntoView {
                             />
                         </div>
                         
-                        {move || match error_msg.get() {
-                            Some(msg) => Either::Left(view! {
-                                <p class="error-text" style="margin-top: var(--s-4);">{msg}</p>
-                            }.into_view()),
-                            None => Either::Right(())
-                        }}
-
                         <button 
                             type="submit" 
                             class="btn btn-primary" 
@@ -119,26 +112,25 @@ pub fn Login() -> impl IntoView {
 
 #[component]
 pub fn Register() -> impl IntoView {
+    let gs = crate::use_global_state();
     let auth = use_auth();
     let (email, set_email) = signal(String::new());
     let (password, set_password) = signal(String::new());
     let (confirm_password, set_confirm_password) = signal(String::new());
-    let (error_msg, set_error_msg) = signal(Option::<String>::None);
-    let (success_msg, set_success_msg) = signal(Option::<String>::None);
     let (loading, set_loading) = signal(false);
     let (agreed, set_agreed) = signal(false);
+    let (registered, set_registered) = signal(false);
 
     let on_submit = move |ev: leptos::web_sys::SubmitEvent| {
         ev.prevent_default();
         set_loading.set(true);
-        set_error_msg.set(None);
-        set_success_msg.set(None);
+        gs.clear_notification();
         
         let email_val = email.get();
         let pass_val = password.get();
         
         if pass_val != confirm_password.get() {
-            set_error_msg.set(Some("Passwords do not match".to_string()));
+            gs.show_error("Passwords do not match");
             set_loading.set(false);
             return;
         }
@@ -146,11 +138,12 @@ pub fn Register() -> impl IntoView {
         spawn_local(async move {
             match auth.signup(&email_val, &pass_val).await {
                 Ok(_) => {
-                    set_success_msg.set(Some("Registration successful. Please check your email for confirmation.".to_string()));
+                    gs.show_success("Registration successful. Please check your email for confirmation.");
+                    set_registered.set(true);
                     set_loading.set(false);
                 }
                 Err(e) => {
-                    set_error_msg.set(Some(e));
+                    gs.show_error(e);
                     set_loading.set(false);
                 }
             }
@@ -234,21 +227,15 @@ pub fn Register() -> impl IntoView {
                             </label>
                         </div>
                         
-                        {move || match error_msg.get() {
-                            Some(msg) => Either::Left(view! {
-                                <p class="error-text" style="margin-top: var(--s-4);">{msg}</p>
-                            }.into_view()),
-                            None => Either::Right(())
-                        }}
-
-                        {move || match success_msg.get() {
-                            Some(msg) => Either::Left(view! {
+                        {move || if registered.get() {
+                            Either::Left(view! {
                                 <div class="success-panel" style="margin-top: var(--s-6);">
-                                    <p>{msg}</p>
+                                    <p>"Registration successful! Check your email."</p>
                                     <a href="/login" class="btn btn-primary" style="margin-top: var(--s-4); width: 100%;">"Return to Login"</a>
                                 </div>
-                            }.into_view()),
-                            None => Either::Right(view! {
+                            }.into_view())
+                        } else {
+                            Either::Right(view! {
                                 <button 
                                     type="submit" 
                                     class="btn btn-primary" 
@@ -273,11 +260,11 @@ pub fn Register() -> impl IntoView {
 
 #[component]
 pub fn ForgotPassword() -> impl IntoView {
+    let gs = crate::use_global_state();
     let (email, set_email) = signal(String::new());
     let (submitted, set_submitted) = signal(false);
 
     let auth = use_auth();
-    let (error, set_error) = signal(Option::<String>::None);
     let (loading, set_loading) = signal(false);
 
     let on_submit = move |ev: leptos::web_sys::SubmitEvent| {
@@ -286,7 +273,7 @@ pub fn ForgotPassword() -> impl IntoView {
         if email_val.is_empty() { return; }
         
         set_loading.set(true);
-        set_error.set(None);
+        gs.clear_notification();
         
         let redirect_to = match option_env!("AUTH_REDIRECT_URL") { Some(v) => v, None => "" }; 
 
@@ -297,7 +284,7 @@ pub fn ForgotPassword() -> impl IntoView {
                     set_submitted.set(true);
                 }
                 Err(e) => {
-                    set_error.set(Some(e));
+                    gs.show_error(e);
                 }
             }
             set_loading.set(false);
@@ -330,7 +317,6 @@ pub fn ForgotPassword() -> impl IntoView {
                                     required
                                 />
                             </div>
-                            {move || error.get().map(|e| view! { <p class="error-msg" style="margin-top: 1rem;">{e}</p> })}
                             <button type="submit" class="btn btn-primary" disabled=loading.get() style="margin-top: 2rem; width: 100%;">
                                 {move || if loading.get() { "SENDING..." } else { "Send Reset Link" }}
                             </button>

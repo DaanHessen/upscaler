@@ -85,6 +85,8 @@ pub trait DbProvider: Send + Sync {
     async fn add_credits(&self, user_id: Uuid, amount: i32, stripe_session_id: &str) -> Result<(), Box<dyn Error + Send + Sync>>;
     async fn update_credits_charged(&self, job_id: Uuid, credits: i32) -> Result<(), Box<dyn Error + Send + Sync>>;
 
+    async fn get_average_latency(&self) -> Result<i32, Box<dyn Error + Send + Sync>>;
+
     // Atomic combined operation
     async fn create_job_with_deduction(
         &self,
@@ -314,6 +316,16 @@ impl DbProvider for DbService {
             .execute(&self.pool)
             .await?;
         Ok(())
+    }
+
+    async fn get_average_latency(&self) -> Result<i32, Box<dyn Error + Send + Sync>> {
+        let row: (Option<f64>,) = sqlx::query_as(
+            "SELECT AVG(latency_ms) FROM upscales WHERE status = 'COMPLETED' AND created_at > NOW() - INTERVAL '1 hour'"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        
+        Ok(row.0.unwrap_or(15000.0) as i32)
     }
 
     async fn get_recent_moderation_logs(&self) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
@@ -612,6 +624,16 @@ impl DbProvider for SqliteDb {
     async fn delete_moderation_log(&self, id: Uuid) -> Result<(), Box<dyn Error + Send + Sync>> {
         sqlx::query("DELETE FROM moderation_logs WHERE id = ?").bind(id).execute(&self.pool).await?;
         Ok(())
+    }
+
+    async fn get_average_latency(&self) -> Result<i32, Box<dyn Error + Send + Sync>> {
+        let row: (Option<f64>,) = sqlx::query_as(
+            "SELECT AVG(latency_ms) FROM upscales WHERE status = 'COMPLETED' AND created_at > datetime('now', '-1 hour')"
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        
+        Ok(row.0.unwrap_or(15000.0) as i32)
     }
 
     async fn get_recent_moderation_logs(&self) -> Result<Vec<serde_json::Value>, Box<dyn Error + Send + Sync>> {
