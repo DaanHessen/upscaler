@@ -376,7 +376,7 @@ pub async fn upscale_handler(
     if !["PHOTOGRAPHY", "ILLUSTRATION"].contains(&style.as_str()) {
         style = "PHOTOGRAPHY".to_string();
     }
-    if !temperature.is_finite() || temperature < 0.0 || temperature > 1.0 {
+    if !temperature.is_finite() || temperature < 0.0 || temperature > 2.0 {
         temperature = 0.0;
     }
 

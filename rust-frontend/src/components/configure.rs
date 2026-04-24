@@ -433,6 +433,21 @@ pub fn Configure() -> impl IntoView {
                                                     </div>
                                                 </div>
                                             </div>
+
+                                            // Processing Depth
+                                            <div class="sb-field" style="margin-top: var(--s-8);">
+                                                <label class="sb-label">"Processing Depth"</label>
+                                                <div class="seg-control">
+                                                    <button
+                                                        class:active=move || global_state.thinking_level.get() == "MINIMAL"
+                                                        on:click=move |_| global_state.set_thinking_level.set("MINIMAL".to_string())
+                                                    >"Standard"</button>
+                                                    <button
+                                                        class:active=move || global_state.thinking_level.get() == "HIGH"
+                                                        on:click=move |_| global_state.set_thinking_level.set("HIGH".to_string())
+                                                    >"Deep"</button>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
 

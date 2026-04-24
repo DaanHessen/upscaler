@@ -16,7 +16,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     let base64_data = general_purpose::STANDARD.encode(&original_data);
 
     let prompt_settings: crate::prompts::PromptSettings = serde_json::from_value(job.prompt_settings.clone()).unwrap_or_default();
-    let system_prompt = build_system_prompt(job.style.as_deref().unwrap_or("PHOTOGRAPHY"), &prompt_settings);
+    let system_prompt = build_system_prompt(job.style.as_deref().unwrap_or("PHOTOGRAPHY"), &job.quality, &prompt_settings);
 
     // 3. Get GCP token
     let token_data: String = state.auth.get_token().await?.as_str().to_string();
@@ -34,7 +34,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             role: "user".to_string(),
             parts: vec![
                 Part {
-                    text: Some("Perform super-resolution restore.".to_string()),
+                    text: Some("Analyze this image and apply the UPSYL super-resolution enhancement according to the system instructions. Focus on restoring high-frequency details while strictly locking the underlying structure.".to_string()),
                     inline_data: None,
                 },
                 Part {
@@ -53,7 +53,13 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
                 image_size: job.quality.clone(),
             }),
             temperature: Some(job.temperature),
-            thinking_config: None,
+            thinking_config: if prompt_settings.thinking_level.is_empty() {
+                None
+            } else {
+                Some(crate::models::ThinkingConfig {
+                    thinking_level: prompt_settings.thinking_level.clone(),
+                })
+            },
             seed: prompt_settings.seed,
         },
     };
