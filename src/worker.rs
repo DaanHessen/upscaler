@@ -8,21 +8,21 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     let start_time = std::time::Instant::now();
     let prompt_settings: crate::prompts::PromptSettings = serde_json::from_value(job.prompt_settings.clone()).unwrap_or_default();
 
-    // 2. Pre-processing Pass (NAFNet)
+    // 2. Pre-processing Pass (SwinIR)
     let mut initial_uri = state.storage.get_signed_url(&job.input_path).await?;
     
     let pre_processing = job.prompt_settings.get("pre_processing_actual").and_then(|v| v.as_bool()).unwrap_or(false);
     if pre_processing {
-        info!("Running NAFNet pre-processing for job {}", job.id);
-        let nafnet_url = match state.replicate.run_nafnet(&initial_uri).await {
+        info!("Running SwinIR pre-processing for job {}", job.id);
+        let swinir_url = match state.replicate.run_swinir(&initial_uri).await {
             Ok(url) => url,
             Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("NAFNet pre-process error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.update_job_failed(job.id, &format!("SwinIR pre-process error: {}", e), start_time.elapsed().as_millis() as i32).await;
                 let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
                 return Err(e);
             }
         };
-        initial_uri = nafnet_url;
+        initial_uri = swinir_url;
     }
 
     // 3. Topaz Upscale Pass

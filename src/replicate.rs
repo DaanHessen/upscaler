@@ -94,14 +94,15 @@ impl ReplicateClient {
         }
     }
 
-    pub async fn run_nafnet(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    pub async fn run_swinir(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         let req_body = serde_json::json!({
             "input": {
                 "image": image_url,
-                "task_type": "Image Debluring (REDS)"
+                "task_type": "Color Image Denoising",
+                "noise": 15
             }
         });
-        self.run_replicate_model("megvii-research/nafnet", "018241a6c880319404eaa2714b764313e27e11f950a7ff0a7b5b37b27b74dcf7", req_body).await
+        self.run_replicate_model("jingyunliang/swinir", "660d922d33153019e8c263a3bba265de882e7f4f70396546b6c9c8f9d47a021a", req_body).await
     }
 
     pub async fn run_scunet(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
