@@ -55,25 +55,18 @@ pub struct ModerateResponse {
 
 #[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct PromptSettings {
+    #[serde(default = "default_off")]
+    pub pre_processing: String,
+    #[serde(default = "default_off")]
+    pub post_polish: String,
+    #[serde(default = "default_auto")]
+    pub topaz_mode: String,
     #[serde(default)]
-    pub keep_depth_of_field: bool,
-    #[serde(default)]
-    pub lighting: String,
-    #[serde(default)]
-    pub thinking_level: String,
-    #[serde(default)]
-    pub seed: Option<u32>,
-    #[serde(default)]
-    pub target_medium: String,
-    #[serde(default)]
-    pub render_style: String,
-    #[serde(default)]
-    pub target_aspect_ratio: String,
-    #[serde(default)]
-    pub refinement_pass: bool,
-    #[serde(default)]
-    pub debug_gemini_only: bool,
+    pub face_enhancement: bool,
 }
+
+fn default_off() -> String { "Off".to_string() }
+fn default_auto() -> String { "Auto".to_string() }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BalanceResponse {
@@ -201,19 +194,13 @@ impl ApiClient {
 
     pub async fn submit_upscale(
         file: &web_sys::File,
-        quality: &str,
-        style: &str,
-        temperature: f32,
+        scale: &str,
         prompt_settings: &PromptSettings,
-        tool_type: &str,
         token: Option<&str>
     ) -> Result<SubmitResponse, String> {
         let form_data = web_sys::FormData::new().map_err(|e| format!("{:?}", e))?;
         form_data.append_with_blob("image", file).map_err(|e| format!("{:?}", e))?;
-        form_data.append_with_str("quality", quality).map_err(|e| format!("{:?}", e))?;
-        form_data.append_with_str("style", style).map_err(|e| format!("{:?}", e))?;
-        form_data.append_with_str("temperature", &temperature.to_string()).map_err(|e| format!("{:?}", e))?;
-        form_data.append_with_str("tool_type", tool_type).map_err(|e| format!("{:?}", e))?;
+        form_data.append_with_str("scale", scale).map_err(|e| format!("{:?}", e))?;
         
         let settings_json = serde_json::to_string(prompt_settings).unwrap_or_default();
         form_data.append_with_str("prompt_settings", &settings_json).map_err(|e| format!("{:?}", e))?;

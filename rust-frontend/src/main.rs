@@ -66,10 +66,14 @@ pub struct GlobalState {
     pub set_is_submitting: WriteSignal<bool>,
     pub avg_latency_secs: ReadSignal<i32>,
     pub set_avg_latency_secs: WriteSignal<i32>,
-    pub refinement_pass: ReadSignal<bool>,
-    pub set_refinement_pass: WriteSignal<bool>,
+    pub pre_processing: ReadSignal<String>,
+    pub set_pre_processing: WriteSignal<String>,
+    pub post_polish: ReadSignal<String>,
+    pub set_post_polish: WriteSignal<String>,
     pub debug_gemini_only: ReadSignal<bool>,
     pub set_debug_gemini_only: WriteSignal<bool>,
+    pub topaz_mode: ReadSignal<String>,
+    pub set_topaz_mode: WriteSignal<String>,
 }
 
 impl GlobalState {
@@ -105,8 +109,10 @@ pub fn provide_global_state() {
     let (engine_status, set_engine_status) = signal(Option::<PollResponse>::None);
     let (is_submitting, set_is_submitting) = signal(false);
     let (avg_latency_secs, set_avg_latency_secs) = signal(20);
-    let (refinement_pass, set_refinement_pass) = signal(false);
+    let (pre_processing, set_pre_processing) = signal("Off".to_string());
+    let (post_polish, set_post_polish) = signal("Off".to_string());
     let (debug_gemini_only, set_debug_gemini_only) = signal(false);
+    let (topaz_mode, set_topaz_mode) = signal("Auto".to_string());
 
     provide_context(GlobalState {
         quality, set_quality,
@@ -129,8 +135,10 @@ pub fn provide_global_state() {
         engine_status, set_engine_status,
         is_submitting, set_is_submitting,
         avg_latency_secs, set_avg_latency_secs,
-        refinement_pass, set_refinement_pass,
+        pre_processing, set_pre_processing,
+        post_polish, set_post_polish,
         debug_gemini_only, set_debug_gemini_only,
+        topaz_mode, set_topaz_mode,
     });
 }
 
@@ -158,8 +166,10 @@ fn App() -> impl IntoView {
             target_medium: gs.target_medium.get(),
             render_style: gs.render_style.get(),
             target_aspect_ratio: gs.target_aspect_ratio.get(),
-            refinement_pass: gs.refinement_pass.get(),
+            pre_processing: gs.pre_processing.get(),
+            post_polish: gs.post_polish.get(),
             debug_gemini_only: gs.debug_gemini_only.get(),
+            topaz_mode: gs.topaz_mode.get(),
         };
         persistence::save_settings(&settings);
         
@@ -190,8 +200,10 @@ fn App() -> impl IntoView {
             gs.set_target_medium.set(s.target_medium);
             gs.set_render_style.set(s.render_style);
             gs.set_target_aspect_ratio.set(s.target_aspect_ratio);
-            gs.set_refinement_pass.set(s.refinement_pass);
+            gs.set_pre_processing.set(s.pre_processing);
+            gs.set_post_polish.set(s.post_polish);
             gs.set_debug_gemini_only.set(s.debug_gemini_only);
+            gs.set_topaz_mode.set(s.topaz_mode);
         }
 
         // Hydrate file (async)

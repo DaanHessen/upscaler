@@ -21,6 +21,8 @@ pub struct User {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Session {
     pub access_token: String,
+    #[serde(default)]
+    pub refresh_token: String,
     pub user: User,
 }
 
@@ -66,6 +68,40 @@ pub fn AuthProvider(children: Children) -> impl IntoView {
     Effect::new(move |_| {
         if ctx.session.get().is_some() {
             ctx.sync_telemetry(false);
+        }
+    });
+
+    // Auto-refresh token loop
+    Effect::new(move |_| {
+        if let Some(s) = ctx.session.get() {
+            if is_token_expired(&s.access_token) {
+                leptos::task::spawn_local(async move {
+                    if !s.refresh_token.is_empty() {
+                        let _ = ctx.refresh_session(&s.refresh_token).await;
+                    } else {
+                        ctx.logout();
+                    }
+                });
+            } else {
+                // Poll every minute to proactively refresh
+                leptos::task::spawn_local(async move {
+                    loop {
+                        gloo_timers::future::TimeoutFuture::new(60_000).await;
+                        if let Some(cur_s) = untrack(move || ctx.session.get()) {
+                            if is_token_expired(&cur_s.access_token) {
+                                if !cur_s.refresh_token.is_empty() {
+                                    let _ = ctx.refresh_session(&cur_s.refresh_token).await;
+                                } else {
+                                    ctx.logout();
+                                }
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+                });
+            }
         }
     });
     
@@ -217,6 +253,32 @@ impl AuthContext {
                 .or(err_body["error_description"].as_str())
                 .unwrap_or("Recovery request failed");
             Err(msg.to_string())
+        }
+    }
+
+    pub async fn refresh_session(&self, refresh_token: &str) -> Result<(), String> {
+        let url = format!("{}/auth/v1/token?grant_type=refresh_token", SUPABASE_URL);
+        let body = serde_json::json!({
+            "refresh_token": refresh_token,
+        });
+
+        let resp = Request::post(&url)
+            .header("apikey", SUPABASE_ANON_KEY)
+            .json(&body)
+            .map_err(|e| e.to_string())?
+            .send()
+            .await
+            .map_err(|e| e.to_string())?;
+
+        if resp.ok() {
+            let session: Session = resp.json().await.map_err(|e| e.to_string())?;
+            self.set_user.set(Some(session.user.clone()));
+            self.set_session.set(Some(session.clone()));
+            let _ = LocalStorage::set("sb_session", session);
+            Ok(())
+        } else {
+            self.logout();
+            Err("Session expired".to_string())
         }
     }
 

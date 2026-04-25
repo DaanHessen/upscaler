@@ -5,7 +5,7 @@ use axum::{
     http::{StatusCode, HeaderMap},
     response::{IntoResponse, Json, Response},
 };
-use tracing::error;
+use tracing::{error, info};
 use uuid::Uuid;
 use serde::Deserialize;
 use crate::AppState;
@@ -402,7 +402,7 @@ pub async fn upscale_handler(
     // Process & Moderate & Transcode
     let data_clone = data.clone();
     let prompt_settings_json_clone = prompt_settings_json.clone();
-    let style_result = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
+    let style_result = tokio::task::spawn_blocking(move || -> Result<(Vec<u8>, f32), String> {
         let mut reader = image::ImageReader::new(std::io::Cursor::new(&data_clone)).with_guessed_format()
             .map_err(|_| "Invalid format".to_string())?;
         
@@ -411,28 +411,23 @@ pub async fn upscale_handler(
         reader.limits(limits);
         let img = reader.decode().map_err(|_| "Decode failed".to_string())?;
 
+        let width = img.width() as f32;
+        let height = img.height() as f32;
+        let megapixels = (width * height) / 1_000_000.0;
+
         if is_nsfw(&img).unwrap_or(false) { 
             return Err("NSFW".to_string()); 
         }
         
-        let is_refinement = prompt_settings_json_clone.get("refinement_pass").and_then(|v| v.as_bool()).unwrap_or(false);
-
-        if is_refinement {
-            // Resize for Gemini refinement
-            let processed = preprocess_image_internal(img, ResizeMode::Pad, None)
-                .map_err(|_| "Preprocess failed".to_string())?;
-            Ok(processed.jpeg_bytes)
-        } else {
-            // Send directly to Topaz, no Gemini-specific resize step
-            let mut buffer = std::io::Cursor::new(Vec::new());
-            let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 95);
-            img.write_with_encoder(encoder).map_err(|_| "Encode failed".to_string())?;
-            Ok(buffer.into_inner())
-        }
+        // Even with NAFNet, we might want to constrain max size if it's too large, but for now we just encode
+        let mut buffer = std::io::Cursor::new(Vec::new());
+        let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 95);
+        img.write_with_encoder(encoder).map_err(|_| "Encode failed".to_string())?;
+        Ok((buffer.into_inner(), megapixels))
     }).await.unwrap();
 
-    let jpeg_bytes = match style_result {
-        Ok(res) => res,
+    let (jpeg_bytes, megapixels) = match style_result {
+        Ok((bytes, mp)) => (bytes, mp),
         Err(e) if e == "NSFW" => {
             // NSFW detected - do NOT store the image due to severe legal/liability risks (CSAM, etc).
             // We only insert a text-based log for the admin to track which user is triggering the filters.
@@ -444,6 +439,51 @@ pub async fn upscale_handler(
         }
     };
 
+    // Determine final parameters and modes
+    let mut final_prompt_settings = prompt_settings_json.clone();
+    if !final_prompt_settings.is_object() {
+        final_prompt_settings = serde_json::json!({});
+    }
+    if final_prompt_settings.is_object() {
+        if let Some(obj) = final_prompt_settings.as_object_mut() {
+            let requested_mode = obj.get("topaz_mode").and_then(|v| v.as_str()).unwrap_or("Auto").to_string();
+            let final_mode = if requested_mode == "Auto" || requested_mode == "" {
+                if megapixels < 0.5 {
+                    "Low Quality Recovery".to_string()
+                } else if megapixels > 2.0 {
+                    "High Fidelity".to_string()
+                } else {
+                    "Standard".to_string()
+                }
+            } else {
+                requested_mode.clone()
+            };
+            
+            let requested_pre = obj.get("pre_processing").and_then(|v| v.as_str()).unwrap_or("Off").to_string();
+            let final_pre = if requested_pre == "Auto" {
+                // If the image is very small/degraded, use NAFNet
+                megapixels < 0.5
+            } else {
+                requested_pre == "On"
+            };
+
+            let requested_post = obj.get("post_polish").and_then(|v| v.as_str()).unwrap_or("Off").to_string();
+            let final_post = if requested_post == "Auto" {
+                // Polish images to remove artifacts after upscale if they were originally somewhat noisy but not tiny
+                megapixels >= 0.5 && megapixels <= 2.0
+            } else {
+                requested_post == "On"
+            };
+
+            obj.insert("topaz_mode".to_string(), serde_json::Value::String(final_mode.clone()));
+            obj.insert("pre_processing_actual".to_string(), serde_json::Value::Bool(final_pre));
+            obj.insert("post_polish_actual".to_string(), serde_json::Value::Bool(final_post));
+            obj.insert("megapixels".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(megapixels as f64).unwrap()));
+            
+            info!("Image classified: {} MP. Routing to Topaz mode: {}. Pre: {}, Post: {}", megapixels, final_mode, final_pre, final_post);
+        }
+    }
+
     // Upload preprocessed image
     let job_id = Uuid::new_v4();
     let original_id = Uuid::new_v4();
@@ -454,7 +494,7 @@ pub async fn upscale_handler(
     }
 
     // Atomic Deduct and Insert
-    if let Err(_) = state.db.create_job_with_deduction(job_id, user_id, &original_path, &style, temperature, &quality, &prompt_settings_json, credit_cost, "UPSCALE").await {
+    if let Err(_) = state.db.create_job_with_deduction(job_id, user_id, &original_path, &style, temperature, &quality, &final_prompt_settings, credit_cost, "UPSCALE").await {
         let _ = state.storage.delete_object(&original_path).await; // Cleanup on DB failure
         return Err(crate::errors::ApiError::Internal("Enqueue or credit error".to_string()));
     }

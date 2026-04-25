@@ -25,6 +25,7 @@ pub fn AuthCallback() -> impl IntoView {
                         if let (Some(id), Some(email_addr)) = (user_id, email) {
                             let session = crate::auth::Session {
                                 access_token: access_token.clone(),
+                                refresh_token: "".to_string(),
                                 user: crate::auth::User {
                                     id: id.to_string(),
                                     email: Some(email_addr.to_string()),

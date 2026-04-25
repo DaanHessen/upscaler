@@ -28,13 +28,20 @@ pub struct UserSettings {
     pub render_style: String,
     #[serde(default = "default_ratio")]
     pub target_aspect_ratio: String,
-    #[serde(default)]
-    pub refinement_pass: bool,
+    #[serde(default = "default_off")]
+    pub pre_processing: String,
+    #[serde(default = "default_off")]
+    pub post_polish: String,
     #[serde(default)]
     pub debug_gemini_only: bool,
+    #[serde(default = "default_topaz_mode")]
+    pub topaz_mode: String,
 }
 
+fn default_off() -> String { "Off".to_string() }
+
 fn default_tool() -> String { "UPSCALE".to_string() }
+fn default_topaz_mode() -> String { "Auto".to_string() }
 fn default_medium() -> String { "3D Render".to_string() }
 fn default_render() -> String { "Photorealistic".to_string() }
 fn default_ratio() -> String { "16:9".to_string() }

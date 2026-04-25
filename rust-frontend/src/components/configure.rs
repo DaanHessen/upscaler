@@ -97,8 +97,10 @@ pub fn Configure() -> impl IntoView {
                 target_medium: gs.target_medium.get(),
                 render_style: gs.render_style.get(),
                 target_aspect_ratio: gs.target_aspect_ratio.get(),
-                refinement_pass: gs.refinement_pass.get(),
+                pre_processing: gs.pre_processing.get(),
+                post_polish: gs.post_polish.get(),
                 debug_gemini_only: gs.debug_gemini_only.get(),
+                topaz_mode: Some(gs.topaz_mode.get()),
             };
             leptos::task::spawn_local(async move {
                 match ApiClient::submit_upscale(&file, &q_val, &s_val, t_val, &p_settings, &tool_val, token.as_deref()).await {
@@ -364,6 +366,28 @@ pub fn Configure() -> impl IntoView {
                                             </div>
 
                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
+                                                <label class="sb-label" style="display: flex; align-items: center;">"RECONSTRUCTION MODE"<span title="Auto selects the best mode based on input resolution. Low Quality Recovery aggressively repairs artifacts. High Fidelity preserves details in high-res images." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                <div class="seg-control">
+                                                    <button 
+                                                        class:active=move || gs.topaz_mode.get() == "Auto"
+                                                        on:click=move |_| gs.set_topaz_mode.set("Auto".to_string())
+                                                    >"Auto"</button>
+                                                    <button 
+                                                        class:active=move || gs.topaz_mode.get() == "Low Quality Recovery"
+                                                        on:click=move |_| gs.set_topaz_mode.set("Low Quality Recovery".to_string())
+                                                    >"Low Quality Recovery"</button>
+                                                    <button 
+                                                        class:active=move || gs.topaz_mode.get() == "Standard"
+                                                        on:click=move |_| gs.set_topaz_mode.set("Standard".to_string())
+                                                    >"Standard"</button>
+                                                    <button 
+                                                        class:active=move || gs.topaz_mode.get() == "High Fidelity"
+                                                        on:click=move |_| gs.set_topaz_mode.set("High Fidelity".to_string())
+                                                    >"High Fidelity"</button>
+                                                </div>
+                                            </div>
+
+                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
                                                 <label class="sb-label" style="display: flex; align-items: center;">"STYLE"<span title="The visual style of the reconstructed image. Use Illustration for drawings/art." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
                                                 <div class="seg-control">
                                                     <button 
@@ -413,34 +437,40 @@ pub fn Configure() -> impl IntoView {
                                             </div>
 
                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <label class="sb-label" style="display: flex; align-items: center;">"REFINEMENT PASS"<span title="Preprocess the image to reduce artifacts and prepare it for upscaling." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                <label class="sb-label" style="display: flex; align-items: center;">"PRE-PROCESSING / RESTORATION"<span title="Use NAFNet to non-generatively denoise and restore the image before upscaling." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
                                                 <div class="seg-control">
                                                     <button 
-                                                        class:active=move || gs.refinement_pass.get() == false
-                                                        on:click=move |_| gs.set_refinement_pass.set(false)
+                                                        class:active=move || gs.pre_processing.get() == "Auto"
+                                                        on:click=move |_| gs.set_pre_processing.set("Auto".to_string())
+                                                    >"Auto"</button>
+                                                    <button 
+                                                        class:active=move || gs.pre_processing.get() == "Off"
+                                                        on:click=move |_| gs.set_pre_processing.set("Off".to_string())
                                                     >"Off"</button>
                                                     <button 
-                                                        class:active=move || gs.refinement_pass.get() == true
-                                                        on:click=move |_| gs.set_refinement_pass.set(true)
+                                                        class:active=move || gs.pre_processing.get() == "On"
+                                                        on:click=move |_| gs.set_pre_processing.set("On".to_string())
                                                     >"On"</button>
                                                 </div>
                                             </div>
 
-                                            <Show when=move || gs.refinement_pass.get()>
-                                                <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                    <label class="sb-label" style="display: flex; align-items: center;">"DEBUG GEMINI ONLY"<span title="Skip Topaz to preview the refinement pass." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                    <div class="seg-control">
-                                                        <button 
-                                                            class:active=move || gs.debug_gemini_only.get() == false
-                                                            on:click=move |_| gs.set_debug_gemini_only.set(false)
-                                                        >"Off"</button>
-                                                        <button 
-                                                            class:active=move || gs.debug_gemini_only.get() == true
-                                                            on:click=move |_| gs.set_debug_gemini_only.set(true)
-                                                        >"On"</button>
-                                                    </div>
+                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
+                                                <label class="sb-label" style="display: flex; align-items: center;">"POST-UPSCALE POLISH"<span title="Use SCUNet to perform a content-preserving final polish pass to remove artifacts." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                <div class="seg-control">
+                                                    <button 
+                                                        class:active=move || gs.post_polish.get() == "Auto"
+                                                        on:click=move |_| gs.set_post_polish.set("Auto".to_string())
+                                                    >"Auto"</button>
+                                                    <button 
+                                                        class:active=move || gs.post_polish.get() == "Off"
+                                                        on:click=move |_| gs.set_post_polish.set("Off".to_string())
+                                                    >"Off"</button>
+                                                    <button 
+                                                        class:active=move || gs.post_polish.get() == "On"
+                                                        on:click=move |_| gs.set_post_polish.set("On".to_string())
+                                                    >"On"</button>
                                                 </div>
-                                            </Show>
+                                            </div>
 
                                             <div class="sb-field">
                                                 <div class="sb-label-row">
