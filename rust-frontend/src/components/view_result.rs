@@ -244,10 +244,10 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                                             </div>
                                             <div class="pack-item">
                                                 <div class="pack-info">
-                                                    <span class="pack-name">"Lighting"</span>
-                                                    <span class="pack-credits">"Atmosphere"</span>
+                                                    <span class="pack-name">"Topaz Mode"</span>
+                                                    <span class="pack-credits">"Reconstruction Mode"</span>
                                                 </div>
-                                                <span class="pack-price" style="font-size: 0.75rem;">{settings.lighting}</span>
+                                                <span class="pack-price" style="font-size: 0.75rem;">{settings.topaz_mode}</span>
                                             </div>
                                         </>
                                     }

@@ -26,7 +26,7 @@ impl ReplicateClient {
         }
     }
 
-    pub async fn run_topaz(&self, image_url: &str, upscale_factor: &str, style: &str, topaz_mode: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    pub async fn run_topaz(&self, image_url: &str, upscale_factor: &str, style: &str, topaz_mode: &str, face_enhancement: bool) -> Result<String, Box<dyn Error + Send + Sync>> {
         let enhance_model = match topaz_mode {
             "Low Quality Recovery" => "Low Resolution V2",
             "Standard" => "Standard V2",
@@ -44,7 +44,7 @@ impl ReplicateClient {
                 "image": image_url,
                 "enhance_model": enhance_model,
                 "upscale_factor": upscale_factor,
-                "face_enhancement": false,
+                "face_enhancement": face_enhancement,
                 "subject_detection": subject_detection,
             }
         });

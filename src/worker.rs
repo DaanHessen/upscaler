@@ -27,11 +27,21 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     // 3. Topaz Upscale Pass
     info!("Running Topaz Upscale Pass for job {}", job.id);
-    let replicate_scale = if job.quality == "4K" { "4x" } else { "2x" };
-    let style = job.style.as_deref().unwrap_or("PHOTOGRAPHY");
-    let topaz_mode = prompt_settings.topaz_mode.as_deref().unwrap_or("Auto");
     
-    let mut topaz_url = match state.replicate.run_topaz(&initial_uri, replicate_scale, style, topaz_mode).await {
+    let megapixels = job.prompt_settings.get("megapixels").and_then(|v| v.as_f64()).unwrap_or(1.0);
+    let replicate_scale = match job.quality.as_str() {
+        "Auto" => if megapixels < 1.0 { "4x" } else { "2x" },
+        "6x" => "6x",
+        "4x" => "4x",
+        "2x" => "2x",
+        _ => "2x",
+    };
+    
+    let style = job.style.as_deref().unwrap_or("PHOTOGRAPHY");
+    let topaz_mode = prompt_settings.topaz_mode.as_deref().unwrap_or("Standard");
+    let face_enhancement = prompt_settings.face_enhancement;
+    
+    let mut topaz_url = match state.replicate.run_topaz(&initial_uri, replicate_scale, style, topaz_mode, face_enhancement).await {
         Ok(url) => url,
         Err(e) => {
             let _ = state.db.update_job_failed(job.id, &format!("Topaz error: {}", e), start_time.elapsed().as_millis() as i32).await;

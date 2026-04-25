@@ -72,11 +72,19 @@ pub fn Configure() -> impl IntoView {
 
     let handle_upscale = move |_| {
         if let Some(file) = gs.temp_file.get() {
-            let q_val: String = gs.quality.get();
-            let cost = if q_val == "4K" { 4 } else { 2 };
+            let scale_val: String = gs.scale.get();
+            let base_cost = match scale_val.as_str() {
+                "4x" => 4,
+                "6x" => 6,
+                _ => 2, // "Auto", "None", "2x"
+            };
+            let pre_cost = if gs.pre_processing.get() == "On" { 1 } else { 0 };
+            let post_cost = if gs.post_polish.get() == "On" { 1 } else { 0 };
+            let cost = base_cost + pre_cost + post_cost;
+            
             if let Some(current) = auth.credits.get() {
                 if current < cost {
-                    gs.show_error("Insufficient credits.");
+                    gs.show_error(format!("Insufficient credits. Need {}.", cost));
                     return;
                 }
             }
@@ -84,26 +92,16 @@ pub fn Configure() -> impl IntoView {
             gs.set_is_submitting.set(true);
             gs.clear_notification();
             let token = auth.session.get().map(|s| s.access_token);
-            let s_val: String = gs.style.get();
-            let t_val: f32 = gs.temperature.get();
-            let tool_val: String = gs.active_tool.get();
             let auth_ctx = auth;
             let state = gs;
             let p_settings = PromptSettings {
-                keep_depth_of_field: gs.keep_depth_of_field.get(),
-                lighting: gs.lighting.get(),
-                thinking_level: gs.thinking_level.get(),
-                seed: gs.seed.get(),
-                target_medium: gs.target_medium.get(),
-                render_style: gs.render_style.get(),
-                target_aspect_ratio: gs.target_aspect_ratio.get(),
                 pre_processing: gs.pre_processing.get(),
                 post_polish: gs.post_polish.get(),
-                debug_gemini_only: gs.debug_gemini_only.get(),
-                topaz_mode: Some(gs.topaz_mode.get()),
+                topaz_mode: gs.topaz_mode.get(),
+                face_enhancement: gs.face_enhancement.get(),
             };
             leptos::task::spawn_local(async move {
-                match ApiClient::submit_upscale(&file, &q_val, &s_val, t_val, &p_settings, &tool_val, token.as_deref()).await {
+                match ApiClient::submit_upscale(&file, &scale_val, &p_settings, token.as_deref()).await {
                     Ok(resp) => {
                         auth_ctx.set_credits.update(|c| if let Some(cv) = c { *cv -= cost; });
                         auth_ctx.sync_telemetry(true);
@@ -332,25 +330,43 @@ pub fn Configure() -> impl IntoView {
                                         <div class="editor-card-body">
                                             <div class="card-tag" style="margin-bottom: var(--s-8);">
                                                 <Target size={10} />
-                                                <span>"RESOLUTION"</span>
+                                                <span>"RESOLUTION SCALING"</span>
                                             </div>
                                                 <div class="res-grid">
                                                     <div
-                                                        class=move || if gs.quality.get() == "2K" { "pack-item active" } else { "pack-item" }
-                                                        on:click=move |_| gs.set_quality.set("2K".to_string())
+                                                        class=move || if gs.scale.get() == "Auto" { "pack-item active" } else { "pack-item" }
+                                                        on:click=move |_| gs.set_scale.set("Auto".to_string())
                                                     >
                                                         <div class="pack-info">
-                                                            <span class="res-big-num">"2K"</span>
+                                                            <span class="res-big-num">"Auto"</span>
+                                                            <span class="pack-price">"2+ credits"</span>
+                                                        </div>
+                                                    </div>
+                                                    <div
+                                                        class=move || if gs.scale.get() == "2x" { "pack-item active" } else { "pack-item" }
+                                                        on:click=move |_| gs.set_scale.set("2x".to_string())
+                                                    >
+                                                        <div class="pack-info">
+                                                            <span class="res-big-num">"2x"</span>
                                                             <span class="pack-price">"2 credits"</span>
                                                         </div>
                                                     </div>
                                                     <div
-                                                        class=move || if gs.quality.get() == "4K" { "pack-item active" } else { "pack-item" }
-                                                        on:click=move |_| gs.set_quality.set("4K".to_string())
+                                                        class=move || if gs.scale.get() == "4x" { "pack-item active" } else { "pack-item" }
+                                                        on:click=move |_| gs.set_scale.set("4x".to_string())
                                                     >
                                                         <div class="pack-info">
-                                                            <span class="res-big-num">"4K"</span>
+                                                            <span class="res-big-num">"4x"</span>
                                                             <span class="pack-price">"4 credits"</span>
+                                                        </div>
+                                                    </div>
+                                                    <div
+                                                        class=move || if gs.scale.get() == "6x" { "pack-item active" } else { "pack-item" }
+                                                        on:click=move |_| gs.set_scale.set("6x".to_string())
+                                                    >
+                                                        <div class="pack-info">
+                                                            <span class="res-big-num">"6x"</span>
+                                                            <span class="pack-price">"6 credits"</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -406,37 +422,6 @@ pub fn Configure() -> impl IntoView {
                                             </div>
 
                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <div class="sb-label-row">
-                                                    <label class="sb-label" style="display: flex; align-items: center;">"CREATIVITY"<span title="0.0 for perfectly faithful restoration, higher values add micro-details or hallucinations." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                    <span class="sb-val-badge">{move || format!("{:.1}", gs.temperature.get())}</span>
-                                                </div>
-                                                <input 
-                                                    type="range" min="0.0" max="2.0" step="0.1" 
-                                                    class="studio-slider"
-                                                    prop:value=move || gs.temperature.get()
-                                                    on:input=move |ev| gs.set_temperature.set(event_target_value(&ev).parse().unwrap_or(0.0))
-                                                />
-                                                <div class="slider-ends">
-                                                    <span>"STRICT"</span>
-                                                    <span>"CREATIVE"</span>
-                                                </div>
-                                            </div>
-
-                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <label class="sb-label" style="display: flex; align-items: center;">"PROCESSING DEPTH"<span title="Higher depth allows the AI to perform a deeper analysis to remove compression artifacts before upscaling." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                <div class="seg-control">
-                                                    <button 
-                                                        class:active=move || gs.thinking_level.get() == "MINIMAL"
-                                                        on:click=move |_| gs.set_thinking_level.set("MINIMAL".to_string())
-                                                    >"Standard"</button>
-                                                    <button 
-                                                        class:active=move || gs.thinking_level.get() == "HIGH"
-                                                        on:click=move |_| gs.set_thinking_level.set("HIGH".to_string())
-                                                    >"Deep"</button>
-                                                </div>
-                                            </div>
-
-                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
                                                 <label class="sb-label" style="display: flex; align-items: center;">"PRE-PROCESSING / RESTORATION"<span title="Use NAFNet to non-generatively denoise and restore the image before upscaling." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
                                                 <div class="seg-control">
                                                     <button 
@@ -472,24 +457,6 @@ pub fn Configure() -> impl IntoView {
                                                 </div>
                                             </div>
 
-                                            <div class="sb-field">
-                                                <div class="sb-label-row">
-                                                    <label class="sb-label" style="display: flex; align-items: center;">"RECONSTRUCTION SEED"<span title="Use a specific seed number to reproduce exactly the same results across identical upscales." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                    <span class="sb-val-badge">{move || if let Some(s) = gs.seed.get() { s.to_string() } else { "AUTO".to_string() }}</span>
-                                                </div>
-                                                <div class="seed-row">
-                                                    <input 
-                                                        class="sb-input"
-                                                        type="number" placeholder="Leave empty for auto" 
-                                                        on:input=move |ev| {
-                                                            let v = event_target_value(&ev);
-                                                            gs.set_seed.set(if v.is_empty() { None } else { v.parse().ok() });
-                                                        }
-                                                        prop:value=move || gs.seed.get().map(|s| s.to_string()).unwrap_or_default()
-                                                    />
-                                                    <button class="seed-rng-btn" on:click=move |_| gs.set_seed.set(None) title="Reset to Auto"><RefreshCw size={14} /></button>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -505,7 +472,11 @@ pub fn Configure() -> impl IntoView {
                                             <span>"UPSCALE ASSET"</span>
                                         </div>
                                         <div class="sb-cta-badge">
-                                            {move || if gs.quality.get() == "4K" { "4" } else { "2" }}
+                                            {move || match gs.scale.get().as_str() {
+                                                "6x" => "6+",
+                                                "4x" => "4+",
+                                                _ => "2+"
+                                            }}
                                             <span style="font-size:0.5rem; opacity:0.6; margin-left:2px;">"CR"</span>
                                         </div>
                                     </button>

@@ -354,31 +354,26 @@ pub async fn upscale_handler(
     };
 
     let mut image_data = None;
-    let mut quality = "2K".to_string();
+    let mut scale = "Auto".to_string();
     let mut style = "PHOTOGRAPHY".to_string();
-    let mut temperature: f32 = 0.0;
     let mut prompt_settings_raw = None;
 
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
             Some("image") => { image_data = field.bytes().await.ok(); }
-            Some("quality") => { quality = field.text().await.unwrap_or_else(|_| "2K".to_string()).to_uppercase(); }
+            Some("scale") => { scale = field.text().await.unwrap_or_else(|_| "Auto".to_string()); }
             Some("style") => { style = field.text().await.unwrap_or_else(|_| "PHOTOGRAPHY".to_string()).to_uppercase(); }
-            Some("temperature") => { temperature = field.text().await.unwrap_or_default().parse().unwrap_or(0.0); }
             Some("prompt_settings") => { prompt_settings_raw = field.text().await.ok(); }
             _ => {}
         }
     }
 
     // Input Validation
-    if !["2K", "4K"].contains(&quality.as_str()) {
-        quality = "2K".to_string();
+    if !["Auto", "2x", "4x", "6x"].contains(&scale.as_str()) {
+        scale = "Auto".to_string();
     }
     if !["PHOTOGRAPHY", "ILLUSTRATION"].contains(&style.as_str()) {
         style = "PHOTOGRAPHY".to_string();
-    }
-    if !temperature.is_finite() || temperature < 0.0 || temperature > 2.0 {
-        temperature = 0.0;
     }
 
     let data = match image_data {
@@ -391,7 +386,16 @@ pub async fn upscale_handler(
         None => serde_json::Value::Null,
     };
     
-    let credit_cost = if quality == "4K" { 4 } else { 2 };
+    let prompt_settings: crate::prompts::PromptSettings = serde_json::from_value(prompt_settings_json.clone()).unwrap_or_default();
+    
+    let base_cost = match scale.as_str() {
+        "4x" => 4,
+        "6x" => 6,
+        _ => 2,
+    };
+    let pre_cost = if prompt_settings.pre_processing == "On" { 1 } else { 0 };
+    let post_cost = if prompt_settings.post_polish == "On" { 1 } else { 0 };
+    let credit_cost = base_cost + pre_cost + post_cost;
 
     // Credit check
     let balance = state.db.get_balance(user_id).await.map_err(|_| crate::errors::ApiError::Internal("DB Error".to_string()))?;
@@ -494,7 +498,7 @@ pub async fn upscale_handler(
     }
 
     // Atomic Deduct and Insert
-    if let Err(_) = state.db.create_job_with_deduction(job_id, user_id, &original_path, &style, temperature, &quality, &final_prompt_settings, credit_cost, "UPSCALE").await {
+    if let Err(_) = state.db.create_job_with_deduction(job_id, user_id, &original_path, &style, 0.0, &scale, &final_prompt_settings, credit_cost, "UPSCALE").await {
         let _ = state.storage.delete_object(&original_path).await; // Cleanup on DB failure
         return Err(crate::errors::ApiError::Internal("Enqueue or credit error".to_string()));
     }

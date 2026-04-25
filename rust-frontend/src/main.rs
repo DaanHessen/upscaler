@@ -26,20 +26,12 @@ use crate::components::cookie_banner::CookieBanner;
 
 #[derive(Copy, Clone, Debug)]
 pub struct GlobalState {
-    pub quality: ReadSignal<String>,
-    pub set_quality: WriteSignal<String>,
+    pub scale: ReadSignal<String>,
+    pub set_scale: WriteSignal<String>,
     pub style: ReadSignal<String>,
     pub set_style: WriteSignal<String>,
-    pub temperature: ReadSignal<f32>,
-    pub set_temperature: WriteSignal<f32>,
-    pub keep_depth_of_field: ReadSignal<bool>,
-    pub set_keep_depth_of_field: WriteSignal<bool>,
-    pub lighting: ReadSignal<String>,
-    pub set_lighting: WriteSignal<String>,
-    pub thinking_level: ReadSignal<String>,
-    pub set_thinking_level: WriteSignal<String>,
-    pub seed: ReadSignal<Option<u32>>,
-    pub set_seed: WriteSignal<Option<u32>>,
+    pub face_enhancement: ReadSignal<bool>,
+    pub set_face_enhancement: WriteSignal<bool>,
     pub temp_file: ReadSignal<Option<web_sys::File>>,
     pub set_temp_file: WriteSignal<Option<web_sys::File>>,
     pub temp_classification: ReadSignal<Option<String>>,
@@ -50,12 +42,6 @@ pub struct GlobalState {
     pub set_theme: WriteSignal<String>,
     pub active_tool: ReadSignal<String>,
     pub set_active_tool: WriteSignal<String>,
-    pub target_medium: ReadSignal<String>,
-    pub set_target_medium: WriteSignal<String>,
-    pub render_style: ReadSignal<String>,
-    pub set_render_style: WriteSignal<String>,
-    pub target_aspect_ratio: ReadSignal<String>,
-    pub set_target_aspect_ratio: WriteSignal<String>,
     pub notification: ReadSignal<Option<(String, String)>>,
     pub set_notification: WriteSignal<Option<(String, String)>>,
     pub processing_job: ReadSignal<Option<uuid::Uuid>>,
@@ -89,21 +75,14 @@ impl GlobalState {
 }
 
 pub fn provide_global_state() {
-    let (quality, set_quality) = signal("2K".to_string());
+    let (scale, set_scale) = signal("Auto".to_string());
     let (style, set_style) = signal("PHOTOGRAPHY".to_string());
-    let (temperature, set_temperature) = signal(0.0);
-    let (keep_depth_of_field, set_keep_depth_of_field) = signal(false);
-    let (lighting, set_lighting) = signal("Original".to_string());
-    let (thinking_level, set_thinking_level) = signal("MINIMAL".to_string());
-    let (seed, set_seed) = signal(None::<u32>);
+    let (face_enhancement, set_face_enhancement) = signal(false);
     let (temp_file, set_temp_file) = signal(None::<web_sys::File>);
     let (temp_classification, set_temp_classification) = signal(None::<String>);
     let (preview_base64, set_preview_base64) = signal(None::<String>);
     let (theme, set_theme) = signal("dark".to_string());
     let (active_tool, set_active_tool) = signal("UPSCALE".to_string());
-    let (target_medium, set_target_medium) = signal("3D Render".to_string());
-    let (render_style, set_render_style) = signal("Photorealistic".to_string());
-    let (target_aspect_ratio, set_target_aspect_ratio) = signal("16:9".to_string());
     let (notification, set_notification) = signal(Option::<(String, String)>::None);
     let (processing_job, set_processing_job) = signal(Option::<uuid::Uuid>::None);
     let (engine_status, set_engine_status) = signal(Option::<PollResponse>::None);
@@ -115,21 +94,14 @@ pub fn provide_global_state() {
     let (topaz_mode, set_topaz_mode) = signal("Auto".to_string());
 
     provide_context(GlobalState {
-        quality, set_quality,
+        scale, set_scale,
         style, set_style,
-        temperature, set_temperature,
-        keep_depth_of_field, set_keep_depth_of_field,
-        lighting, set_lighting,
-        thinking_level, set_thinking_level,
-        seed, set_seed,
+        face_enhancement, set_face_enhancement,
         temp_file, set_temp_file,
         temp_classification, set_temp_classification,
         preview_base64, set_preview_base64,
         theme, set_theme,
         active_tool, set_active_tool,
-        target_medium, set_target_medium,
-        render_style, set_render_style,
-        target_aspect_ratio, set_target_aspect_ratio,
         notification, set_notification,
         processing_job, set_processing_job,
         engine_status, set_engine_status,
@@ -154,18 +126,11 @@ fn App() -> impl IntoView {
     Effect::new(move |_| {
         let theme_val = gs.theme.get();
         let settings = persistence::UserSettings {
-            quality: gs.quality.get(),
+            scale: gs.scale.get(),
             style: gs.style.get(),
-            temperature: gs.temperature.get(),
-            keep_depth_of_field: gs.keep_depth_of_field.get(),
-            lighting: gs.lighting.get(),
-            thinking_level: gs.thinking_level.get(),
-            seed: gs.seed.get(),
+            face_enhancement: gs.face_enhancement.get(),
             theme: theme_val.clone(),
             active_tool: gs.active_tool.get(),
-            target_medium: gs.target_medium.get(),
-            render_style: gs.render_style.get(),
-            target_aspect_ratio: gs.target_aspect_ratio.get(),
             pre_processing: gs.pre_processing.get(),
             post_polish: gs.post_polish.get(),
             debug_gemini_only: gs.debug_gemini_only.get(),
@@ -188,18 +153,11 @@ fn App() -> impl IntoView {
 
         // Hydrate settings (sync)
         if let Some(s) = persistence::load_settings() {
-            gs.set_quality.set(s.quality);
+            gs.set_scale.set(s.scale);
             gs.set_style.set(s.style);
-            gs.set_temperature.set(s.temperature);
-            gs.set_keep_depth_of_field.set(s.keep_depth_of_field);
-            gs.set_lighting.set(s.lighting);
-            gs.set_thinking_level.set(s.thinking_level);
-            gs.set_seed.set(s.seed);
+            gs.set_face_enhancement.set(s.face_enhancement);
             gs.set_theme.set(s.theme);
             gs.set_active_tool.set(s.active_tool);
-            gs.set_target_medium.set(s.target_medium);
-            gs.set_render_style.set(s.render_style);
-            gs.set_target_aspect_ratio.set(s.target_aspect_ratio);
             gs.set_pre_processing.set(s.pre_processing);
             gs.set_post_polish.set(s.post_polish);
             gs.set_debug_gemini_only.set(s.debug_gemini_only);

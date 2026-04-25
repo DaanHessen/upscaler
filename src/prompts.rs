@@ -9,6 +9,8 @@ pub struct PromptSettings {
     pub post_polish: String,
     #[serde(default)]
     pub topaz_mode: Option<String>,
+    #[serde(default)]
+    pub face_enhancement: bool,
 }
 
 fn default_off() -> String { "Off".to_string() }
