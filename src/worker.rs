@@ -8,40 +8,52 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     let start_time = std::time::Instant::now();
     let prompt_settings: crate::prompts::PromptSettings = serde_json::from_value(job.prompt_settings.clone()).unwrap_or_default();
 
-    // 2. Pre-processing Pass (SwinIR)
+    // 2. Pre-processing / Low-res Detail Generation Pass
     let mut initial_uri = state.storage.get_signed_url(&job.input_path).await?;
     
+    // Check megapixels to decide if we need a generative pre-upscale
+    let megapixels = job.prompt_settings.get("megapixels").and_then(|v| v.as_f64()).unwrap_or(1.0);
     let pre_processing = job.prompt_settings.get("pre_processing_actual").and_then(|v| v.as_bool()).unwrap_or(false);
-    if pre_processing {
-        info!("Running SwinIR pre-processing for job {}", job.id);
-        let swinir_url = match state.replicate.run_swinir(&initial_uri).await {
+    
+    let style = job.style.as_deref().unwrap_or("PHOTOGRAPHY");
+
+    if megapixels < 0.8 && pre_processing {
+        info!("Low resolution detected ({} MP). Running generative pre-upscaler for job {}", megapixels, job.id);
+        let gen_url = match state.replicate.run_p_image_upscale(&initial_uri, style).await {
             Ok(url) => url,
             Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("SwinIR pre-process error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.update_job_failed(job.id, &format!("Pre-upscale error: {}", e), start_time.elapsed().as_millis() as i32).await;
                 let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
                 return Err(e);
             }
         };
-        initial_uri = swinir_url;
+        initial_uri = gen_url;
+    } else if pre_processing {
+        info!("Running NAFNet pre-processing for job {}", job.id);
+        let nafnet_url = match state.replicate.run_nafnet(&initial_uri).await {
+            Ok(url) => url,
+            Err(e) => {
+                let _ = state.db.update_job_failed(job.id, &format!("NAFNet pre-process error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+                return Err(e);
+            }
+        };
+        initial_uri = nafnet_url;
     }
 
     // 3. Topaz Upscale Pass
     info!("Running Topaz Upscale Pass for job {}", job.id);
-    
-    let megapixels = job.prompt_settings.get("megapixels").and_then(|v| v.as_f64()).unwrap_or(1.0);
     let replicate_scale = match job.quality.as_str() {
         "Auto" => if megapixels < 1.0 { "4x" } else { "2x" },
-        "6x" => "6x",
+        "6x" => "4x", // Topaz doesn't natively support 6x, so limit to 4x
         "4x" => "4x",
         "2x" => "2x",
-        _ => "2x",
+        _ => if job.quality == "4K" { "4x" } else { "2x" }
     };
     
-    let style = job.style.as_deref().unwrap_or("PHOTOGRAPHY");
     let topaz_mode = prompt_settings.topaz_mode.as_deref().unwrap_or("Standard");
-    let face_enhancement = prompt_settings.face_enhancement;
     
-    let mut topaz_url = match state.replicate.run_topaz(&initial_uri, replicate_scale, style, topaz_mode, face_enhancement).await {
+    let mut topaz_url = match state.replicate.run_topaz(&initial_uri, replicate_scale, style, topaz_mode).await {
         Ok(url) => url,
         Err(e) => {
             let _ = state.db.update_job_failed(job.id, &format!("Topaz error: {}", e), start_time.elapsed().as_millis() as i32).await;

@@ -26,7 +26,21 @@ impl ReplicateClient {
         }
     }
 
-    pub async fn run_topaz(&self, image_url: &str, upscale_factor: &str, style: &str, topaz_mode: &str, face_enhancement: bool) -> Result<String, Box<dyn Error + Send + Sync>> {
+    pub async fn run_p_image_upscale(&self, image_url: &str, style: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let req_body = serde_json::json!({
+            "input": {
+                "image": image_url,
+                "target": 1, // scale to 1MP
+                "upscale_mode": "target",
+                "enhance_details": true,
+                "enhance_realism": style == "PHOTOGRAPHY",
+            }
+        });
+        info!("Running fast generative pre-upscaler (p-image-upscale)...");
+        self.run_replicate_model("prunaai/p-image-upscale", "9018fe338f75cea08d1e3abc5f4f795d62594abf94326d5e590090f593bb1bac", req_body).await
+    }
+
+    pub async fn run_topaz(&self, image_url: &str, upscale_factor: &str, style: &str, topaz_mode: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         let enhance_model = match topaz_mode {
             "Low Quality Recovery" => "Low Resolution V2",
             "Standard" => "Standard V2",
@@ -44,7 +58,7 @@ impl ReplicateClient {
                 "image": image_url,
                 "enhance_model": enhance_model,
                 "upscale_factor": upscale_factor,
-                "face_enhancement": face_enhancement,
+                "face_enhancement": false,
                 "subject_detection": subject_detection,
             }
         });
@@ -94,15 +108,14 @@ impl ReplicateClient {
         }
     }
 
-    pub async fn run_swinir(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    pub async fn run_nafnet(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         let req_body = serde_json::json!({
             "input": {
                 "image": image_url,
-                "task_type": "Color Image Denoising",
-                "noise": 15
+                "task_type": "Image Debluring (REDS)"
             }
         });
-        self.run_replicate_model("jingyunliang/swinir", "660d922d33153019e8c263a3bba265de882e7f4f70396546b6c9c8f9d47a021a", req_body).await
+        self.run_replicate_model("megvii-research/nafnet", "018241a6c880319404eaa2714b764313e27e11f950a7ff0a7b5b37b27b74dcf7", req_body).await
     }
 
     pub async fn run_scunet(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {

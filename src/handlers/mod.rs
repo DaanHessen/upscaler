@@ -405,7 +405,7 @@ pub async fn upscale_handler(
 
     // Process & Moderate & Transcode
     let data_clone = data.clone();
-    let prompt_settings_json_clone = prompt_settings_json.clone();
+    let _prompt_settings_json_clone = prompt_settings_json.clone();
     let style_result = tokio::task::spawn_blocking(move || -> Result<(Vec<u8>, f32), String> {
         let mut reader = image::ImageReader::new(std::io::Cursor::new(&data_clone)).with_guessed_format()
             .map_err(|_| "Invalid format".to_string())?;
@@ -465,8 +465,8 @@ pub async fn upscale_handler(
             
             let requested_pre = obj.get("pre_processing").and_then(|v| v.as_str()).unwrap_or("Off").to_string();
             let final_pre = if requested_pre == "Auto" {
-                // If the image is very small/degraded, use NAFNet
-                megapixels < 0.5
+                // If the image is very small/degraded, we will use generative upscaler or NAFNet
+                megapixels < 0.8
             } else {
                 requested_pre == "On"
             };
