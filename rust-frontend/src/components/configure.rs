@@ -422,7 +422,7 @@ pub fn Configure() -> impl IntoView {
                                             </div>
 
                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <label class="sb-label" style="display: flex; align-items: center;">"PRE-PROCESSING / RESTORATION"<span title="Use NAFNet to non-generatively denoise and restore the image before upscaling." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                <label class="sb-label" style="display: flex; align-items: center;">"PRE-PROCESSING / RESTORATION"<span title="Use NAFNet and SUPIR to denoise and restore the image before upscaling." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
                                                 <div class="seg-control">
                                                     <button 
                                                         class:active=move || gs.pre_processing.get() == "Auto"

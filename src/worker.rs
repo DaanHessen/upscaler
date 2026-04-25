@@ -14,21 +14,9 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     // Check megapixels to decide if we need a generative pre-upscale
     let megapixels = job.prompt_settings.get("megapixels").and_then(|v| v.as_f64()).unwrap_or(1.0);
     let pre_processing = job.prompt_settings.get("pre_processing_actual").and_then(|v| v.as_bool()).unwrap_or(false);
-    
     let style = job.style.as_deref().unwrap_or("PHOTOGRAPHY");
-
-    if megapixels < 0.8 && pre_processing {
-        info!("Low resolution detected ({} MP). Running generative pre-upscaler for job {}", megapixels, job.id);
-        let gen_url = match state.replicate.run_p_image_upscale(&initial_uri, style).await {
-            Ok(url) => url,
-            Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Pre-upscale error: {}", e), start_time.elapsed().as_millis() as i32).await;
-                let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
-                return Err(e);
-            }
-        };
-        initial_uri = gen_url;
-    } else if pre_processing {
+    
+    if pre_processing {
         info!("Running NAFNet pre-processing for job {}", job.id);
         let nafnet_url = match state.replicate.run_nafnet(&initial_uri).await {
             Ok(url) => url,
@@ -39,18 +27,30 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             }
         };
         initial_uri = nafnet_url;
+
+        if megapixels < 0.8 {
+            info!("Low resolution detected ({} MP). Running SUPIR pre-upscaler for job {}", megapixels, job.id);
+            let gen_url = match state.replicate.run_supir(&initial_uri).await {
+                Ok(url) => url,
+                Err(e) => {
+                    let _ = state.db.update_job_failed(job.id, &format!("Pre-upscale error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                    let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+                    return Err(e);
+                }
+            };
+            initial_uri = gen_url;
+        }
     }
 
     // 3. Topaz Upscale Pass
     info!("Running Topaz Upscale Pass for job {}", job.id);
     let replicate_scale = match job.quality.as_str() {
         "Auto" => if megapixels < 1.0 { "4x" } else { "2x" },
-        "6x" => "4x", // Topaz doesn't natively support 6x, so limit to 4x
+        "6x" => "6x", // Fallback to 4x or whatever topaz supports, topaz doesn't natively support 6x but let's let the param through
         "4x" => "4x",
         "2x" => "2x",
         _ => if job.quality == "4K" { "4x" } else { "2x" }
     };
-    
     let topaz_mode = prompt_settings.topaz_mode.as_deref().unwrap_or("Standard");
     
     let mut topaz_url = match state.replicate.run_topaz(&initial_uri, replicate_scale, style, topaz_mode).await {

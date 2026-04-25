@@ -26,14 +26,25 @@ impl ReplicateClient {
         }
     }
 
+    pub async fn run_supir(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let req_body = serde_json::json!({
+            "input": {
+                "image": image_url,
+            }
+        });
+        info!("Running SUPIR pre-upscaler...");
+        self.run_replicate_model("shanginn/supir", "7d613b6c116c06555c6c072edfa406365cd8539960f2c037022985049d4977f6", req_body).await
+    }
+
     pub async fn run_p_image_upscale(&self, image_url: &str, style: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         let req_body = serde_json::json!({
             "input": {
                 "image": image_url,
-                "target": 1, // scale to 1MP
+                "target": 2, // scale to 2MP for a cleaner Topaz baseline
                 "upscale_mode": "target",
                 "enhance_details": true,
-                "enhance_realism": style == "PHOTOGRAPHY",
+                "enhance_realism": style != "PHOTOGRAPHY", // Recommended for AI-generated images
+                "output_format": "png", // Lossless intermediate
             }
         });
         info!("Running fast generative pre-upscaler (p-image-upscale)...");

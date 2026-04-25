@@ -1,0 +1,87 @@
+{
+  "disable_safety_checker": {
+    "default": false,
+    "description": "Disable safety checker for generated images.",
+    "title": "Disable Safety Checker",
+    "type": "boolean",
+    "x-order": 8
+  },
+  "enhance_details": {
+    "default": false,
+    "description": "Enhance fine textures and small details. May increase contrast and introduce minor deviations from the original image.",
+    "title": "Enhance Details",
+    "type": "boolean",
+    "x-order": 4
+  },
+  "enhance_realism": {
+    "default": false,
+    "description": "Improve realism. May deviate more from the original image. Recommended for AI-generated images.",
+    "title": "Enhance Realism",
+    "type": "boolean",
+    "x-order": 5
+  },
+  "factor": {
+    "default": 2,
+    "description": "Scaling factor applied to each side of the image (used when upscale_mode is 'factor'). Output capped at 8 MP.",
+    "maximum": 8,
+    "minimum": 1,
+    "title": "Factor",
+    "type": "number",
+    "x-order": 3
+  },
+  "image": {
+    "description": "Input image to upscale.",
+    "format": "uri",
+    "title": "Image",
+    "type": "string",
+    "x-order": 0
+  },
+  "no_op": {
+    "default": false,
+    "description": "Health check mode - returns status without inference.",
+    "title": "No Op",
+    "type": "boolean",
+    "x-order": 9
+  },
+  "output_format": {
+    "default": "jpg",
+    "description": "Format of the output images",
+    "enum": [
+      "webp",
+      "jpg",
+      "png"
+    ],
+    "title": "output_format",
+    "type": "string",
+    "x-order": 6
+  },
+  "output_quality": {
+    "default": 80,
+    "description": "Quality when saving the output images, from 0 to 100. 100 is best quality, 0 is lowest quality. Not relevant for .png outputs",
+    "maximum": 100,
+    "minimum": 0,
+    "title": "Output Quality",
+    "type": "integer",
+    "x-order": 7
+  },
+  "target": {
+    "default": 4,
+    "description": "Target resolution in megapixels (used when upscale_mode is 'target').",
+    "maximum": 8,
+    "minimum": 1,
+    "title": "Target",
+    "type": "integer",
+    "x-order": 2
+  },
+  "upscale_mode": {
+    "default": "target",
+    "description": "Upscale mode. 'target' scales to a fixed megapixel resolution. 'factor' multiplies each side by the given factor.",
+    "enum": [
+      "target",
+      "factor"
+    ],
+    "title": "upscale_mode",
+    "type": "string",
+    "x-order": 1
+  }
+}
