@@ -54,9 +54,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let jwks_response = reqwest::get(&jwks_url).await.expect("Failed to fetch JWKS");
     let jwks: jsonwebtoken::jwk::JwkSet = jwks_response.json().await.expect("Failed to parse JWKS");
 
-    let state = Arc::new(AppState { 
-        client, 
-        auth, 
+    let replicate = Arc::new(upscaler::replicate::ReplicateClient::new());
+
+    let state = Arc::new(AppState {
+        client,
+        replicate,
+        auth,
         storage, 
         db,
         jwks,

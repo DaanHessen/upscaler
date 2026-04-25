@@ -17,6 +17,10 @@ pub struct PromptSettings {
     pub render_style: String, // for SKETCH
     #[serde(default)]
     pub target_aspect_ratio: String, // for EXPAND
+    #[serde(default)]
+    pub refinement_pass: bool,
+    #[serde(default)]
+    pub debug_gemini_only: bool,
 }
 
 pub fn build_tool_prompt(_tool_type: &str, style: &str, quality: &str, temperature: f32, settings: &PromptSettings) -> String {

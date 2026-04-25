@@ -30,6 +30,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     
     let state = Arc::new(AppState {
         client: mock_client,
+        replicate: Arc::new(upscaler::replicate::ReplicateClient::new()),
         auth,
         storage,
         db,

@@ -69,6 +69,10 @@ pub struct PromptSettings {
     pub render_style: String,
     #[serde(default)]
     pub target_aspect_ratio: String,
+    #[serde(default)]
+    pub refinement_pass: bool,
+    #[serde(default)]
+    pub debug_gemini_only: bool,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

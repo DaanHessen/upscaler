@@ -1,0 +1,27 @@
+{
+  "name": "aa-gemini-upscaler-rust-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DaanHessen/upscaler.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/DaanHessen/upscaler/issues"
+  },
+  "homepage": "https://github.com/DaanHessen/upscaler#readme",
+  "dependencies": {
+    "replicate": "^1.4.0"
+  }
+}

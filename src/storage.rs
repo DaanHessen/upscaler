@@ -79,6 +79,10 @@ impl StorageProvider for StorageService {
     }
 
     async fn get_signed_url(&self, path: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+        if path.starts_with("http://") || path.starts_with("https://") {
+            return Ok(path.to_string());
+        }
+
         let expires_in = Duration::from_secs(3600); // 1 hour
         let presigned_request = self.client
             .get_object()

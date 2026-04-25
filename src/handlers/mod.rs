@@ -401,6 +401,7 @@ pub async fn upscale_handler(
 
     // Process & Moderate & Transcode
     let data_clone = data.clone();
+    let prompt_settings_json_clone = prompt_settings_json.clone();
     let style_result = tokio::task::spawn_blocking(move || -> Result<Vec<u8>, String> {
         let mut reader = image::ImageReader::new(std::io::Cursor::new(&data_clone)).with_guessed_format()
             .map_err(|_| "Invalid format".to_string())?;
@@ -414,11 +415,20 @@ pub async fn upscale_handler(
             return Err("NSFW".to_string()); 
         }
         
-        // Single-pass preprocessing: Resize and compress to JPEG immediately
-        let processed = preprocess_image_internal(img, ResizeMode::Pad, None)
-            .map_err(|_| "Preprocess failed".to_string())?;
-        
-        Ok(processed.jpeg_bytes)
+        let is_refinement = prompt_settings_json_clone.get("refinement_pass").and_then(|v| v.as_bool()).unwrap_or(false);
+
+        if is_refinement {
+            // Resize for Gemini refinement
+            let processed = preprocess_image_internal(img, ResizeMode::Pad, None)
+                .map_err(|_| "Preprocess failed".to_string())?;
+            Ok(processed.jpeg_bytes)
+        } else {
+            // Send directly to Topaz, no Gemini-specific resize step
+            let mut buffer = std::io::Cursor::new(Vec::new());
+            let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 95);
+            img.write_with_encoder(encoder).map_err(|_| "Encode failed".to_string())?;
+            Ok(buffer.into_inner())
+        }
     }).await.unwrap();
 
     let jpeg_bytes = match style_result {

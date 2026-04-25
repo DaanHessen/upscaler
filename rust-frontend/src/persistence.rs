@@ -28,6 +28,10 @@ pub struct UserSettings {
     pub render_style: String,
     #[serde(default = "default_ratio")]
     pub target_aspect_ratio: String,
+    #[serde(default)]
+    pub refinement_pass: bool,
+    #[serde(default)]
+    pub debug_gemini_only: bool,
 }
 
 fn default_tool() -> String { "UPSCALE".to_string() }
