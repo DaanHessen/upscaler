@@ -543,7 +543,7 @@ pub fn scale_to_resolution(data: &[u8], resolution: &str) -> Result<Vec<u8>, Box
         // --- Megapixel Targets (Premium Reconstruction Pre-pass) ---
         "2MP" => {
             let target_pixels = 2_000_000.0;
-            let current_pixels = (w as f32 * h as f32);
+            let current_pixels = w as f32 * h as f32;
             (target_pixels / current_pixels).sqrt().max(1.0)
         }
         // --- Legacy/Short Side Targets (Restore pass) ---
