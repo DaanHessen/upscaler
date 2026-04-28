@@ -1,0 +1,10 @@
+IMAGE: med_4_1024x1024.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a laptop computer sitting on top of a wooden desk
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Photography
+STYLE: Photography

@@ -1,0 +1,10 @@
+IMAGE: med_2_1024x1024.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a view of a city from a tall building
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Architecture
+STYLE: Photography

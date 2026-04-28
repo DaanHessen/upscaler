@@ -1,0 +1,10 @@
+IMAGE: med_5_1024x1024.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: an aerial view of a city with tall buildings
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Architecture
+STYLE: Photography

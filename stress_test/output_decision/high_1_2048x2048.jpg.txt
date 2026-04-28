@@ -1,0 +1,10 @@
+IMAGE: high_1_2048x2048.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a narrow alley with lights strung from the ceiling
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Photography
+STYLE: Photography

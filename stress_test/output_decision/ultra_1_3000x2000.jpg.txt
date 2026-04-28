@@ -1,0 +1,11 @@
+IMAGE: ultra_1_3000x2000.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Illustration
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a black and white photo of the statue of liberty
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Illustration
+STYLE: Photography
+OVERRIDE: Local classifier corrected by AI context!

@@ -1,0 +1,10 @@
+IMAGE: high_4_2048x2048.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a rack of clothes with a price sign in the background
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Photography
+STYLE: Photography

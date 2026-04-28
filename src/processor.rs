@@ -405,22 +405,16 @@ pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle 
         entropy, flatness, color_count, quantized_color_count, grid_uniformity, grad_flat_ratio, grad_edge_ratio, sat_variance, nsfw_drawing_score);
     info!("Total Scores — Photo: {:.1}, Illustration: {:.1}", photo_score, illustration_score);
 
-    // --- FINAL VERDICT (Conservatism Rule) ---
-    // Illustrations must be CLEARLY dominant. If there is ANY doubt (Photo score > 0),
-    // require a substantial margin to switch to Illustration. This prevents 
-    // high-frequency natural textures (fur/grass) from triggering "clean/flat" signals.
-    let is_illustration = if photo_score > 0.0 {
-        illustration_score > (photo_score + 4.0)
-    } else {
-        illustration_score > photo_score
-    };
+    // Final signals returned to the pipeline for decision making
+    info!("Ensemble V7.1 — Entropy: {:.2}, Flat: {:.2}, Colors: {} (quant: {}), Grid: {:.2}, GradFlat: {:.2}, GradEdge: {:.2}, SatVar: {:.4}, DrawingML: {:.2}", 
+        entropy, flatness, color_count, quantized_color_count, grid_uniformity, grad_flat_ratio, grad_edge_ratio, sat_variance, nsfw_drawing_score);
 
-    if is_illustration {
-        info!("Final Verdict: ILLUSTRATION");
-        ImageStyle::Illustration
+    // Objective Signals
+    if grid_uniformity > 0.85 && flatness > 0.60 && color_count < 1000 {
+        ImageStyle::Illustration // High confidence Pixel Art/Flat vector
     } else {
-        info!("Final Verdict: PHOTOGRAPHY");
-        ImageStyle::Photography
+        // Default to photography for the local pass, let the pipeline refine
+        ImageStyle::Photography 
     }
 }
 

@@ -1,0 +1,10 @@
+IMAGE: low_3_256x256.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a black and white photo of some houses near a mountain
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Nature
+STYLE: Photography

@@ -1,0 +1,10 @@
+IMAGE: med_1_1024x1024.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a very tall building with plants growing on it's sides
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Nature
+STYLE: Photography

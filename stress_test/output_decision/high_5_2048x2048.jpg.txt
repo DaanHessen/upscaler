@@ -1,0 +1,11 @@
+IMAGE: high_5_2048x2048.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Illustration
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a black and white photo of a mountain range
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Nature
+STYLE: Photography
+OVERRIDE: Local classifier corrected by AI context!

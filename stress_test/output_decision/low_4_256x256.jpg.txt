@@ -1,0 +1,10 @@
+IMAGE: low_4_256x256.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a close up of a cat's face with a blurry background
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Portrait
+STYLE: Photography

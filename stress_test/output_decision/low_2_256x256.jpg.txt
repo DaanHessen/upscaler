@@ -1,0 +1,10 @@
+IMAGE: low_2_256x256.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a honey dip being poured into a cup
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Photography
+STYLE: Photography

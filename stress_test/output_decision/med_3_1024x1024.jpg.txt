@@ -1,0 +1,10 @@
+IMAGE: med_3_1024x1024.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a white van driving down a dirt road
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Photography
+STYLE: Photography

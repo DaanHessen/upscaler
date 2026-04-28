@@ -1,0 +1,10 @@
+IMAGE: low_5_256x256.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a city street at night with lights strung from buildings
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Nature
+STYLE: Photography

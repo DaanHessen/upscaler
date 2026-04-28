@@ -1,0 +1,10 @@
+IMAGE: high_3_2048x2048.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a bird flying over the ocean on a cloudy day
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Wildlife
+STYLE: Photography

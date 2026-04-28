@@ -1,0 +1,10 @@
+IMAGE: low_1_256x256.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a yellow jellyfish floating in the blue water
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Wildlife
+STYLE: Photography

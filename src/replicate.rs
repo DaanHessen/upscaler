@@ -84,32 +84,9 @@ impl ReplicateClient {
             neg_prompt.push_str(", color, saturation, sepia, hue, tint");
         }
 
-        let mut category = self.derive_category(caption.as_deref(), style);
+        let (effective_style, category) = self.decide_style_and_category(caption.as_deref(), style);
         
-        // --- STYLE ENFORCEMENT RULE ---
-        // If the caption clearly identifies a natural/organic subject, force Photography mode
-        // to protect against local classifier false positives (like the deer).
-        let forced_photo = match category.as_str() {
-            "Wildlife" | "Portrait" | "Nature" | "Food" => {
-                if !caption.as_ref().map(|c| c.to_lowercase().contains("drawing") || c.to_lowercase().contains("illustration") || c.to_lowercase().contains("painting")).unwrap_or(false) {
-                    true
-                } else {
-                    false
-                }
-            },
-            _ => false,
-        };
-
-        let effective_style = if forced_photo {
-            if style == crate::processor::ImageStyle::Illustration {
-                info!("Smarter Prompting — Corrected Style: Illustration -> Photography based on Category: {}", category);
-            }
-            crate::processor::ImageStyle::Photography
-        } else {
-            style
-        };
-
-        info!("Smarter Prompting — Style: {:?}, Category: {}, Caption: {:?}", effective_style, category, caption);
+        info!("Smarter Prompting — Final Verdict: [Style: {:?}, Category: {}], Caption: {:?}", effective_style, category, caption);
 
         if is_low_res {
             // --- BRANCH A: RECONSTRUCTION (Low-res) ---
@@ -412,20 +389,65 @@ impl ReplicateClient {
         }
     }
 
-    fn derive_category(&self, caption: Option<&str>, style: crate::processor::ImageStyle) -> String {
+    pub fn decide_style_and_category(&self, caption: Option<&str>, local_style: crate::processor::ImageStyle) -> (crate::processor::ImageStyle, String) {
+        let low_caps = caption.unwrap_or_default().to_lowercase();
+        
+        // 1. Determine Category (Subject Matter)
+        let category = self.derive_category(caption, local_style);
+
+        // 2. Determine Style (Photography vs Illustration)
+        // PRIORITY A: Explicit keywords in caption
+        let style = if low_caps.contains("illustration") || low_caps.contains("drawing") || 
+                       low_caps.contains("anime") || low_caps.contains("sketch") || 
+                       low_caps.contains("painting") || low_caps.contains("vector") ||
+                       low_caps.contains("digital art") || low_caps.contains("cartoon") {
+            crate::processor::ImageStyle::Illustration
+        } else if low_caps.contains("photograph") || low_caps.contains("realistic") || 
+                  low_caps.contains("photo") || low_caps.contains("snapshot") || 
+                  low_caps.contains("cinematic") {
+            crate::processor::ImageStyle::Photography
+        } else {
+            // PRIORITY B: Category Inference
+            match category.as_str() {
+                "Portrait" | "Wildlife" | "Nature" | "Food" => {
+                    // Natural subjects are Photography unless explicitly stated otherwise above
+                    crate::processor::ImageStyle::Photography
+                },
+                "Architecture" | "Product" => {
+                    // Neutral categories fallback to local style or photography
+                    if local_style == crate::processor::ImageStyle::Illustration {
+                         crate::processor::ImageStyle::Illustration
+                    } else {
+                         crate::processor::ImageStyle::Photography
+                    }
+                },
+                _ => {
+                    // PRIORITY C: Local Classifier Fallback
+                    local_style
+                }
+            }
+        };
+
+        (style, category)
+    }
+
+    pub fn derive_category(&self, caption: Option<&str>, style: crate::processor::ImageStyle) -> String {
         let low_caps = caption.unwrap_or_default().to_lowercase();
         
         // Portrait keywords
         if low_caps.contains("face") || low_caps.contains("person") || low_caps.contains("man") || 
            low_caps.contains("woman") || low_caps.contains("human") || low_caps.contains("eye") || 
-           low_caps.contains("skin") || low_caps.contains("portrait") {
+           low_caps.contains("skin") || low_caps.contains("portrait") || low_caps.contains("girl") || 
+           low_caps.contains("boy") {
             return "Portrait".to_string();
         }
 
         // Wildlife keywords
         if low_caps.contains("animal") || low_caps.contains("deer") || low_caps.contains("fur") || 
            low_caps.contains("bird") || low_caps.contains("pet") || low_caps.contains("nature") || 
-           low_caps.contains("dog") || low_caps.contains("cat") || low_caps.contains("wildlife") {
+           low_caps.contains("dog") || low_caps.contains("cat") || low_caps.contains("wildlife") ||
+           low_caps.contains("horse") || low_caps.contains("lion") || low_caps.contains("tiger") ||
+           low_caps.contains("fish") || low_caps.contains("insect") {
             return "Wildlife".to_string();
         }
 
@@ -433,15 +455,22 @@ impl ReplicateClient {
         if low_caps.contains("tree") || low_caps.contains("forest") || low_caps.contains("mountain") || 
            low_caps.contains("sky") || low_caps.contains("grass") || low_caps.contains("field") || 
            low_caps.contains("landscape") || low_caps.contains("outdoors") || 
-           low_caps.contains("flower") || low_caps.contains("leaf") || low_caps.contains("plant") {
+           low_caps.contains("flower") || low_caps.contains("leaf") || low_caps.contains("plant") ||
+           low_caps.contains("beach") || low_caps.contains("ocean") || low_caps.contains("river") {
             return "Nature".to_string();
         }
 
         // Architecture
         if low_caps.contains("building") || low_caps.contains("house") || low_caps.contains("street") || 
            low_caps.contains("city") || low_caps.contains("room") || low_caps.contains("interior") ||
-           low_caps.contains("architecture") {
+           low_caps.contains("architecture") || low_caps.contains("window") || low_caps.contains("door") {
             return "Architecture".to_string();
+        }
+
+        // Food
+        if low_caps.contains("food") || low_caps.contains("drink") || low_caps.contains("fruit") ||
+           low_caps.contains("vegetable") || low_caps.contains("meat") || low_caps.contains("plate") {
+            return "Food".to_string();
         }
 
         // Fallbacks

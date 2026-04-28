@@ -1,0 +1,10 @@
+IMAGE: high_2_2048x2048.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a close up of a bunch of succulents
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Photography
+STYLE: Photography
