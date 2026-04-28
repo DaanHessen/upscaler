@@ -51,39 +51,42 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     // Step 2: Model Branching
     let final_url = if prompt_settings.model == "Standard" {
-        // Standard Mode: Single-Pass Technical Upscale
-        // Strategy: Feed the original image directly if it's under the 2MP memory limit.
-        // If larger, downscale to exactly 1.5MP to stay safe. Never upscale with Lanczos pre-AI.
-        let prep_uri = if input_mp <= 1.5 {
-            info!("Running Standard Mode: Direct technical upscale (Source: {:.2} MP)", input_mp);
-            input_uri.clone()
-        } else {
-            info!("Running Standard Mode: Downscaling to 1.5MP for safety (Source: {:.2} MP)", input_mp);
-            let prep_bytes = match crate::processor::scale_to_resolution(&raw_bytes, "1.5MP") {
-                Ok(b) => b,
-                Err(e) => {
-                    let _ = state.db.update_job_failed(job.id, &format!("Scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
-                    let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
-                    return Err(e);
-                }
+        if input_mp >= 0.5 {
+            // --- BRANCH A: HIGH-RES PHOTOGRAPHIC (Technical Only) ---
+            // Direct technical upscale for images that already have enough signal.
+            let prep_uri = if input_mp <= 1.5 {
+                info!("Standard Mode [High-Res]: Direct technical upscale ({:.2} MP)", input_mp);
+                input_uri.clone()
+            } else {
+                info!("Standard Mode [High-Res]: Downscaling to 1.5MP for safety ({:.2} MP)", input_mp);
+                let prep_bytes = match crate::processor::scale_to_resolution(&raw_bytes, "1.5MP") {
+                    Ok(b) => b,
+                    Err(e) => {
+                        let _ = state.db.update_job_failed(job.id, &format!("Scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                        let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+                        return Err(e);
+                    }
+                };
+                state.storage.upload_temp(prep_bytes, &format!("{}_std_high.jpg", job.id)).await?
             };
-            match state.storage.upload_temp(prep_bytes, &format!("{}_standard_prep.jpg", job.id)).await {
-                Ok(url) => url,
-                Err(e) => {
-                    let _ = state.db.update_job_failed(job.id, &format!("Storage error: {}", e), start_time.elapsed().as_millis() as i32).await;
-                    let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
-                    return Err(e);
-                }
-            }
-        };
 
-        match state.replicate.run_real_esrgan(&prep_uri, &job.quality).await {
-            Ok(url) => url,
-            Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Standard upscale error: {}", e), start_time.elapsed().as_millis() as i32).await;
-                let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
-                return Err(e);
-            }
+            state.replicate.run_real_esrgan(&prep_uri, &job.quality).await?
+        } else {
+            // --- BRANCH B: LOW-RES RECONSTRUCTION (Generative + Technical) ---
+            // For tiny thumbnails, we need a light generative pass to "invent" missing detail.
+            info!("Standard Mode [Low-Res]: Running Adaptive Reconstruction ({:.2} MP)", input_mp);
+            
+            // Pass 1: Light Generative Restoration (Fast & Cheap)
+            let restore_uri = state.replicate.run_image_edit_lora(
+                &input_uri,
+                "Ultra-high resolution photographic restoration, sharp focus, preserve original textures, natural details, 8k uhd.",
+                caption.as_deref(),
+                "Photography",
+                0.35 // Low strength to prevent "AI look" while still adding crispness
+            ).await?;
+
+            // Pass 2: Final Technical Upscale
+            state.replicate.run_real_esrgan(&restore_uri, &job.quality).await?
         }
     } else {
         // --- PREMIUM MODE: Restore (P-Edit) -> Topaz Upscale ---
