@@ -538,11 +538,16 @@ pub fn scale_to_resolution(data: &[u8], resolution: &str) -> Result<Vec<u8>, Box
             let target = 3840.0;
             (target / (w.max(h) as f32)).max(1.0)
         }
-        // --- Megapixel Targets (Premium Reconstruction Pre-pass) ---
+        // --- Megapixel Targets (Standard & Premium Safety Caps) ---
         "2MP" => {
             let target_pixels = 2_000_000.0;
             let current_pixels = w as f32 * h as f32;
-            (target_pixels / current_pixels).sqrt().max(1.0)
+            (target_pixels / current_pixels).sqrt().min(1.0)
+        }
+        "1.5MP" => {
+            let target_pixels = 1_500_000.0;
+            let current_pixels = w as f32 * h as f32;
+            (target_pixels / current_pixels).sqrt().min(1.0)
         }
         // --- Legacy/Short Side Targets (Restore pass) ---
         "1K" | "1024" => (1024.0 / (w.min(h) as f32)).max(1.0),
