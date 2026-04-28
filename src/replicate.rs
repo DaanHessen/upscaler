@@ -203,6 +203,31 @@ impl ReplicateClient {
         ).await
     }
 
+    pub async fn run_real_esrgan(&self, image_url: &str, quality: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let scale = match quality {
+            "2x" | "2K" => 2,
+            "4x" | "4K" => 4,
+            "6x" | "6K" => 4,
+            _ => 2,
+        };
+
+        let req_body = serde_json::json!({
+            "input": {
+                "image": image_url,
+                "upscale": scale,
+                "face_enhance": false,
+            }
+        });
+
+        info!("Running Real-ESRGAN Upscale (Factor: {}x)...", scale);
+        // Using a stable version of nightmareai/real-esrgan
+        self.run_replicate_model(
+            "nightmareai/real-esrgan",
+            "42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b",
+            req_body
+        ).await
+    }
+
     pub async fn run_topaz(&self, image_url: &str, upscale_factor: &str, style: &str, topaz_mode: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         let enhance_model = match topaz_mode {
             "Low Quality Recovery" => "Low Resolution V2",

@@ -86,9 +86,9 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         // Small jitter to prevent burst 429s on sequential steps
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-        // Pass 2: Upscale to final target (2K/4K/6K)
-        info!("Running Standard Mode Pass 2: Final {} upscale...", job.quality);
-        match state.replicate.run_p_image_upscale(&restored_uri, &job.quality, prompt_settings.creativity, input_mp).await {
+        // Pass 2: Upscale to final target (2K/4K/6K) using Hybrid Predictive Upscale
+        info!("Running Standard Mode Pass 2: Final {} Hybrid upscale (Real-ESRGAN)...", job.quality);
+        match state.replicate.run_real_esrgan(&restored_uri, &job.quality).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Standard upscale error: {}", e), start_time.elapsed().as_millis() as i32).await;
