@@ -28,4 +28,4 @@ pub struct PromptSettings {
 
 fn default_off() -> String { "Off".to_string() }
 fn default_model() -> String { "Premium".to_string() }
-fn default_creativity() -> f32 { 0.5 }
+fn default_creativity() -> f32 { 0.35 }

@@ -74,12 +74,14 @@ impl ReplicateClient {
             neg_prompt.push_str(", color, saturation, sepia, hue, tint");
         }
 
-        let is_human = caption.as_ref().map(|c| {
-            let c = c.to_lowercase();
-            c.contains("skin") || c.contains("person") || c.contains("human") || 
-            c.contains("face") || c.contains("foot") || c.contains("arm") || 
-            c.contains("hand") || c.contains("man") || c.contains("woman")
-        }).unwrap_or(false);
+        let low_caps = caption.as_ref().map(|c| c.to_lowercase()).unwrap_or_default();
+        let is_human = low_caps.contains("skin") || low_caps.contains("person") || low_caps.contains("human") || 
+                       low_caps.contains("face") || low_caps.contains("foot") || low_caps.contains("arm") || 
+                       low_caps.contains("hand") || low_caps.contains("man") || low_caps.contains("woman");
+        
+        let is_organic = is_human || low_caps.contains("animal") || low_caps.contains("deer") || low_caps.contains("fur") || 
+                         low_caps.contains("bird") || low_caps.contains("pet") || low_caps.contains("nature") || 
+                         low_caps.contains("flower") || low_caps.contains("dog") || low_caps.contains("cat");
 
         if is_low_res {
             // --- BRANCH A: RECONSTRUCTION (Low-res) ---
@@ -87,10 +89,10 @@ impl ReplicateClient {
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of {},", cap));
             }
-            if is_human {
-                prompt.push_str(" preserve soft natural skin textures and organic smooth gradients, realistic human appearance");
+            if is_organic {
+                prompt.push_str(" preserve soft natural textures and organic smooth gradients, realistic appearance");
             } else {
-                prompt.push_str(" crisp optical clarity, natural organic textures");
+                prompt.push_str(" crisp optical clarity, clean geometric edges");
             }
         } else if is_premium_pre_pass {
             // --- BRANCH B: PRE-PASS (Premium) ---
@@ -101,14 +103,14 @@ impl ReplicateClient {
             prompt.push_str(" remove jpeg artifacts, preserve original tonal balance");
         } else {
             // --- BRANCH C: ENHANCEMENT (Standard High-res) ---
-            prompt.push_str("Professional high-fidelity enhancement, clean optical clarity");
+            prompt.push_str("Subtle high-fidelity refinement, preserve original character");
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of the {}", cap));
             }
-            if is_human {
-                prompt.push_str(", preserve natural skin softness and realistic human detail");
+            if is_organic {
+                prompt.push_str(", maintain natural softness and realistic textures");
             } else {
-                prompt.push_str(", professional studio finish, natural textures");
+                prompt.push_str(", maintain clean geometric edges and original detail");
             }
         }
 
@@ -120,16 +122,19 @@ impl ReplicateClient {
         }
 
         // Final Anchor
-        prompt.push_str(". Do not add new features, do not change the original anatomy, and do not alter the original color grading.");
+        prompt.push_str(". Maintain the original dynamic range. Do not crush blacks, do not increase contrast, and do not over-saturate colors.");
+        prompt.push_str(" Do not add new features, do not change the original anatomy, and do not alter the original color grading.");
 
         neg_prompt.push_str(", color shift, color grading, stylized, over-sharpened, etched, scaly, non-human skin, uncanny valley, artificial texture");
+        neg_prompt.push_str(", high contrast, crushed blacks, oversaturated, neon colors, artificial fur, digital art look");
 
         let mut input = serde_json::json!({
             "images": [image_url],
             "prompt": prompt,
             "negative_prompt": neg_prompt,
             "turbo": false,
-            "aspect_ratio": "match_input_image"
+            "aspect_ratio": "match_input_image",
+            "replicate_weights": if is_low_res { "default" } else { "light_restoration" }
         });
 
         if let Some(seed) = settings.seed {
