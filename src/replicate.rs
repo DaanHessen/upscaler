@@ -64,97 +64,77 @@ impl ReplicateClient {
         image_url: &str,
         caption: Option<String>,
         settings: &crate::prompts::PromptSettings,
-        is_low_res: bool,
-        is_grayscale: bool,
-        is_premium_pre_pass: bool,
-        style: crate::processor::ImageStyle
+        _is_low_res: bool,
+        _is_grayscale: bool,
+        _is_premium_pre_pass: bool,
+        style: crate::processor::ImageStyle,
+        input_mp: f32,
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let creativity = settings.creativity;
-        let refinement = settings.refinement;
+        let _refinement = settings.refinement;
         
         let mut prompt = String::new();
-        let mut neg_prompt = String::new();
-
-        // 1. Core Instruction: FIDELITY & IDENTITY
-        prompt.push_str("Modify image 1 with ultra-high-fidelity enhancement. ");
-        prompt.push_str("Strictly preserve the original soul, identity, lighting, and composition. ");
         
-        // 2. Lighting Anchors (Preventing the 'deep-fried' / high-contrast look)
-        prompt.push_str("Well-lit, high-key lighting, balanced exposure, natural raw photo aesthetic, shot on 35mm lens. ");
+        // 1. Mandatory Trigger Word
+        prompt.push_str("tok_enhance. ");
 
-        if is_grayscale {
-            prompt.push_str("Strictly black and white, monochrome, high-contrast grayscale. ");
-            neg_prompt.push_str(", color, saturation, sepia, hue, tint");
-        }
+        // 2. Identity & Fidelity Anchor
+        prompt.push_str("Ultra-high-fidelity enhancement of image 1. ");
+        prompt.push_str("Strictly preserve the original identity, composition, and soul. ");
 
         let (effective_style, category) = self.decide_style_and_category(caption.as_deref(), style);
         
-        info!("Smarter Prompting — Final Verdict: [Style: {:?}, Category: {}], Caption: {:?}", effective_style, category, caption);
-
-        // 3. Resolution-Specific Strategies
-        if is_low_res {
-            // --- BRANCH A: RECONSTRUCTION (Low-res) ---
-            prompt.push_str("Identity-locked reconstruction. Rebuild missing high-frequency data from image 1. Sharp optical clarity");
+        // 3. Resolution-Specific Strategy (The Reconstruction vs Refinement Split)
+        if input_mp < 0.3 {
+            // --- BRANCH A: RECONSTRUCTION (Ultra Low-Res, e.g., 256px - 512px) ---
+            prompt.push_str("Structural reconstruction pass. Rebuild missing high-frequency details. ");
+            prompt.push_str("Generate sharp, logical micro-textures based on image 1. ");
             if let Some(cap) = caption.as_ref() {
-                prompt.push_str(&format!(" of {},", cap));
+                prompt.push_str(&format!("Accurately reconstruct the features of {}. ", cap));
             }
-        } else if is_premium_pre_pass {
-            // --- BRANCH B: PRE-PASS (Premium) ---
-            prompt.push_str("Micro-detail refinement and pristine image cleanup. Remove artifacts while preserving all original high-frequency details");
-            if let Some(cap) = caption.as_ref() {
-                prompt.push_str(&format!(" of {},", cap));
-            }
+        } else if input_mp < 1.0 {
+            // --- BRANCH B: ENHANCEMENT (Mid-Res, e.g., 720p) ---
+            prompt.push_str("Detail enhancement and artifact removal. ");
+            prompt.push_str("Sharpen existing features and inject realistic clarity. ");
         } else {
-            // --- BRANCH C: ENHANCEMENT (Standard High-res) ---
-            prompt.push_str("Subtle high-fidelity refinement and upscale of existing textures only. No new features");
-            if let Some(cap) = caption.as_ref() {
-                prompt.push_str(&format!(" of the {}", cap));
-            }
+            // --- BRANCH C: REFINEMENT (High-Res, e.g., 1080p+) ---
+            prompt.push_str("Subtle photographic refinement and clarity polish. ");
+            prompt.push_str("Pixel-perfect restoration. Preserve all existing textures without modification. ");
+            prompt.push_str("Zero hallucination. Enhance only the raw clarity. ");
         }
 
-        // 4. Texture Locking Vocabulary (Additive Realism)
+        // 4. Texture Locking (Category-Specific)
         if effective_style == crate::processor::ImageStyle::Photography {
             match category.as_str() {
-                "Portrait" => prompt.push_str(", implement visible skin pores, individual eyelash definition, natural moisture, and realistic iris texture"),
-                "Wildlife" => prompt.push_str(", implement individual hair follicles, realistic fur depth, sharp organic eye detail, preserve original fur grain and natural hair flow"),
-                "Nature" | "Landscape" => prompt.push_str(", implement intricate organic detail, crisp foliage textures, and atmospheric depth"),
-                "Architecture" => prompt.push_str(", implement sharp geometric precision, clean architectural lines, and realistic stone/metal/glass textures"),
-                "Product" => prompt.push_str(", implement pristine product surfaces, sharp labels, and realistic material textures"),
-                "Vehicle" => prompt.push_str(", implement sharp mechanical detail, realistic paint reflections, and crisp material textures"),
-                "Texture" | "Macro" => prompt.push_str(", implement extreme macro detail, sharp tactile surfaces, and realistic material micro-patterns"),
-                _ => prompt.push_str(", implement natural organic micro-textures and realistic clarity"),
+                "Portrait" => prompt.push_str("Lock skin texture: implement visible pores and fine facial hair. Sharp iris detail. "),
+                "Wildlife" => prompt.push_str("Lock fur texture: implement individual hair strands with natural flow. Preserve soft organic transitions. Sharp eye detail. "),
+                "Nature" | "Landscape" => prompt.push_str("Lock organic texture: implement crisp foliage, intricate rock detail, and atmospheric depth. "),
+                "Architecture" => prompt.push_str("Lock geometric texture: implement sharp architectural lines and realistic material grit. "),
+                _ => prompt.push_str("Implement sharp, realistic photographic micro-textures. "),
             }
         } else {
-            // Illustration / Digital Art
-            match category.as_str() {
-                "Architecture" | "Geometric" => prompt.push_str(", maintain sharp geometric precision and clean sharp edges"),
-                _ => prompt.push_str(", maintain clean line art, smooth vector fills, and pristine original detail"),
-            }
+            prompt.push_str("Lock artistic style: maintain clean line art, smooth vector fills, and original color fields. ");
         }
 
-        // 5. Creativity-Based Intensity Scaling
-        if creativity < 0.3 {
-            prompt.push_str(". Minimal changes, subtle enhancement, strictly preserve every pixel.");
-        } else if creativity > 0.7 {
-            prompt.push_str(". Generative reconstruction, highly detailed texture injection, enhanced realism.");
+        // 5. Lighting & Finish
+        prompt.push_str("Balanced exposure, soft natural lighting, raw photo aesthetic. ");
+        prompt.push_str("Strictly preserve creamy, smooth out-of-focus bokeh background. Do not sharpen or add detail to the background. ");
+        prompt.push_str("Strictly no over-sharpening, no halos, no white outlines. ");
+
+        // 6. Creativity Scaling (Affects Prompt Density)
+        if creativity > 0.7 {
+            prompt.push_str("Add elaborate realistic detail. Generative reconstruction. ");
+        } else if creativity < 0.3 {
+            prompt.push_str("Subtle cleanup only. 100% pixel preservation. ");
         }
 
-        // 6. Refinement (Edge Sharpening)
-        if refinement {
-            prompt.push_str(". Crisp edge definition, sharp high-frequency micro-details.");
-        } else {
-            prompt.push_str(". Natural smooth textures, soft organic finish, realistic preservation.");
-        }
+        // 7. Overhauled Negative Prompt
+        let neg_prompt = "plastic skin, airbrushed, waxiness, smeared details, over-sharpened, etched textures, cinematic lighting, dramatic shadows, color shift, cartoonish, digital art look, beauty filter, fake textures, distorted anatomy, artificial digital noise, high contrast, crushed blacks, halos, white outlines, over-etched edges, artificial sharpness, over-saturated, blurry, pixelated, jpeg artifacts, sharpening artifacts in bokeh, textured blur".to_string();
 
-        // Final Anchor
-        prompt.push_str(" Maintain original dynamic range. Do not crush blacks or blow out highlights. ");
-        prompt.push_str("Strictly do not add new features, do not change anatomy, do not alter the original color palette, and strictly do not add new hair strands. ");
-        prompt.push_str("Preserve natural soft bokeh and out-of-focus areas. No over-sharpening, no halos, and no white outlines.");
-
-        // Overhauled Negative Prompt
-        neg_prompt = "plastic skin, airbrushed, waxiness, smeared details, over-sharpened, etched textures, cinematic lighting, dramatic shadows, color shift, cartoonish, digital art look, beauty filter, fake textures, distorted anatomy, artificial digital noise, high contrast, crushed blacks, oversaturated, neon, artificial fur, painting look, smeared details, weird anatomy, extra limbs, fused fingers, low quality, blurry, pixelated, jpeg artifacts, halos, white outlines, over-etched edges, artificial sharpness".to_string();
-
-        let lora_scale = 0.4 + (creativity * 0.4); // Lower adaptation range: 0.4 to 0.8
+        // 8. Adaptive LoRA Scaling
+        // Low-res needs more "hallucination" help (higher scale). High-res needs only subtle polish (lower scale).
+        let base_scale = if input_mp < 0.3 { 0.85 } else if input_mp < 1.0 { 0.55 } else { 0.40 };
+        let lora_scale = (base_scale + (creativity - 0.5) * 0.4).clamp(0.2, 1.2);
 
         let mut input = serde_json::json!({
             "images": [image_url],
@@ -174,7 +154,7 @@ impl ReplicateClient {
             "input": input
         });
 
-        info!("Running Pruna AI P-Image-Edit-LoRA (Restoration Pass) with creativity={} and lora_scale={}...", creativity, lora_scale);
+        info!("V3 Pipeline — Branching: [MP: {:.2}, Scale: {:.2}], Style: {:?}, Category: {}", input_mp, lora_scale, effective_style, category);
         self.run_replicate_model(
             "prunaai/p-image-edit-lora",
             "191152bf662a44024fe326e61595d4f84c0293afdee7ff08d973d5e399973a4e",
@@ -187,6 +167,7 @@ impl ReplicateClient {
         image_url: &str,
         quality: &str,
         creativity: f32,
+        input_mp: f32, // New parameter
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         // Map quality to target MP
         let target_mp = match quality {
@@ -196,12 +177,16 @@ impl ReplicateClient {
             _ => 4,
         };
 
+        // Resolution-aware tuning for polish
+        let enhance_details = if input_mp < 0.3 { true } else { creativity >= 0.4 };
+        let enhance_realism = if input_mp < 0.3 { creativity >= 0.3 } else { creativity >= 0.6 };
+
         let input = serde_json::json!({
             "image": image_url,
             "target": target_mp,
             "upscale_mode": "target",
-            "enhance_details": creativity >= 0.4,
-            "enhance_realism": creativity >= 0.7,
+            "enhance_details": enhance_details,
+            "enhance_realism": enhance_realism,
             "output_format": "jpg",
             "output_quality": 95
         });
@@ -210,7 +195,7 @@ impl ReplicateClient {
             "input": input
         });
 
-        info!("Running Pruna AI P-Image-Upscale (Final Polish) to {}MP...", target_mp);
+        info!("Running Pruna AI P-Image-Upscale — [Target: {}MP, Details: {}, Realism: {}]", target_mp, enhance_details, enhance_realism);
         self.run_replicate_model(
             "prunaai/p-image-upscale",
             "9018fe338f75cea08d1e3abc5f4f795d62594abf94326d5e590090f593bb1bac",

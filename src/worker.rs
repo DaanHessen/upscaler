@@ -2,7 +2,7 @@ use crate::AppState;
 use std::error::Error;
 use std::sync::Arc;
 use uuid::Uuid;
-use tracing::info;
+use tracing::{info, warn};
 
 pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::UpscaleRecord) -> Result<(), Box<dyn Error + Send + Sync>> {
     let start_time = std::time::Instant::now();
@@ -20,7 +20,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         }
     };
     
-    let (is_low_res, is_grayscale, style) = {
+    let (is_low_res, is_grayscale, style, input_mp) = {
         use image::GenericImageView;
         let img = image::load_from_memory(&raw_bytes)?;
         let (w, h) = img.dimensions();
@@ -28,19 +28,20 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         let gs = crate::processor::is_grayscale(&img);
         info!("Image classification: {}x{} ({:.3} MP), Grayscale: {}", w, h, mp, gs);
         let style = crate::processor::analyze_style(&img, Some(&raw_bytes));
-        (mp < 1.0, gs, style)
+        (mp < 1.0, gs, style, mp)
     };
 
-    let mut current_uri = state.storage.get_signed_url(&job.input_path).await?;
-    
-    // Step 1: Captioning (via cheap Replicate BLIP)
-    let caption = match state.replicate.run_blip_caption(&current_uri).await {
-        Ok(c) => {
-            info!("Successfully generated caption: {}", c);
-            Some(c)
+    let input_uri = state.storage.get_signed_url(&job.input_path).await?;
+
+    // Step 1: Captioning (Crucial for Golden Prompt)
+    info!("Step 1: Generating descriptive caption...");
+    let caption = match state.replicate.run_blip_caption(&input_uri).await {
+        Ok(cap) => {
+            info!("Successfully generated caption: {}", cap);
+            Some(cap)
         },
         Err(e) => {
-            tracing::warn!("AI captioning skipped for job {} (using local classification fallback): {}", job.id, e);
+            warn!("Captioning failed (falling back to generic): {}", e);
             None
         }
     };
@@ -49,24 +50,31 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
     // Step 2: Model Branching
-    if prompt_settings.model == "Standard" {
-        // --- STANDARD MODE: Dual-pass high-fidelity restoration ---
-        // Pass 1: Restore the 'soul' at the model's native sweet spot (1.5K)
-        info!("Running Standard Mode Pass 1: Detail restoration (1.5K)...");
+    let final_url = if prompt_settings.model == "Standard" {
+        // Pass 1: Detail restoration with adaptive scaling
+        // For ultra-low res, don't over-scale too early or we just feed blur to the AI.
+        let target_res = if input_mp < 0.1 { "768px" } else { "1.5K" };
+        info!("Running Standard Mode Pass 1: Detail restoration ({})...", target_res);
         
-        let restore_pre_bytes = match crate::processor::scale_to_resolution(&raw_bytes, "1.5K") {
+        let restore_pre_bytes = match crate::processor::scale_to_resolution(&raw_bytes, target_res) {
             Ok(b) => b,
             Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Standard restoration scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.update_job_failed(job.id, &format!("Scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
                 return Err(e);
             }
         };
 
-        let restore_path = format!("{}/temp/{}_standard_restore.jpg", job.user_id, job.id);
-        state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
-        let restore_uri = state.storage.get_signed_url(&restore_path).await?;
+        let restore_uri = match state.storage.upload_temp(restore_pre_bytes, &format!("{}_standard_restore.jpg", job.id)).await {
+            Ok(url) => url,
+            Err(e) => {
+                let _ = state.db.update_job_failed(job.id, &format!("Storage error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+                return Err(e);
+            }
+        };
 
-        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, false, style).await {
+        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, false, style, input_mp).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Standard restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
@@ -80,14 +88,14 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
         // Pass 2: Upscale to final target (2K/4K/6K)
         info!("Running Standard Mode Pass 2: Final {} upscale...", job.quality);
-        current_uri = match state.replicate.run_p_image_upscale(&restored_uri, &job.quality, prompt_settings.creativity).await {
+        match state.replicate.run_p_image_upscale(&restored_uri, &job.quality, prompt_settings.creativity, input_mp).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Standard upscale error: {}", e), start_time.elapsed().as_millis() as i32).await;
                 let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
                 return Err(e);
             }
-        };
+        }
     } else {
         // --- PREMIUM MODE: Restore (P-Edit) -> Topaz Upscale ---
         info!("Running Premium Mode: Restoration + Topaz pipeline...");
@@ -102,11 +110,16 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             }
         };
 
-        let restore_path = format!("{}/temp/{}_premium_restore_input.jpg", job.user_id, job.id);
-        state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
-        let restore_uri = state.storage.get_signed_url(&restore_path).await?;
+        let restore_uri = match state.storage.upload_temp(restore_pre_bytes, &format!("{}_premium_restore.jpg", job.id)).await {
+            Ok(url) => url,
+            Err(e) => {
+                let _ = state.db.update_job_failed(job.id, &format!("Storage error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+                return Err(e);
+            }
+        };
 
-        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, true, style).await {
+        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, true, style, input_mp).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Premium restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
@@ -120,17 +133,15 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         let style = job.style.as_deref().unwrap_or("PHOTOGRAPHY");
         let topaz_mode = prompt_settings.topaz_mode.as_deref().unwrap_or("Standard");
         
-        current_uri = match state.replicate.run_topaz(&restored_uri, &job.quality, style, topaz_mode).await {
+        match state.replicate.run_topaz(&restored_uri, &job.quality, style, topaz_mode).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Topaz error: {}", e), start_time.elapsed().as_millis() as i32).await;
                 let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
                 return Err(e);
             }
-        };
-    }
-
-    let final_url = current_uri;
+        }
+    };
     let latency_ms = start_time.elapsed().as_millis() as i32;
     let mut usage_json = serde_json::json!({
         "model": prompt_settings.model,

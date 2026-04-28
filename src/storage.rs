@@ -12,6 +12,7 @@ pub trait StorageProvider: Send + Sync {
     async fn get_signed_url(&self, path: &str) -> Result<String, Box<dyn Error + Send + Sync>>;
     async fn download_object(&self, path: &str) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>>;
     async fn delete_object(&self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>>;
+    async fn upload_temp(&self, body: Vec<u8>, filename: &str) -> Result<String, Box<dyn Error + Send + Sync>>;
 }
 
 #[derive(Clone)]
@@ -131,6 +132,12 @@ impl StorageProvider for StorageService {
         info!("Deleted {} from bucket '{}'", path, self.bucket);
         Ok(())
     }
+
+    async fn upload_temp(&self, body: Vec<u8>, filename: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let path = format!("temp/{}", filename);
+        self.upload_object(&path, body, "image/jpeg").await?;
+        self.get_signed_url(&path).await
+    }
 }
 
 pub struct MockStorage {
@@ -173,5 +180,11 @@ impl StorageProvider for MockStorage {
     async fn delete_object(&self, path: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.files.lock().unwrap().remove(path);
         Ok(())
+    }
+
+    async fn upload_temp(&self, body: Vec<u8>, filename: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let path = format!("temp/{}", filename);
+        self.files.lock().unwrap().insert(path.clone(), body);
+        Ok(format!("https://mock-storage.local/{}", path))
     }
 }
