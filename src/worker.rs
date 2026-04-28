@@ -77,12 +77,19 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             info!("Standard Mode [Low-Res]: Running Adaptive Reconstruction ({:.2} MP)", input_mp);
             
             // Pass 1: Light Generative Restoration (Fast & Cheap)
-            let restore_uri = state.replicate.run_image_edit_lora(
+            // We use a modified version of the prompt settings to ensure a photographic focus
+            let mut std_low_settings = prompt_settings.clone();
+            std_low_settings.prompt_override = Some("Ultra-high resolution photographic restoration, sharp focus, preserve original textures, natural details, 8k uhd.".to_string());
+            
+            let restore_uri = state.replicate.run_p_image_edit(
                 &input_uri,
-                "Ultra-high resolution photographic restoration, sharp focus, preserve original textures, natural details, 8k uhd.",
-                caption.as_deref(),
-                "Photography",
-                0.35 // Low strength to prevent "AI look" while still adding crispness
+                caption.clone(),
+                &std_low_settings,
+                true,  // is_low_res
+                false, // is_grayscale (adaptive check handled inside)
+                false, // is_premium_pre_pass
+                crate::processor::ImageStyle::Photography,
+                input_mp
             ).await?;
 
             // Pass 2: Final Technical Upscale
