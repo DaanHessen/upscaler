@@ -37,38 +37,37 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     // Step 2: Model Branching
     if prompt_settings.model == "Standard" {
-        // --- STANDARD MODE: Dual-pass Pruna AI (Fast & Cheap) ---
-        // Pass 1: Detail enhancement at model's native resolution (1.4K - 1.6K)
-        let res_target = if is_low_res { "1K" } else { "1.6K" };
-        info!("Running Standard Mode Pass 1: Detail enhancement ({})", res_target);
+        // --- STANDARD MODE: Dual-pass high-fidelity restoration ---
+        // Pass 1: Restore the 'soul' at the model's native sweet spot (1.5K)
+        info!("Running Standard Mode Pass 1: Detail restoration (1.5K)...");
         
-        let restore_pre_bytes = match crate::processor::scale_to_resolution(&raw_bytes, res_target) {
+        let restore_pre_bytes = match crate::processor::scale_to_resolution(&raw_bytes, "1.5K") {
             Ok(b) => b,
             Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Standard scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.update_job_failed(job.id, &format!("Standard restoration scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
                 return Err(e);
             }
         };
 
-        let restore_path = format!("{}/temp/{}_standard_input.jpg", job.user_id, job.id);
+        let restore_path = format!("{}/temp/{}_standard_restore.jpg", job.user_id, job.id);
         state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
         let restore_uri = state.storage.get_signed_url(&restore_path).await?;
 
-        let enhanced_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, false).await {
+        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, false).await {
             Ok(url) => url,
             Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Standard edit pass error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.update_job_failed(job.id, &format!("Standard restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
                 let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
                 return Err(e);
             }
         };
 
-        // Pass 2: Professional Upscale to 4K/6K target
+        // Pass 2: Upscale to final target (2K/4K/6K)
         info!("Running Standard Mode Pass 2: Final {} upscale...", job.quality);
-        current_uri = match state.replicate.run_p_image_upscale(&enhanced_uri, &job.quality, prompt_settings.creativity).await {
+        current_uri = match state.replicate.run_p_image_upscale(&restored_uri, &job.quality, prompt_settings.creativity).await {
             Ok(url) => url,
             Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Standard upscale pass error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.update_job_failed(job.id, &format!("Standard upscale error: {}", e), start_time.elapsed().as_millis() as i32).await;
                 let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
                 return Err(e);
             }

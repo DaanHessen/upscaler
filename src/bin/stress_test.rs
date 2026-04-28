@@ -61,41 +61,52 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             (mp < 1.0, gs)
         };
 
-        let mode = "Standard";
-        let quality = "4x"; // Always 4K
+        for refinement in [true, false] {
+            let mode = "Standard";
+            let quality = "4x"; 
+            
+            let prompt_settings = PromptSettings {
+                model: mode.to_string(),
+                creativity: 0.5,
+                refinement,
+                ..Default::default()
+            };
+
+            info!("  -> Running Pass (Refinement: {})", refinement);
+
+            // Upload to storage to get a URI
+            let input_path = format!("stress_test/inputs_v2/{}", filename);
+            state.storage.upload_object(&input_path, raw_bytes.clone(), "image/jpeg").await?;
+            let input_uri = state.storage.get_signed_url(&input_path).await?;
+
+            // Run BLIP captioning
+            let caption = state.replicate.run_blip_caption(&input_uri).await.ok();
+
+            // Standard Mode Pipeline: Restore -> P-Upscale
+            let res_target = if is_low_res { 
+                "1K" 
+            } else if refinement {
+                "1.7K" 
+            } else {
+                "1.4K"
+            };
+            
+            let restore_pre_bytes = upscaler::processor::scale_to_resolution(&raw_bytes, res_target)?;
+            let restore_path = format!("stress_test/temp/{}_ref{}.jpg", filename, refinement);
+            state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
+            let restore_uri = state.storage.get_signed_url(&restore_path).await?;
+            
+            let restored_uri = state.replicate.run_p_image_edit(&restore_uri, caption, &prompt_settings, is_low_res, is_grayscale, false).await?;
+            let final_url = state.replicate.run_p_image_upscale(&restored_uri, quality, 0.5).await?;
+
+            // Download result
+            let result_resp = reqwest::get(&final_url).await?;
+            let result_bytes = result_resp.bytes().await?;
+            let out_filename = format!("Ref{}_{}_{}_{}", refinement, mode, quality, filename);
+            fs::write(Path::new(output_dir).join(out_filename), result_bytes).await?;
+        }
         
-        let prompt_settings = PromptSettings {
-            model: mode.to_string(),
-            creativity: 0.5,
-            refinement: true,
-            ..Default::default()
-        };
-
-        // Upload to storage to get a URI
-        let input_path = format!("stress_test/inputs_v2/{}", filename);
-        state.storage.upload_object(&input_path, raw_bytes.clone(), "image/jpeg").await?;
-        let input_uri = state.storage.get_signed_url(&input_path).await?;
-
-        // Run BLIP captioning
-        let caption = state.replicate.run_blip_caption(&input_uri).await.ok();
-
-        // Standard Mode Pipeline: Restore -> P-Upscale
-        let res_target = if is_low_res { "1K" } else { "1.6K" };
-        let restore_pre_bytes = upscaler::processor::scale_to_resolution(&raw_bytes, res_target)?;
-        let restore_path = format!("stress_test/temp/{}_restore.jpg", filename);
-        state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
-        let restore_uri = state.storage.get_signed_url(&restore_path).await?;
-        
-        let restored_uri = state.replicate.run_p_image_edit(&restore_uri, caption, &prompt_settings, is_low_res, is_grayscale, false).await?;
-        let final_url = state.replicate.run_p_image_upscale(&restored_uri, quality, 0.5).await?;
-
-        // Download result
-        let result_resp = reqwest::get(&final_url).await?;
-        let result_bytes = result_resp.bytes().await?;
-        let out_filename = format!("{}_{}_{}", mode, quality, filename);
-        fs::write(Path::new(output_dir).join(out_filename), result_bytes).await?;
-        
-        info!("Finished {}: result saved.", filename);
+        info!("Finished {}: all variants saved.", filename);
         count += 1;
     }
 

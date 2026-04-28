@@ -406,21 +406,19 @@ pub fn Configure() -> impl IntoView {
                                                 </p>
                                             </div>
 
-                                            <Show when=move || gs.model_choice.get() == "Premium">
-                                                <div class="sb-field" style="margin-top: var(--s-4);">
-                                                    <label class="sb-label" style="display: flex; align-items: center;">"REFINEMENT PASS"<span title="Runs a restoration pass via Pruna AI before the final Topaz upscale to improve clarity and remove artifacts." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                    <div class="seg-control">
-                                                        <button 
-                                                            class:active=move || gs.refinement.get()
-                                                            on:click=move |_| gs.set_refinement.set(true)
-                                                        >"On"</button>
-                                                        <button 
-                                                            class:active=move || !gs.refinement.get()
-                                                            on:click=move |_| gs.set_refinement.set(false)
-                                                        >"Off"</button>
-                                                    </div>
+                                            <div class="sb-field" style="margin-top: var(--s-4);">
+                                                <label class="sb-label" style="display: flex; align-items: center;">"EDGE SHARPENING"<span title="Enhances high-frequency details and edge definition for a crisp, punchy finish." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                <div class="seg-control">
+                                                    <button 
+                                                        class:active=move || gs.refinement.get()
+                                                        on:click=move |_| gs.set_refinement.set(true)
+                                                    >"On"</button>
+                                                    <button 
+                                                        class:active=move || !gs.refinement.get()
+                                                        on:click=move |_| gs.set_refinement.set(false)
+                                                    >"Off"</button>
                                                 </div>
-                                            </Show>
+                                            </div>
                                         </div>
                                     </div>
 
@@ -477,20 +475,19 @@ pub fn Configure() -> impl IntoView {
                                      </Show>
 
                                     // ── Model Parameters ─────────────
-                                     <Show when=move || gs.model_choice.get() == "Premium">
                                      <div class="card editor-card animate-in">
                                         <div class="editor-card-body">
                                             <div class="card-tag" style="margin-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: center; width: 100%;">
                                                 <div style="display: flex; align-items: center; gap: 4px;">
                                                     <Target size={10} />
-                                                    <span>"MODEL PARAMETERS"</span>
+                                                    <span>"RESTORATION PARAMETERS"</span>
                                                 </div>
                                                 <ChevronDown size={12} />
                                             </div>
 
                                             <div class="sb-field" style="margin-bottom: var(--s-4);">
                                                 <label class="sb-label" style="display: flex; justify-content: space-between; align-items: center;">
-                                                    <span>"CREATIVITY"</span>
+                                                    <span>"RESTORATION LEVEL"</span>
                                                     <span class="sb-label-val">{move || format!("{:.0}%", gs.creativity.get() * 100.0)}</span>
                                                 </label>
                                                 <input 
@@ -502,7 +499,7 @@ pub fn Configure() -> impl IntoView {
                                                     on:input=move |ev| gs.set_creativity.set(event_target_value(&ev).parse().unwrap_or(0.5))
                                                     prop:value=move || gs.creativity.get()
                                                 />
-                                                <p class="sb-hint">"Higher values synthesize more detail but may diverge from the original."</p>
+                                                <p class="sb-hint">"Higher values reconstruct more missing detail but may diverge from the original."</p>
                                             </div>
 
                                             <div class="sb-field">
@@ -520,7 +517,6 @@ pub fn Configure() -> impl IntoView {
                                             </div>
                                         </div>
                                     </div>
-                                     </Show>
                                 </div>
 
                                 <div class="sb-footer">

@@ -60,41 +60,51 @@ impl ReplicateClient {
         is_premium_pre_pass: bool
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let creativity = settings.creativity;
+        let refinement = settings.refinement;
         
         let mut prompt = String::new();
-        let mut neg_prompt = "blurry, smooth, plastic, cartoon, noise, artifacts, smeared, fake, distorted".to_string();
+        let mut neg_prompt = "blurry, smooth, plastic, cartoon, noise, artifacts, smeared, fake, distorted, weird textures, artificial patterns".to_string();
+
+        // 1. Core Instruction: FIDELITY FIRST
+        prompt.push_str("100% high-fidelity preservation of the original image's soul, composition, and subjects. ");
 
         if is_grayscale {
-            prompt.push_str("Strictly black and white, monochrome, high-contrast grayscale photography. ");
-            neg_prompt.push_str(", color, saturation, sepia, hue, tint, blue, red, green, yellow");
+            prompt.push_str("Strictly black and white, monochrome, high-contrast grayscale. ");
+            neg_prompt.push_str(", color, saturation, sepia, hue, tint");
         }
 
         if is_low_res {
-            // --- BRANCH A: GENERATIVE RECONSTRUCTION (Low-res) ---
-            prompt.push_str("Extreme high-fidelity generative reconstruction and micro-texture restoration");
+            // --- BRANCH A: RECONSTRUCTION (Low-res) ---
+            prompt.push_str("Clean generative reconstruction and detail restoration");
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of {},", cap));
             }
-            prompt.push_str(" raw optical sharpness, ultra-detailed organic textures, hyper-realistic macro photography, 8k UHD, neutral lighting, crystal clear micro-pores, sharp fur fibers, masterpiece, sharp edges");
+            prompt.push_str(" raw optical sharpness, ultra-detailed organic textures, neutral lighting, masterpiece");
         } else if is_premium_pre_pass {
-            // --- BRANCH B: PRE-PASS ARTIFACT REMOVAL (Premium Mode, High-res) ---
-            prompt.push_str("Gentle artifact removal, pristine image cleanup, noise reduction, sensor artifact removal");
+            // --- BRANCH B: PRE-PASS (Premium) ---
+            prompt.push_str("Gentle artifact removal, pristine image cleanup, noise reduction");
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of {},", cap));
             }
-            prompt.push_str(" remove jpeg artifacts, prepare for high-end upscaling, preserve original tonal balance");
+            prompt.push_str(" remove jpeg artifacts, preserve original tonal balance");
         } else {
-            // --- BRANCH C: ACTUAL UPSCALING & ENHANCEMENT (Standard Mode, High-res) ---
-            // Force high-frequency details even on good quality images
-            prompt.push_str("Professional tactile micro-detail enhancement, ultra-sharp focus, extreme high-frequency texture reconstruction, lifelike optical clarity");
+            // --- BRANCH C: ENHANCEMENT (Standard High-res) ---
+            prompt.push_str("Professional high-fidelity enhancement, ultra-sharp focus, clean optical clarity");
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of the {}", cap));
             }
-            prompt.push_str(", 8k UHD, raw photo realism, sharp edges, distinct focal points");
+            prompt.push_str(", 8k UHD, photorealistic finish");
         }
 
-        // Preservation language is the "Anchor"
-        prompt.push_str(", while preserving the exact composition, lighting, and subjects of the original image with 100% fidelity.");
+        // Apply Edge Sharpening preference
+        if refinement {
+            prompt.push_str(", crisp edge definition, sharp high-frequency details");
+        } else {
+            prompt.push_str(", natural smooth textures, soft organic finish");
+        }
+
+        // Final Anchor
+        prompt.push_str(". Do not add new features or change the original anatomy/structure.");
 
         let mut input = serde_json::json!({
             "images": [image_url],
@@ -112,7 +122,7 @@ impl ReplicateClient {
             "input": input
         });
 
-        info!("Running Pruna AI P-Image-Edit (Restoration Pass) with creativity={}...", creativity);
+        info!("Running Pruna AI P-Image-Edit (Restoration Pass) with creativity={} and refinement={}...", creativity, refinement);
         self.run_replicate_model(
             "prunaai/p-image-edit",
             "5bf99c2386ca54e33758b7b4d360cf2b9e0f2b61966cd764363173ab3810935b",
