@@ -110,10 +110,10 @@ impl DbService {
         use std::time::Duration;
 
         let pool = PgPoolOptions::new()
-            .max_connections(50)
-            .min_connections(5)
+            .max_connections(15) // Safe limit for Supabase
+            .min_connections(1)
             .acquire_timeout(Duration::from_secs(30))
-            .idle_timeout(Duration::from_secs(600))
+            .idle_timeout(Duration::from_secs(30))
             .max_lifetime(Duration::from_secs(1800))
             .connect(&database_url)
             .await?;

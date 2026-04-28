@@ -60,6 +60,16 @@ pub struct GlobalState {
     pub set_debug_gemini_only: WriteSignal<bool>,
     pub topaz_mode: ReadSignal<String>,
     pub set_topaz_mode: WriteSignal<String>,
+    pub skip_topaz: ReadSignal<bool>,
+    pub set_skip_topaz: WriteSignal<bool>,
+    pub model_choice: ReadSignal<String>,
+    pub set_model_choice: WriteSignal<String>,
+    pub refinement: ReadSignal<bool>,
+    pub set_refinement: WriteSignal<bool>,
+    pub creativity: ReadSignal<f32>,
+    pub set_creativity: WriteSignal<f32>,
+    pub seed: ReadSignal<Option<u64>>,
+    pub set_seed: WriteSignal<Option<u64>>,
 }
 
 impl GlobalState {
@@ -75,7 +85,7 @@ impl GlobalState {
 }
 
 pub fn provide_global_state() {
-    let (scale, set_scale) = signal("Auto".to_string());
+    let (scale, set_scale) = signal("2x".to_string());
     let (style, set_style) = signal("PHOTOGRAPHY".to_string());
     let (face_enhancement, set_face_enhancement) = signal(false);
     let (temp_file, set_temp_file) = signal(None::<web_sys::File>);
@@ -92,6 +102,11 @@ pub fn provide_global_state() {
     let (post_polish, set_post_polish) = signal("Off".to_string());
     let (debug_gemini_only, set_debug_gemini_only) = signal(false);
     let (topaz_mode, set_topaz_mode) = signal("Auto".to_string());
+    let (skip_topaz, set_skip_topaz) = signal(false);
+    let (model_choice, set_model_choice) = signal("Standard".to_string());
+    let (refinement, set_refinement) = signal(true);
+    let (creativity, set_creativity) = signal(0.5);
+    let (seed, set_seed) = signal(None::<u64>);
 
     provide_context(GlobalState {
         scale, set_scale,
@@ -111,6 +126,11 @@ pub fn provide_global_state() {
         post_polish, set_post_polish,
         debug_gemini_only, set_debug_gemini_only,
         topaz_mode, set_topaz_mode,
+        skip_topaz, set_skip_topaz,
+        model_choice, set_model_choice,
+        refinement, set_refinement,
+        creativity, set_creativity,
+        seed, set_seed,
     });
 }
 
@@ -135,6 +155,11 @@ fn App() -> impl IntoView {
             post_polish: gs.post_polish.get(),
             debug_gemini_only: gs.debug_gemini_only.get(),
             topaz_mode: gs.topaz_mode.get(),
+            skip_topaz: gs.skip_topaz.get(),
+            model: gs.model_choice.get(),
+            refinement: gs.refinement.get(),
+            creativity: gs.creativity.get(),
+            seed: gs.seed.get(),
         };
         persistence::save_settings(&settings);
         
@@ -162,6 +187,11 @@ fn App() -> impl IntoView {
             gs.set_post_polish.set(s.post_polish);
             gs.set_debug_gemini_only.set(s.debug_gemini_only);
             gs.set_topaz_mode.set(s.topaz_mode);
+            gs.set_skip_topaz.set(s.skip_topaz);
+            gs.set_model_choice.set(s.model);
+            gs.set_refinement.set(s.refinement);
+            gs.set_creativity.set(s.creativity);
+            gs.set_seed.set(s.seed);
         }
 
         // Hydrate file (async)

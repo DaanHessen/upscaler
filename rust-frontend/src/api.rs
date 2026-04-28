@@ -53,7 +53,7 @@ pub struct ModerateResponse {
     pub preview_base64: Option<String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 pub struct PromptSettings {
     #[serde(default = "default_off")]
     pub pre_processing: String,
@@ -63,10 +63,24 @@ pub struct PromptSettings {
     pub topaz_mode: String,
     #[serde(default)]
     pub face_enhancement: bool,
+    #[serde(default)]
+    pub skip_topaz: bool,
+    #[serde(default = "default_premium")]
+    pub model: String,
+    #[serde(default)]
+    pub refinement: bool,
+
+    // Internalized SeeSR Parameters
+    #[serde(default = "default_creativity")]
+    pub creativity: f32,
+    #[serde(default)]
+    pub seed: Option<u64>,
 }
 
 fn default_off() -> String { "Off".to_string() }
 fn default_auto() -> String { "Auto".to_string() }
+fn default_premium() -> String { "Premium".to_string() }
+fn default_creativity() -> f32 { 0.5 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct BalanceResponse {

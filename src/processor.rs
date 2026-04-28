@@ -528,3 +528,46 @@ pub fn generate_thumbnail(data: &[u8]) -> Result<Vec<u8>, Box<dyn Error + Send +
     
     Ok(buffer.into_inner())
 }
+
+/// Resizes the image to professional resolution standards.
+pub fn scale_to_resolution(data: &[u8], resolution: &str) -> Result<Vec<u8>, Box<dyn Error + Send + Sync>> {
+    let img = image::load_from_memory(data)?;
+    let (w, h) = img.dimensions();
+    
+    let scale = match resolution {
+        // --- Longest Side Targets (Standard Mode 4K) ---
+        "STD_4K" => {
+            let target = 3840.0;
+            (target / (w.max(h) as f32)).max(1.0)
+        }
+        // --- Megapixel Targets (Premium Reconstruction Pre-pass) ---
+        "2MP" => {
+            let target_pixels = 2_000_000.0;
+            let current_pixels = (w as f32 * h as f32);
+            (target_pixels / current_pixels).sqrt().max(1.0)
+        }
+        // --- Legacy/Short Side Targets (Restore pass) ---
+        "1K" | "1024" => (1024.0 / (w.min(h) as f32)).max(1.0),
+        "1.5K" | "1536" => (1536.0 / (w.min(h) as f32)).max(1.0),
+        "2x" | "2K" => (1080.0 / (w.min(h) as f32)).max(1.0),
+        "4x" | "4K" => (2160.0 / (w.min(h) as f32)).max(1.0),
+        "6x" | "6K" => (3240.0 / (w.min(h) as f32)).max(1.0),
+        _ => (1080.0 / (w.min(h) as f32)).max(1.0),
+    };
+    
+    let nw = (w as f32 * scale).round() as u32;
+    let nh = (h as f32 * scale).round() as u32;
+    
+    // Ensure multiples of 8 for compatibility with AI models (less distortion than 64)
+    let nw = (nw / 8) * 8;
+    let nh = (nh / 8) * 8;
+
+    info!("Scaling for pipeline ({}): {}x{} -> {}x{}", resolution, w, h, nw, nh);
+    let scaled = img.resize_exact(nw, nh, image::imageops::FilterType::Lanczos3);
+    
+    let mut buffer = Cursor::new(Vec::new());
+    let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buffer, 98);
+    scaled.write_with_encoder(encoder)?;
+    
+    Ok(buffer.into_inner())
+}

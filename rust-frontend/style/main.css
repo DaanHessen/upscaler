@@ -1,4 +1,6 @@
 :root {
+  --studio-accent: #6d6dff;
+
   /* Theme Variables - Default (Dark) */
   --bg: 240 10% 4%;
   --surface: 240 10% 7%;
@@ -26,8 +28,6 @@
   --static-white: #fff;
   
   /* Spacing Scale */
-
-  /* Spacing Scale */
   --s-1: 0.25rem;
   --s-2: 0.5rem;
   --s-3: 0.75rem;
@@ -53,6 +53,41 @@
   --shadow-xl: 0 32px 64px -16px rgba(0,0,0,0.8);
   --glass: rgba(10, 10, 12, 0.7);
   --glass-border: rgba(255, 255, 255, 0.08);
+}
+
+/* --- Sidebar Slider Styles --- */
+.sb-slider {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    outline: none;
+    -webkit-appearance: none;
+    margin: 12px 0;
+}
+
+.sb-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--studio-accent);
+    border-radius: 50%;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(109, 109, 255, 0.4);
+    transition: transform 0.15s ease;
+}
+
+.sb-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+}
+
+.sb-label-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--studio-accent);
+    background: rgba(109, 109, 255, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
 }
 
 /* Light Theme Overrides - studio crisp default */

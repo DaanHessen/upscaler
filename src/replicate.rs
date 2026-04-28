@@ -19,36 +19,139 @@ pub struct ReplicateClient {
 }
 
 impl ReplicateClient {
-    pub fn new() -> Self {
-        Self {
-            client: Client::builder().timeout(Duration::from_secs(300)).build().unwrap(),
-            token: env::var("REPLICATE_API_TOKEN").unwrap_or_default(),
+    pub fn new() -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let token = env::var("REPLICATE_API_TOKEN").map_err(|_| "REPLICATE_API_TOKEN not set")?;
+        let client = Client::builder()
+            .timeout(Duration::from_secs(300))
+            .build()?;
+        Ok(Self {
+            client,
+            token,
+        })
+    }
+
+    pub async fn run_blip_caption(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let req_body = serde_json::json!({
+            "input": {
+                "image": image_url,
+                "prompt": "Describe this image in a short, comma-separated list of keywords and main subjects."
+            }
+        });
+        info!("Running BLIP-3 captioning pass...");
+        let res = self.run_replicate_model_by_name(
+            "zsxkib",
+            "blip-3",
+            req_body
+        ).await?;
+
+        // The response is usually a string starting with "Caption: ..." or just the caption
+        let caption = res.replace("Caption:", "").trim().to_string();
+        info!("BLIP-3 generated caption: {}", caption);
+        Ok(caption)
+    }
+
+    pub async fn run_p_image_edit(
+        &self,
+        image_url: &str,
+        caption: Option<String>,
+        settings: &crate::prompts::PromptSettings,
+        is_low_res: bool,
+        is_premium_pre_pass: bool
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let creativity = settings.creativity;
+        
+        let mut prompt = String::new();
+
+        if is_low_res {
+            // --- BRANCH A: GENERATIVE RECONSTRUCTION (Low-res) ---
+            // Focus on "hallucinating" and "rebuilding" missing information
+            prompt.push_str("Accurate generative reconstruction and high-fidelity restoration");
+            if let Some(cap) = caption {
+                prompt.push_str(&format!(" of {},", cap));
+            }
+            prompt.push_str(" extreme sharpness, ultra-detailed organic textures, hyper-realistic macro photography, 8k UHD, neutral color balance, natural daylight, crystal clear micro-pores, natural film grain, sharp fur fibers, masterpiece, sharp edges, distinct focal points");
+            
+            if creativity >= 0.5 {
+                prompt.push_str(", hyper-detailed skin and surface micro-textures, extremely sharp high-frequency details, raw photo realism, true-to-life tones");
+            }
+        } else if is_premium_pre_pass {
+            // --- BRANCH B: PRE-PASS ARTIFACT REMOVAL (Premium Mode, High-res) ---
+            // Remove artifacts and clean up for Topaz
+            prompt.push_str("Gentle artifact removal, pristine image cleanup, noise reduction, sensor artifact removal");
+            if let Some(cap) = caption {
+                prompt.push_str(&format!(" of {},", cap));
+            }
+            prompt.push_str(" clean up image, remove jpeg artifacts, prepare for high-end upscaling, preserve original color balance, maintain 100% fidelity to original color tones");
+        } else {
+            // --- BRANCH C: ACTUAL UPSCALING & ENHANCEMENT (Standard Mode, High-res) ---
+            prompt.push_str("Professional high-fidelity enhancement, ultra-sharp focus, extreme micro-details, texture reconstruction, lifelike clarity");
+            if let Some(cap) = caption {
+                prompt.push_str(&format!(" of the {}", cap));
+            } else {
+                prompt.push_str(" of the image");
+            }
         }
+
+        // Preservation language is the "Anchor"
+        prompt.push_str(", while preserving the exact composition, lighting, color palette, and subjects of the original image with 100% fidelity. No hallucination of new features.");
+
+        let mut input = serde_json::json!({
+            "images": [image_url],
+            "prompt": prompt,
+            "turbo": false,
+            "aspect_ratio": "match_input_image"
+        });
+
+        if let Some(seed) = settings.seed {
+            input["seed"] = serde_json::json!(seed);
+        }
+
+        let req_body = serde_json::json!({
+            "input": input
+        });
+
+        info!("Running Pruna AI P-Image-Edit (Restoration Pass) with creativity={}...", creativity);
+        self.run_replicate_model(
+            "prunaai/p-image-edit",
+            "5bf99c2386ca54e33758b7b4d360cf2b9e0f2b61966cd764363173ab3810935b",
+            req_body
+        ).await
     }
 
-    pub async fn run_supir(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let req_body = serde_json::json!({
-            "input": {
-                "image": image_url,
-            }
-        });
-        info!("Running SUPIR pre-upscaler...");
-        self.run_replicate_model("shanginn/supir", "7d613b6c116c06555c6c072edfa406365cd8539960f2c037022985049d4977f6", req_body).await
-    }
+    pub async fn run_p_image_upscale(
+        &self,
+        image_url: &str,
+        quality: &str,
+        creativity: f32,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        // Map quality to target MP
+        let target_mp = match quality {
+            "2x" | "2K" => 4,
+            "4x" | "4K" => 8,
+            "6x" | "6K" => 8, // Cap at 8MP for p-image-upscale
+            _ => 4,
+        };
 
-    pub async fn run_p_image_upscale(&self, image_url: &str, style: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let req_body = serde_json::json!({
-            "input": {
-                "image": image_url,
-                "target": 2, // scale to 2MP for a cleaner Topaz baseline
-                "upscale_mode": "target",
-                "enhance_details": true,
-                "enhance_realism": style != "PHOTOGRAPHY", // Recommended for AI-generated images
-                "output_format": "png", // Lossless intermediate
-            }
+        let input = serde_json::json!({
+            "image": image_url,
+            "target": target_mp,
+            "upscale_mode": "target",
+            "enhance_details": creativity >= 0.2,
+            "enhance_realism": creativity >= 0.5,
+            "output_format": "jpg",
+            "output_quality": 95
         });
-        info!("Running fast generative pre-upscaler (p-image-upscale)...");
-        self.run_replicate_model("prunaai/p-image-upscale", "9018fe338f75cea08d1e3abc5f4f795d62594abf94326d5e590090f593bb1bac", req_body).await
+
+        let req_body = serde_json::json!({
+            "input": input
+        });
+
+        info!("Running Pruna AI P-Image-Upscale (Final Polish) to {}MP...", target_mp);
+        self.run_replicate_model(
+            "prunaai/p-image-upscale",
+            "9018fe338f75cea08d1e3abc5f4f795d62594abf94326d5e590090f593bb1bac",
+            req_body
+        ).await
     }
 
     pub async fn run_topaz(&self, image_url: &str, upscale_factor: &str, style: &str, topaz_mode: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
@@ -59,36 +162,69 @@ impl ReplicateClient {
             "CGI" => "CGI",
             "Text Refine" => "Text Refine",
             _ => {
-                // Fallback
                 if style == "PHOTOGRAPHY" { "Standard V2" } else { "CGI" }
             }
         };
-        let subject_detection = "None"; // More robust against artifacts than Foreground
         let req_body = serde_json::json!({
             "input": {
                 "image": image_url,
                 "enhance_model": enhance_model,
                 "upscale_factor": upscale_factor,
                 "face_enhancement": false,
-                "subject_detection": subject_detection,
+                "subject_detection": "None",
             }
         });
 
         info!("Starting Replicate Topaz job...");
-        let resp = self.client.post("https://api.replicate.com/v1/models/topazlabs/image-upscale/predictions")
-            .bearer_auth(&self.token)
-            .json(&req_body)
-            .send()
-            .await?;
+        self.run_replicate_model("topazlabs/image-upscale", "2fdc3b86a01d338ae89ad58e5d9241398a8a01de9b0dda41ba8a0434c8a00dc3", req_body).await
+    }
 
-        if !resp.status().is_success() {
-            let txt = resp.text().await?;
-            return Err(format!("Replicate API error: {}", txt).into());
+    async fn run_replicate_model(&self, model: &str, version: &str, req_body: serde_json::Value) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let mut attempts = 0;
+        let mut resp;
+        loop {
+            resp = self.client.post("https://api.replicate.com/v1/predictions")
+                .bearer_auth(&self.token)
+                .json(&serde_json::json!({
+                    "version": version,
+                    "input": req_body["input"]
+                }))
+                .send()
+                .await?;
+
+            if resp.status().is_success() {
+                break;
+            }
+
+            let status = resp.status();
+            if status == 429 && attempts < 10 {
+                attempts += 1;
+                
+                let retry_header = resp.headers()
+                    .get("Retry-After")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok());
+
+                let error_body = resp.text().await.unwrap_or_else(|_| "Could not read error body".to_string());
+                
+                // Try to get wait time from JSON body first (Replicate often puts it there)
+                let body_retry_after = serde_json::from_str::<serde_json::Value>(&error_body)
+                    .ok()
+                    .and_then(|v| v.get("retry_after").and_then(|ra| ra.as_u64()))
+                    .or(retry_header);
+
+                let wait_secs = body_retry_after.unwrap_or_else(|| 2_u64.pow(attempts));
+                info!("Replicate API throttled (429) for {}. Reason: {}. Retrying in {} seconds...", model, error_body, wait_secs);
+                
+                tokio::time::sleep(Duration::from_secs(wait_secs)).await;
+            } else {
+                let txt = resp.text().await?;
+                return Err(format!("Replicate API error ({}): {}", status, txt).into());
+            }
         }
 
         let mut pred: ReplicatePredictionResponse = resp.json().await?;
         
-        // Poll for completion
         while pred.status == "starting" || pred.status == "processing" {
             tokio::time::sleep(Duration::from_secs(3)).await;
             let get_resp = self.client.get(&format!("https://api.replicate.com/v1/predictions/{}", pred.id))
@@ -109,8 +245,9 @@ impl ReplicateClient {
             if let Some(out_url) = out.as_str() {
                 return Ok(out_url.to_string());
             } else if let Some(out_arr) = out.as_array() {
-                if let Some(first) = out_arr.first().and_then(|v| v.as_str()) {
-                    return Ok(first.to_string());
+                let joined: String = out_arr.iter().filter_map(|v| v.as_str()).collect();
+                if !joined.is_empty() {
+                    return Ok(joined);
                 }
             }
             Err("No output from Replicate".into())
@@ -119,39 +256,46 @@ impl ReplicateClient {
         }
     }
 
-    pub async fn run_nafnet(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let req_body = serde_json::json!({
-            "input": {
-                "image": image_url,
-                "task_type": "Image Debluring (REDS)"
+    async fn run_replicate_model_by_name(&self, model_owner: &str, model_name: &str, req_body: serde_json::Value) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let mut attempts = 0;
+        let mut resp;
+        loop {
+            resp = self.client.post(&format!("https://api.replicate.com/v1/models/{}/{}/predictions", model_owner, model_name))
+                .bearer_auth(&self.token)
+                .json(&serde_json::json!({
+                    "input": req_body["input"]
+                }))
+                .send()
+                .await?;
+
+            if resp.status().is_success() {
+                break;
             }
-        });
-        self.run_replicate_model("megvii-research/nafnet", "018241a6c880319404eaa2714b764313e27e11f950a7ff0a7b5b37b27b74dcf7", req_body).await
-    }
 
-    pub async fn run_scunet(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let req_body = serde_json::json!({
-            "input": {
-                "image": image_url,
-                "model_name": "real image denoising"
+            let status = resp.status();
+            if status == 429 && attempts < 10 {
+                attempts += 1;
+                
+                let retry_header = resp.headers()
+                    .get("Retry-After")
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|s| s.parse::<u64>().ok());
+
+                let error_body = resp.text().await.unwrap_or_else(|_| "Could not read error body".to_string());
+                
+                let body_retry_after = serde_json::from_str::<serde_json::Value>(&error_body)
+                    .ok()
+                    .and_then(|v| v.get("retry_after").and_then(|ra| ra.as_u64()))
+                    .or(retry_header);
+
+                let wait_secs = body_retry_after.unwrap_or_else(|| 2_u64.pow(attempts));
+                info!("Replicate API throttled (429) for {}/{}. Reason: {}. Retrying in {} seconds...", model_owner, model_name, error_body, wait_secs);
+                
+                tokio::time::sleep(Duration::from_secs(wait_secs)).await;
+            } else {
+                let txt = resp.text().await?;
+                return Err(format!("Replicate API error ({}): {}", status, txt).into());
             }
-        });
-        self.run_replicate_model("cszn/scunet", "b4eb5b1db3c94294246d628d09559c55b6ef2dd33c5eeb24f2b1d9fc665ed5b7", req_body).await
-    }
-
-    async fn run_replicate_model(&self, _model: &str, version: &str, req_body: serde_json::Value) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let resp = self.client.post("https://api.replicate.com/v1/predictions")
-            .bearer_auth(&self.token)
-            .json(&serde_json::json!({
-                "version": version,
-                "input": req_body["input"]
-            }))
-            .send()
-            .await?;
-
-        if !resp.status().is_success() {
-            let txt = resp.text().await?;
-            return Err(format!("Replicate API error: {}", txt).into());
         }
 
         let mut pred: ReplicatePredictionResponse = resp.json().await?;
@@ -176,8 +320,9 @@ impl ReplicateClient {
             if let Some(out_url) = out.as_str() {
                 return Ok(out_url.to_string());
             } else if let Some(out_arr) = out.as_array() {
-                if let Some(first) = out_arr.first().and_then(|v| v.as_str()) {
-                    return Ok(first.to_string());
+                let joined: String = out_arr.iter().filter_map(|v| v.as_str()).collect();
+                if !joined.is_empty() {
+                    return Ok(joined);
                 }
             }
             Err("No output from Replicate".into())

@@ -358,9 +358,13 @@ pub async fn upscale_handler(
     let mut style = "PHOTOGRAPHY".to_string();
     let mut prompt_settings_raw = None;
 
+    let mut original_filename = None;
     while let Ok(Some(field)) = multipart.next_field().await {
         match field.name() {
-            Some("image") => { image_data = field.bytes().await.ok(); }
+            Some("image") => { 
+                original_filename = field.file_name().map(|s| s.to_string());
+                image_data = field.bytes().await.ok(); 
+            }
             Some("scale") => { scale = field.text().await.unwrap_or_else(|_| "Auto".to_string()); }
             Some("style") => { style = field.text().await.unwrap_or_else(|_| "PHOTOGRAPHY".to_string()).to_uppercase(); }
             Some("prompt_settings") => { prompt_settings_raw = field.text().await.ok(); }
@@ -483,6 +487,9 @@ pub async fn upscale_handler(
             obj.insert("pre_processing_actual".to_string(), serde_json::Value::Bool(final_pre));
             obj.insert("post_polish_actual".to_string(), serde_json::Value::Bool(final_post));
             obj.insert("megapixels".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(megapixels as f64).unwrap()));
+            if let Some(fname) = original_filename {
+                obj.insert("original_filename".to_string(), serde_json::Value::String(fname));
+            }
             
             info!("Image classified: {} MP. Routing to Topaz mode: {}. Pre: {}, Post: {}", megapixels, final_mode, final_pre, final_post);
         }

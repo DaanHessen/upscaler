@@ -506,6 +506,15 @@ pub fn Sun(#[prop(default = 24)] size: u32, #[prop(optional)] custom_style: Stri
     }
 }
 #[component]
+pub fn ChevronDown(#[prop(default = 24)] size: u32, #[prop(optional)] custom_style: String) -> impl IntoView {
+    view! {
+        <svg xmlns="http://www.w3.org/2000/svg" width=size height=size viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style=custom_style>
+            <polyline points="6 9 12 15 18 9" />
+        </svg>
+    }
+}
+
+#[component]
 pub fn ChevronLeft(#[prop(default = 24)] size: u32, #[prop(optional)] custom_style: String) -> impl IntoView {
     view! {
         <svg xmlns="http://www.w3.org/2000/svg" width=size height=size viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style=custom_style>

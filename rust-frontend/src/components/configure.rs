@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos_router::hooks::use_navigate;
 use crate::{use_global_state, use_auth};
 use crate::api::{ApiClient, PromptSettings};
-use crate::components::icons::{Zap, ImageIcon, Target, RefreshCw, Download, ZoomIn, ZoomOut, Info};
+use crate::components::icons::{Zap, ImageIcon, Target, RefreshCw, Download, ZoomIn, ZoomOut, Info, Settings, ChevronDown};
 
 #[component]
 pub fn Configure() -> impl IntoView {
@@ -99,6 +99,11 @@ pub fn Configure() -> impl IntoView {
                 post_polish: gs.post_polish.get(),
                 topaz_mode: gs.topaz_mode.get(),
                 face_enhancement: gs.face_enhancement.get(),
+                skip_topaz: gs.skip_topaz.get(),
+                model: gs.model_choice.get(),
+                refinement: gs.refinement.get(),
+                creativity: gs.creativity.get(),
+                seed: gs.seed.get(),
             };
             leptos::task::spawn_local(async move {
                 match ApiClient::submit_upscale(&file, &scale_val, &p_settings, token.as_deref()).await {
@@ -333,15 +338,7 @@ pub fn Configure() -> impl IntoView {
                                                 <span>"RESOLUTION SCALING"</span>
                                             </div>
                                                 <div class="res-grid">
-                                                    <div
-                                                        class=move || if gs.scale.get() == "Auto" { "pack-item active" } else { "pack-item" }
-                                                        on:click=move |_| gs.set_scale.set("Auto".to_string())
-                                                    >
-                                                        <div class="pack-info">
-                                                            <span class="res-big-num">"Auto"</span>
-                                                            <span class="pack-price">"2+ credits"</span>
-                                                        </div>
-                                                    </div>
+
                                                     <div
                                                         class=move || if gs.scale.get() == "2x" { "pack-item active" } else { "pack-item" }
                                                         on:click=move |_| gs.set_scale.set("2x".to_string())
@@ -360,21 +357,76 @@ pub fn Configure() -> impl IntoView {
                                                             <span class="pack-price">"4 credits"</span>
                                                         </div>
                                                     </div>
-                                                    <div
-                                                        class=move || if gs.scale.get() == "6x" { "pack-item active" } else { "pack-item" }
-                                                        on:click=move |_| gs.set_scale.set("6x".to_string())
-                                                    >
-                                                        <div class="pack-info">
-                                                            <span class="res-big-num">"6x"</span>
-                                                            <span class="pack-price">"6 credits"</span>
+                                                    <Show when=move || gs.model_choice.get() == "Premium">
+                                                        <div
+                                                            class=move || if gs.scale.get() == "6x" { "pack-item active" } else { "pack-item" }
+                                                            on:click=move |_| gs.set_scale.set("6x".to_string())
+                                                        >
+                                                            <div class="pack-info">
+                                                                <span class="res-big-num">"6x"</span>
+                                                                <span class="pack-price">"6 credits"</span>
+                                                            </div>
                                                         </div>
-                                                    </div>
+                                                    </Show>
                                                 </div>
                                         </div>
                                     </div>
 
-                                    // ── Engine ──────────────────────
+                                    // ── Model Selection ────────────────
                                     <div class="card editor-card">
+                                        <div class="editor-card-body">
+                                            <div class="card-tag" style="margin-bottom: var(--s-8);">
+                                                <Settings size={10} />
+                                                <span>"MODEL"</span>
+                                            </div>
+
+                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
+                                                <label class="sb-label">"MODEL"</label>
+                                                <div class="seg-control">
+                                                    <button 
+                                                        class:active=move || gs.model_choice.get() == "Standard"
+                                                        on:click=move |_| {
+                                                            gs.set_model_choice.set("Standard".to_string());
+                                                            gs.set_skip_topaz.set(true);
+                                                            if gs.scale.get() == "6x" {
+                                                                gs.set_scale.set("4x".to_string());
+                                                            }
+                                                        }
+                                                    >"Standard"</button>
+                                                    <button 
+                                                        class:active=move || gs.model_choice.get() == "Premium"
+                                                        on:click=move |_| {
+                                                            gs.set_model_choice.set("Premium".to_string());
+                                                            gs.set_skip_topaz.set(false);
+                                                        }
+                                                    >"Premium"</button>
+                                                </div>
+                                                <p class="sb-hint" style="margin-top: 4px; font-size: 0.7rem; opacity: 0.6;">
+                                                    {move || if gs.model_choice.get() == "Standard" { "One-click ultra-fast upscale (1 credit)" } else { "Dual pass: Restoration + Topaz (2+ credits)" }}
+                                                </p>
+                                            </div>
+
+                                            <Show when=move || gs.model_choice.get() == "Premium">
+                                                <div class="sb-field" style="margin-top: var(--s-4);">
+                                                    <label class="sb-label" style="display: flex; align-items: center;">"REFINEMENT PASS"<span title="Runs a restoration pass via Pruna AI before the final Topaz upscale to improve clarity and remove artifacts." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                    <div class="seg-control">
+                                                        <button 
+                                                            class:active=move || gs.refinement.get()
+                                                            on:click=move |_| gs.set_refinement.set(true)
+                                                        >"On"</button>
+                                                        <button 
+                                                            class:active=move || !gs.refinement.get()
+                                                            on:click=move |_| gs.set_refinement.set(false)
+                                                        >"Off"</button>
+                                                    </div>
+                                                </div>
+                                            </Show>
+                                        </div>
+                                    </div>
+
+                                    // ── Engine ──────────────────────
+                                    <Show when=move || gs.model_choice.get() == "Premium">
+                                    <div class="card editor-card animate-in">
                                         <div class="editor-card-body">
                                             <div class="card-tag" style="margin-bottom: var(--s-8);">
                                                 <Zap size={10} />
@@ -395,70 +447,80 @@ pub fn Configure() -> impl IntoView {
                                                     <button 
                                                         class:active=move || gs.topaz_mode.get() == "Standard"
                                                         on:click=move |_| gs.set_topaz_mode.set("Standard".to_string())
-                                                    >"Standard"</button>
-                                                    <button 
-                                                        class:active=move || gs.topaz_mode.get() == "High Fidelity"
-                                                        on:click=move |_| gs.set_topaz_mode.set("High Fidelity".to_string())
-                                                    >"High Fidelity"</button>
+                                                     >"Standard"</button>
+                                                     <button 
+                                                         class:active=move || gs.topaz_mode.get() == "High Fidelity"
+                                                         on:click=move |_| gs.set_topaz_mode.set("High Fidelity".to_string())
+                                                     >"High Fidelity"</button>
+                                                 </div>
+                                             </div>
+
+                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
+                                                 <label class="sb-label" style="display: flex; align-items: center;">"STYLE"<span title="The visual style of the reconstructed image. Use Illustration for drawings/art." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                 <div class="seg-control">
+                                                     <button 
+                                                         class:active=move || gs.style.get() == "PHOTOGRAPHY"
+                                                         on:click=move |_| gs.set_style.set("PHOTOGRAPHY".to_string())
+                                                     >
+                                                         "Photography"
+                                                     </button>
+                                                     <button 
+                                                         class:active=move || gs.style.get() == "ILLUSTRATION"
+                                                         on:click=move |_| gs.set_style.set("ILLUSTRATION".to_string())
+                                                     >
+                                                         "Illustration"
+                                                     </button>
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     </div>
+                                     </Show>
+
+                                    // ── Model Parameters ─────────────
+                                     <Show when=move || gs.model_choice.get() == "Premium">
+                                     <div class="card editor-card animate-in">
+                                        <div class="editor-card-body">
+                                            <div class="card-tag" style="margin-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                                <div style="display: flex; align-items: center; gap: 4px;">
+                                                    <Target size={10} />
+                                                    <span>"MODEL PARAMETERS"</span>
                                                 </div>
+                                                <ChevronDown size={12} />
                                             </div>
 
-                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <label class="sb-label" style="display: flex; align-items: center;">"STYLE"<span title="The visual style of the reconstructed image. Use Illustration for drawings/art." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                <div class="seg-control">
-                                                    <button 
-                                                        class:active=move || gs.style.get() == "PHOTOGRAPHY"
-                                                        on:click=move |_| gs.set_style.set("PHOTOGRAPHY".to_string())
-                                                    >
-                                                        "Photography"
-                                                    </button>
-                                                    <button 
-                                                        class:active=move || gs.style.get() == "ILLUSTRATION"
-                                                        on:click=move |_| gs.set_style.set("ILLUSTRATION".to_string())
-                                                    >
-                                                        "Illustration"
-                                                    </button>
-                                                </div>
+                                            <div class="sb-field" style="margin-bottom: var(--s-4);">
+                                                <label class="sb-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                                    <span>"CREATIVITY"</span>
+                                                    <span class="sb-label-val">{move || format!("{:.0}%", gs.creativity.get() * 100.0)}</span>
+                                                </label>
+                                                <input 
+                                                    type="range" 
+                                                    min="0.0" 
+                                                    max="1.0" 
+                                                    step="0.01" 
+                                                    class="sb-slider"
+                                                    on:input=move |ev| gs.set_creativity.set(event_target_value(&ev).parse().unwrap_or(0.5))
+                                                    prop:value=move || gs.creativity.get()
+                                                />
+                                                <p class="sb-hint">"Higher values synthesize more detail but may diverge from the original."</p>
                                             </div>
 
-                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <label class="sb-label" style="display: flex; align-items: center;">"PRE-PROCESSING / RESTORATION"<span title="Use NAFNet and SUPIR to denoise and restore the image before upscaling." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                <div class="seg-control">
-                                                    <button 
-                                                        class:active=move || gs.pre_processing.get() == "Auto"
-                                                        on:click=move |_| gs.set_pre_processing.set("Auto".to_string())
-                                                    >"Auto"</button>
-                                                    <button 
-                                                        class:active=move || gs.pre_processing.get() == "Off"
-                                                        on:click=move |_| gs.set_pre_processing.set("Off".to_string())
-                                                    >"Off"</button>
-                                                    <button 
-                                                        class:active=move || gs.pre_processing.get() == "On"
-                                                        on:click=move |_| gs.set_pre_processing.set("On".to_string())
-                                                    >"On"</button>
-                                                </div>
+                                            <div class="sb-field">
+                                                <label class="sb-label">"SEED (OPTIONAL)"</label>
+                                                <input type="number" class="sb-input" placeholder="Random"
+                                                    on:input=move |ev| {
+                                                        let val = event_target_value(&ev);
+                                                        if val.is_empty() {
+                                                            gs.set_seed.set(None);
+                                                        } else {
+                                                            gs.set_seed.set(val.parse().ok());
+                                                        }
+                                                    }
+                                                    prop:value=move || gs.seed.get().map(|s| s.to_string()).unwrap_or_default() />
                                             </div>
-
-                                            <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <label class="sb-label" style="display: flex; align-items: center;">"POST-UPSCALE POLISH"<span title="Use SCUNet to perform a content-preserving final polish pass to remove artifacts." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                <div class="seg-control">
-                                                    <button 
-                                                        class:active=move || gs.post_polish.get() == "Auto"
-                                                        on:click=move |_| gs.set_post_polish.set("Auto".to_string())
-                                                    >"Auto"</button>
-                                                    <button 
-                                                        class:active=move || gs.post_polish.get() == "Off"
-                                                        on:click=move |_| gs.set_post_polish.set("Off".to_string())
-                                                    >"Off"</button>
-                                                    <button 
-                                                        class:active=move || gs.post_polish.get() == "On"
-                                                        on:click=move |_| gs.set_post_polish.set("On".to_string())
-                                                    >"On"</button>
-                                                </div>
-                                            </div>
-
                                         </div>
                                     </div>
+                                     </Show>
                                 </div>
 
                                 <div class="sb-footer">

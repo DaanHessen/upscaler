@@ -26,11 +26,25 @@ pub struct UserSettings {
     pub debug_gemini_only: bool,
     #[serde(default = "default_topaz_mode")]
     pub topaz_mode: String,
+    #[serde(default)]
+    pub skip_topaz: bool,
+    #[serde(default = "default_model")]
+    pub model: String,
+    #[serde(default)]
+    pub refinement: bool,
+
+    // Internalized SeeSR Parameters
+    #[serde(default = "default_creativity")]
+    pub creativity: f32,
+    #[serde(default)]
+    pub seed: Option<u64>,
 }
 
 fn default_off() -> String { "Off".to_string() }
 fn default_tool() -> String { "UPSCALE".to_string() }
 fn default_topaz_mode() -> String { "Auto".to_string() }
+fn default_model() -> String { "Premium".to_string() }
+fn default_creativity() -> f32 { 0.5 }
 
 pub fn save_classification(style: Option<String>) {
     if let Some(s) = style {

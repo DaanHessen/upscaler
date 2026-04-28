@@ -40,8 +40,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let config = upscaler::config::Config::load()?;
 
-    info!("--- UPSYL API v2 (MODULAR) ---");
-    info!("Initializing local NSFW moderation model...");
+    info!("--- I haven't named it ---");
     init_nsfw();
 
     let auth = AuthProvider::new().await?;
@@ -51,10 +50,10 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     // Fetch JWKS from Supabase
     let jwks_url = format!("{}/auth/v1/.well-known/jwks.json", config.supabase_url);
-    let jwks_response = reqwest::get(&jwks_url).await.expect("Failed to fetch JWKS");
-    let jwks: jsonwebtoken::jwk::JwkSet = jwks_response.json().await.expect("Failed to parse JWKS");
+    let jwks_response = reqwest::get(&jwks_url).await?;
+    let jwks: jsonwebtoken::jwk::JwkSet = jwks_response.json().await?;
 
-    let replicate = Arc::new(upscaler::replicate::ReplicateClient::new());
+    let replicate = Arc::new(upscaler::replicate::ReplicateClient::new()?);
 
     let state = Arc::new(AppState {
         client,

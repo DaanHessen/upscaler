@@ -1,3 +1,4 @@
+
 [package]
 name = "upscaler"
 version = "0.1.0"
@@ -35,26 +36,3 @@ hex = "0.4"
 
 [build-dependencies]
 ureq = "3.3.0"
-
-[[bin]]
-name = "batch-test"
-path = "test/validator.rs"
-
-[[bin]]
-name = "exploit-test"
-path = "test/exploit_test.rs"
-
-[[bin]]
-name = "single-nsfw-test"
-path = "test/single_nsfw_test.rs"
-[[bin]]
-name = "image-tester"
-path = "test/classifier_summary.rs"
-
-[[bin]]
-name = "integrated-flow"
-path = "test/integrated_flow.rs"
-
-[[bin]]
-name = "load-test"
-path = "test/load_test.rs"
