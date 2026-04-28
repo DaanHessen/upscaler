@@ -51,14 +51,13 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     // Step 2: Model Branching
     let final_url = if prompt_settings.model == "Standard" {
-        // Pass 1: Detail restoration with adaptive scaling
-        // For ultra-low res, don't over-scale too early or we just feed blur to the AI.
-        // For standard mode, we keep the restoration pass at a conservative 1K resolution
-        // to stay within the GPU memory limits (2MP) of the Real-ESRGAN upscaler.
-        let target_res = if input_mp < 0.1 { "768px" } else { "1K" };
-        info!("Running Standard Mode Pass 1: Detail restoration ({})...", target_res);
+        // Standard Mode: Single-Pass Technical Upscale
+        // We use a single high-quality Real-ESRGAN pass to ensure maximum photographic fidelity
+        // and bypass the 2MP input memory limits of the Replicate hardware.
+        let target_res = if input_mp < 0.1 { "1K" } else { "2MP" };
+        info!("Running Standard Mode: Single-pass technical upscale ({})...", target_res);
         
-        let restore_pre_bytes = match crate::processor::scale_to_resolution(&raw_bytes, target_res) {
+        let prep_bytes = match crate::processor::scale_to_resolution(&raw_bytes, target_res) {
             Ok(b) => b,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
@@ -67,7 +66,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             }
         };
 
-        let restore_uri = match state.storage.upload_temp(restore_pre_bytes, &format!("{}_standard_restore.jpg", job.id)).await {
+        let prep_uri = match state.storage.upload_temp(prep_bytes, &format!("{}_standard_prep.jpg", job.id)).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Storage error: {}", e), start_time.elapsed().as_millis() as i32).await;
@@ -76,21 +75,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             }
         };
 
-        let restored_uri = match state.replicate.run_real_esrgan_2x(&restore_uri).await {
-            Ok(url) => url,
-            Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Standard technical restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
-                let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
-                return Err(e);
-            }
-        };
-
-        // Small jitter to prevent burst 429s on sequential steps
-        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-
-        // Pass 2: Upscale to final target (2K/4K/6K) using Hybrid Predictive Upscale
-        info!("Running Standard Mode Pass 2: Final {} Hybrid upscale (Real-ESRGAN)...", job.quality);
-        match state.replicate.run_real_esrgan(&restored_uri, &job.quality).await {
+        match state.replicate.run_real_esrgan(&prep_uri, &job.quality).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Standard upscale error: {}", e), start_time.elapsed().as_millis() as i32).await;
