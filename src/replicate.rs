@@ -66,20 +66,32 @@ impl ReplicateClient {
         let mut neg_prompt = "blurry, smooth, plastic, cartoon, noise, artifacts, smeared, fake, distorted, weird textures, artificial patterns".to_string();
 
         // 1. Core Instruction: FIDELITY FIRST
-        prompt.push_str("100% high-fidelity preservation of the original image's soul, composition, and subjects. ");
+        prompt.push_str("Maintain absolute fidelity to the original image's soul, composition, and lighting. ");
+        prompt.push_str("Strictly preserve the original color balance and white balance. No color shifting. ");
 
         if is_grayscale {
             prompt.push_str("Strictly black and white, monochrome, high-contrast grayscale. ");
             neg_prompt.push_str(", color, saturation, sepia, hue, tint");
         }
 
+        let is_human = caption.as_ref().map(|c| {
+            let c = c.to_lowercase();
+            c.contains("skin") || c.contains("person") || c.contains("human") || 
+            c.contains("face") || c.contains("foot") || c.contains("arm") || 
+            c.contains("hand") || c.contains("man") || c.contains("woman")
+        }).unwrap_or(false);
+
         if is_low_res {
             // --- BRANCH A: RECONSTRUCTION (Low-res) ---
-            prompt.push_str("Clean generative reconstruction and detail restoration");
+            prompt.push_str("Clean high-fidelity reconstruction and detail restoration");
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of {},", cap));
             }
-            prompt.push_str(" raw optical sharpness, ultra-detailed organic textures, neutral lighting, masterpiece");
+            if is_human {
+                prompt.push_str(" preserve soft natural skin textures and organic smooth gradients, realistic human appearance");
+            } else {
+                prompt.push_str(" crisp optical clarity, natural organic textures");
+            }
         } else if is_premium_pre_pass {
             // --- BRANCH B: PRE-PASS (Premium) ---
             prompt.push_str("Gentle artifact removal, pristine image cleanup, noise reduction");
@@ -89,22 +101,28 @@ impl ReplicateClient {
             prompt.push_str(" remove jpeg artifacts, preserve original tonal balance");
         } else {
             // --- BRANCH C: ENHANCEMENT (Standard High-res) ---
-            prompt.push_str("Professional high-fidelity enhancement, ultra-sharp focus, clean optical clarity");
+            prompt.push_str("Professional high-fidelity enhancement, clean optical clarity");
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of the {}", cap));
             }
-            prompt.push_str(", 8k UHD, photorealistic finish");
+            if is_human {
+                prompt.push_str(", preserve natural skin softness and realistic human detail");
+            } else {
+                prompt.push_str(", professional studio finish, natural textures");
+            }
         }
 
         // Apply Edge Sharpening preference
         if refinement {
             prompt.push_str(", crisp edge definition, sharp high-frequency details");
         } else {
-            prompt.push_str(", natural smooth textures, soft organic finish");
+            prompt.push_str(", natural smooth textures, soft organic finish, realistic preservation");
         }
 
         // Final Anchor
-        prompt.push_str(". Do not add new features or change the original anatomy/structure.");
+        prompt.push_str(". Do not add new features, do not change the original anatomy, and do not alter the original color grading.");
+
+        neg_prompt.push_str(", color shift, color grading, stylized, over-sharpened, etched, scaly, non-human skin, uncanny valley, artificial texture");
 
         let mut input = serde_json::json!({
             "images": [image_url],
@@ -148,8 +166,8 @@ impl ReplicateClient {
             "image": image_url,
             "target": target_mp,
             "upscale_mode": "target",
-            "enhance_details": creativity >= 0.2,
-            "enhance_realism": creativity >= 0.5,
+            "enhance_details": creativity >= 0.4,
+            "enhance_realism": creativity >= 0.7,
             "output_format": "jpg",
             "output_quality": 95
         });
