@@ -33,19 +33,22 @@ impl ReplicateClient {
     pub async fn run_blip_caption(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         let req_body = serde_json::json!({
             "input": {
-                "image": image_url,
-                "query": "Describe this image in a short, comma-separated list of keywords and main subjects."
+                "image": image_url
             }
         });
-        info!("Running BLIP-3 captioning pass...");
+        info!("Running fast BLIP-base captioning pass...");
+        let start = std::time::Instant::now();
         let res = match self.run_replicate_model(
-            "zsxkib/blip-3",
-            "72044dfaaa18e83ebee21d2161efe40f59303b5a087b8680aca809e5e53481d8",
+            "salesforce/blip",
+            "2e1dddc8621f72155f24cf2e0adbde548458d3cab9f00c0139eea840d0ac4746",
             req_body
         ).await {
-            Ok(c) => c,
+            Ok(c) => {
+                info!("Fast BLIP generated caption in {}ms", start.elapsed().as_millis());
+                c
+            },
             Err(e) => {
-                tracing::error!("BLIP-3 captioning failed: {}", e);
+                tracing::error!("BLIP captioning failed: {}", e);
                 return Err(e);
             }
         };
@@ -81,8 +84,32 @@ impl ReplicateClient {
             neg_prompt.push_str(", color, saturation, sepia, hue, tint");
         }
 
-        let category = self.derive_category(caption.as_deref(), style);
-        info!("Smarter Prompting — Style: {:?}, Category: {}, Caption: {:?}", style, category, caption);
+        let mut category = self.derive_category(caption.as_deref(), style);
+        
+        // --- STYLE ENFORCEMENT RULE ---
+        // If the caption clearly identifies a natural/organic subject, force Photography mode
+        // to protect against local classifier false positives (like the deer).
+        let forced_photo = match category.as_str() {
+            "Wildlife" | "Portrait" | "Nature" | "Food" => {
+                if !caption.as_ref().map(|c| c.to_lowercase().contains("drawing") || c.to_lowercase().contains("illustration") || c.to_lowercase().contains("painting")).unwrap_or(false) {
+                    true
+                } else {
+                    false
+                }
+            },
+            _ => false,
+        };
+
+        let effective_style = if forced_photo {
+            if style == crate::processor::ImageStyle::Illustration {
+                info!("Smarter Prompting — Corrected Style: Illustration -> Photography based on Category: {}", category);
+            }
+            crate::processor::ImageStyle::Photography
+        } else {
+            style
+        };
+
+        info!("Smarter Prompting — Style: {:?}, Category: {}, Caption: {:?}", effective_style, category, caption);
 
         if is_low_res {
             // --- BRANCH A: RECONSTRUCTION (Low-res) ---
@@ -96,7 +123,13 @@ impl ReplicateClient {
                 "Wildlife" => prompt.push_str(" preserve soft natural fur/feather textures, realistic animal appearance, maintain organic softness"),
                 "Landscape" | "Nature" => prompt.push_str(" preserve natural organic textures, crisp foliage detail, realistic depth"),
                 "Architecture" | "Geometric" => prompt.push_str(" crisp optical clarity, clean geometric edges, maintain straight architectural lines"),
-                _ => prompt.push_str(" crisp optical clarity, natural organic textures"),
+                _ => {
+                    if effective_style == crate::processor::ImageStyle::Photography {
+                         prompt.push_str(" natural organic textures, realistic clarity");
+                    } else {
+                         prompt.push_str(" crisp optical clarity, clean geometric edges");
+                    }
+                }
             }
         } else if is_premium_pre_pass {
             // --- BRANCH B: PRE-PASS (Premium) ---
@@ -117,7 +150,13 @@ impl ReplicateClient {
                 "Wildlife" => prompt.push_str(", maintain soft organic fur texture and natural animal features"),
                 "Landscape" | "Nature" => prompt.push_str(", preserve natural atmospheric clarity and organic detail"),
                 "Architecture" | "Geometric" => prompt.push_str(", maintain clean geometric edges and original detail"),
-                _ => prompt.push_str(", maintain natural softness and realistic textures"),
+                _ => {
+                    if effective_style == crate::processor::ImageStyle::Photography {
+                        prompt.push_str(", maintain natural softness and realistic textures");
+                    } else {
+                        prompt.push_str(", maintain clean geometric edges and original detail");
+                    }
+                }
             }
         }
 
