@@ -74,10 +74,10 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             }
         };
 
-        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, false, style, input_mp).await {
+        let restored_uri = match state.replicate.run_swinir(&restore_uri).await {
             Ok(url) => url,
             Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Standard restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.update_job_failed(job.id, &format!("Standard technical restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
                 let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
                 return Err(e);
             }

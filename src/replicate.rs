@@ -225,6 +225,22 @@ impl ReplicateClient {
         ).await
     }
 
+    pub async fn run_swinir(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+        let req_body = serde_json::json!({
+            "input": {
+                "image": image_url,
+                "task_type": "JPEG Compression Artifact Reduction"
+            }
+        });
+
+        info!("Running SwinIR Technical Restoration (Artifact Reduction)...");
+        self.run_replicate_model(
+            "jingyunliang/swinir",
+            "660d922d33153019e8c263a3bba265de882e7f4f70396546b6c9c8f9d47a021a",
+            req_body
+        ).await
+    }
+
     pub async fn run_topaz(&self, image_url: &str, upscale_factor: &str, style: &str, topaz_mode: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         let enhance_model = match topaz_mode {
             "Low Quality Recovery" => "Low Resolution V2",
