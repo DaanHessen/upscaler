@@ -44,6 +44,9 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             None
         }
     };
+    
+    // Small jitter to stagger bursty Replicate calls
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
     // Step 2: Model Branching
     if prompt_settings.model == "Standard" {
@@ -71,6 +74,9 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
                 return Err(e);
             }
         };
+
+        // Small jitter to prevent burst 429s on sequential steps
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
         // Pass 2: Upscale to final target (2K/4K/6K)
         info!("Running Standard Mode Pass 2: Final {} upscale...", job.quality);

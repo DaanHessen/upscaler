@@ -423,8 +423,6 @@ pub fn Configure() -> impl IntoView {
                                         </div>
                                     </div>
 
-                                    // ── Engine ──────────────────────
-                                    <Show when=move || gs.model_choice.get() == "Premium">
                                     <div class="card editor-card animate-in">
                                         <div class="editor-card-body">
                                             <div class="card-tag" style="margin-bottom: var(--s-8);">
@@ -432,48 +430,49 @@ pub fn Configure() -> impl IntoView {
                                                 <span>"ENGINE"</span>
                                             </div>
 
+                                            <Show when=move || gs.model_choice.get() == "Premium">
+                                                <div class="sb-field" style="margin-bottom: var(--s-6);">
+                                                    <label class="sb-label" style="display: flex; align-items: center;">"RECONSTRUCTION MODE"<span title="Auto selects the best mode based on input resolution. Low Quality Recovery aggressively repairs artifacts. High Fidelity preserves details in high-res images." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                    <div class="seg-control">
+                                                        <button 
+                                                            class:active=move || gs.topaz_mode.get() == "Auto"
+                                                            on:click=move |_| gs.set_topaz_mode.set("Auto".to_string())
+                                                        >"Auto"</button>
+                                                        <button 
+                                                            class:active=move || gs.topaz_mode.get() == "Low Quality Recovery"
+                                                            on:click=move |_| gs.set_topaz_mode.set("Low Quality Recovery".to_string())
+                                                        >"Low Quality Recovery"</button>
+                                                        <button 
+                                                            class:active=move || gs.topaz_mode.get() == "Standard"
+                                                            on:click=move |_| gs.set_topaz_mode.set("Standard".to_string())
+                                                        >"Standard"</button>
+                                                        <button 
+                                                            class:active=move || gs.topaz_mode.get() == "High Fidelity"
+                                                            on:click=move |_| gs.set_topaz_mode.set("High Fidelity".to_string())
+                                                        >"High Fidelity"</button>
+                                                    </div>
+                                                </div>
+                                            </Show>
+
                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                <label class="sb-label" style="display: flex; align-items: center;">"RECONSTRUCTION MODE"<span title="Auto selects the best mode based on input resolution. Low Quality Recovery aggressively repairs artifacts. High Fidelity preserves details in high-res images." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                <label class="sb-label" style="display: flex; align-items: center;">"STYLE"<span title="The visual style of the reconstructed image. Use Illustration for drawings/art." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
                                                 <div class="seg-control">
                                                     <button 
-                                                        class:active=move || gs.topaz_mode.get() == "Auto"
-                                                        on:click=move |_| gs.set_topaz_mode.set("Auto".to_string())
-                                                    >"Auto"</button>
+                                                        class:active=move || gs.style.get() == "PHOTOGRAPHY"
+                                                        on:click=move |_| gs.set_style.set("PHOTOGRAPHY".to_string())
+                                                    >
+                                                        "Photography"
+                                                    </button>
                                                     <button 
-                                                        class:active=move || gs.topaz_mode.get() == "Low Quality Recovery"
-                                                        on:click=move |_| gs.set_topaz_mode.set("Low Quality Recovery".to_string())
-                                                    >"Low Quality Recovery"</button>
-                                                    <button 
-                                                        class:active=move || gs.topaz_mode.get() == "Standard"
-                                                        on:click=move |_| gs.set_topaz_mode.set("Standard".to_string())
-                                                     >"Standard"</button>
-                                                     <button 
-                                                         class:active=move || gs.topaz_mode.get() == "High Fidelity"
-                                                         on:click=move |_| gs.set_topaz_mode.set("High Fidelity".to_string())
-                                                     >"High Fidelity"</button>
-                                                 </div>
-                                             </div>
-
-                                             <div class="sb-field" style="margin-bottom: var(--s-6);">
-                                                 <label class="sb-label" style="display: flex; align-items: center;">"STYLE"<span title="The visual style of the reconstructed image. Use Illustration for drawings/art." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                 <div class="seg-control">
-                                                     <button 
-                                                         class:active=move || gs.style.get() == "PHOTOGRAPHY"
-                                                         on:click=move |_| gs.set_style.set("PHOTOGRAPHY".to_string())
-                                                     >
-                                                         "Photography"
-                                                     </button>
-                                                     <button 
-                                                         class:active=move || gs.style.get() == "ILLUSTRATION"
-                                                         on:click=move |_| gs.set_style.set("ILLUSTRATION".to_string())
-                                                     >
-                                                         "Illustration"
-                                                     </button>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                     </div>
-                                     </Show>
+                                                        class:active=move || gs.style.get() == "ILLUSTRATION"
+                                                        on:click=move |_| gs.set_style.set("ILLUSTRATION".to_string())
+                                                    >
+                                                        "Illustration"
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     // ── Model Parameters ─────────────
                                      <div class="card editor-card animate-in">

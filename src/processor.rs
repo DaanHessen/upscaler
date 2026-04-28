@@ -321,11 +321,11 @@ pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle 
     // --- Flatness signals (thresholds raised because fuzzy matching inflates scores) ---
     // With fuzzy matching (threshold=8), even photo gradients score ~0.3-0.5 flatness.
     // Real illustrations with flat fills score 0.6+. Require higher bar.
-    if flatness > 0.60 && entropy < 6.5 {
+    if flatness > 0.70 && entropy < 6.0 {
         illustration_score += 2.5;
-    } else if flatness > 0.60 && entropy >= 6.5 {
-        // High flatness + high entropy = compressed photo with gradients, NOT illustration
-        photo_score += 1.0;
+    } else if flatness > 0.60 && entropy >= 6.0 {
+        // High flatness + high entropy = compressed photo with gradients/bokeh, NOT illustration
+        photo_score += 2.0;
     }
     
     if flatness < 0.15 {

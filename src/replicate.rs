@@ -148,12 +148,13 @@ impl ReplicateClient {
 
         // Final Anchor
         prompt.push_str(" Maintain original dynamic range. Do not crush blacks or blow out highlights. ");
-        prompt.push_str("Strictly do not add new features, do not change anatomy, do not alter the original color palette, and strictly do not add new hair strands.");
+        prompt.push_str("Strictly do not add new features, do not change anatomy, do not alter the original color palette, and strictly do not add new hair strands. ");
+        prompt.push_str("Preserve natural soft bokeh and out-of-focus areas. No over-sharpening, no halos, and no white outlines.");
 
         // Overhauled Negative Prompt
-        neg_prompt = "plastic skin, airbrushed, waxiness, smeared details, over-sharpened, etched textures, cinematic lighting, dramatic shadows, color shift, cartoonish, digital art look, beauty filter, fake textures, distorted anatomy, artificial digital noise, high contrast, crushed blacks, oversaturated, neon, artificial fur, painting look, smeared details, weird anatomy, extra limbs, fused fingers, low quality, blurry, pixelated, jpeg artifacts".to_string();
+        neg_prompt = "plastic skin, airbrushed, waxiness, smeared details, over-sharpened, etched textures, cinematic lighting, dramatic shadows, color shift, cartoonish, digital art look, beauty filter, fake textures, distorted anatomy, artificial digital noise, high contrast, crushed blacks, oversaturated, neon, artificial fur, painting look, smeared details, weird anatomy, extra limbs, fused fingers, low quality, blurry, pixelated, jpeg artifacts, halos, white outlines, over-etched edges, artificial sharpness".to_string();
 
-        let lora_scale = 0.5 + (creativity * 0.5); // Lower adaptation range: 0.5 to 1.0
+        let lora_scale = 0.4 + (creativity * 0.4); // Lower adaptation range: 0.4 to 0.8
 
         let mut input = serde_json::json!({
             "images": [image_url],
