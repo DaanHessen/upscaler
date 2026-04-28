@@ -158,7 +158,7 @@ impl ReplicateClient {
             "negative_prompt": neg_prompt,
             "turbo": false,
             "aspect_ratio": "match_input_image",
-            "replicate_weights": if is_low_res { "upscale" } else { "light_restoration" }
+            "replicate_weights": if is_low_res { "default" } else { "light_restoration" }
         });
 
         if let Some(seed) = settings.seed {
