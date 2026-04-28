@@ -79,62 +79,59 @@ impl ReplicateClient {
         prompt.push_str("tok_enhance. ");
 
         // 2. Identity & Fidelity Anchor
-        prompt.push_str("Ultra-high-fidelity enhancement of image 1. ");
+        prompt.push_str("Subtle photographic cleanup of image 1. ");
         prompt.push_str("Strictly preserve the original identity, composition, and soul. ");
 
         let (effective_style, category) = self.decide_style_and_category(caption.as_deref(), style);
         
-        // 3. Resolution-Specific Strategy (The Reconstruction vs Refinement Split)
-        if input_mp < 0.3 {
-            // --- BRANCH A: RECONSTRUCTION (Ultra Low-Res, e.g., 256px - 512px) ---
-            prompt.push_str("Structural reconstruction pass. Rebuild missing high-frequency details. ");
-            prompt.push_str("Generate sharp, logical micro-textures based on image 1. ");
+        // 3. Resolution-Specific Strategy (Reconstruction vs. Subtle Cleanup)
+        if input_mp < 0.15 {
+            // --- BRANCH A: RECONSTRUCTION (Ultra Low-Res, e.g., < 300px) ---
+            prompt.push_str("Structural restoration pass. Remove heavy blur and fix pixelation. ");
+            prompt.push_str("Cleanly reconstruct missing details based on image 1. ");
             if let Some(cap) = caption.as_ref() {
-                prompt.push_str(&format!("Accurately reconstruct the features of {}. ", cap));
+                prompt.push_str(&format!("Accurately restore the features of {}. ", cap));
             }
-        } else if input_mp < 1.0 {
-            // --- BRANCH B: ENHANCEMENT (Mid-Res, e.g., 720p) ---
-            prompt.push_str("Detail enhancement and artifact removal. ");
-            prompt.push_str("Sharpen existing features and inject realistic clarity. ");
         } else {
-            // --- BRANCH C: REFINEMENT (High-Res, e.g., 1080p+) ---
-            prompt.push_str("Subtle photographic refinement and clarity polish. ");
-            prompt.push_str("Pixel-perfect restoration. Preserve all existing textures without modification. ");
-            prompt.push_str("Zero hallucination. Enhance only the raw clarity. ");
+            // --- BRANCH B: CONSERVATIVE CLEANUP (Standard/High-Res) ---
+            prompt.push_str("High-fidelity artifact removal. Remove JPEG compression, noise, and digital grain. ");
+            prompt.push_str("Maintain 100% fidelity to the original features. Do not regenerate textures. ");
+            prompt.push_str("Strictly no changes to the subject or background. ");
         }
 
-        // 4. Texture Locking (Category-Specific)
+        // 4. Texture & Detail Preservation
         if effective_style == crate::processor::ImageStyle::Photography {
-            match category.as_str() {
-                "Portrait" => prompt.push_str("Lock skin texture: implement visible pores and fine facial hair. Sharp iris detail. "),
-                "Wildlife" => prompt.push_str("Lock fur texture: implement individual hair strands with natural flow. Preserve soft organic transitions. Sharp eye detail. "),
-                "Nature" | "Landscape" => prompt.push_str("Lock organic texture: implement crisp foliage, intricate rock detail, and atmospheric depth. "),
-                "Architecture" => prompt.push_str("Lock geometric texture: implement sharp architectural lines and realistic material grit. "),
-                _ => prompt.push_str("Implement sharp, realistic photographic micro-textures. "),
+            if input_mp < 0.15 {
+                match category.as_str() {
+                    "Portrait" => prompt.push_str("Maintain skin texture and sharp iris detail. "),
+                    "Wildlife" => prompt.push_str("Maintain natural fur flow and sharp eye detail. "),
+                    _ => prompt.push_str("Maintain realistic photographic micro-textures. "),
+                }
+            } else {
+                prompt.push_str("Preserve existing photographic textures. Maintain organic softness. ");
             }
         } else {
-            prompt.push_str("Lock artistic style: maintain clean line art, smooth vector fills, and original color fields. ");
+            prompt.push_str("Maintain clean line art and original color fields. ");
         }
 
         // 5. Lighting & Finish
-        prompt.push_str("Balanced exposure, soft natural lighting, raw photo aesthetic. ");
-        prompt.push_str("Strictly preserve creamy, smooth out-of-focus bokeh background. Do not sharpen or add detail to the background. ");
-        prompt.push_str("Strictly no over-sharpening, no halos, no white outlines. ");
+        prompt.push_str("Balanced exposure, soft natural lighting. ");
+        prompt.push_str("Strictly preserve smooth out-of-focus bokeh background. Do not sharpen or add detail to the background. ");
+        prompt.push_str("No halos, no white outlines, no over-sharpening. ");
 
         // 6. Creativity Scaling (Affects Prompt Density)
-        if creativity > 0.7 {
-            prompt.push_str("Add elaborate realistic detail. Generative reconstruction. ");
+        if creativity > 0.7 && input_mp < 0.3 {
+            prompt.push_str("Enhanced reconstruction. ");
         } else if creativity < 0.3 {
-            prompt.push_str("Subtle cleanup only. 100% pixel preservation. ");
+            prompt.push_str("Minimal cleanup only. ");
         }
 
-        // 7. Overhauled Negative Prompt
-        let neg_prompt = "plastic skin, airbrushed, waxiness, smeared details, over-sharpened, etched textures, cinematic lighting, dramatic shadows, color shift, cartoonish, digital art look, beauty filter, fake textures, distorted anatomy, artificial digital noise, high contrast, crushed blacks, halos, white outlines, over-etched edges, artificial sharpness, over-saturated, blurry, pixelated, jpeg artifacts, sharpening artifacts in bokeh, textured blur".to_string();
+        // 7. Overhauled Negative Prompt (Blocking the "AI Look")
+        let neg_prompt = "AI look, digital painting, generative artifacts, plastic skin, airbrushed, waxiness, smeared details, over-sharpened, etched textures, cinematic lighting, dramatic shadows, color shift, cartoonish, digital art look, beauty filter, fake textures, distorted anatomy, artificial digital noise, high contrast, crushed blacks, halos, white outlines, over-etched edges, artificial sharpness, over-saturated, blurry, pixelated, jpeg artifacts, sharpening artifacts in bokeh, textured blur".to_string();
 
-        // 8. Adaptive LoRA Scaling
-        // Low-res needs more "hallucination" help (higher scale). High-res needs only subtle polish (lower scale).
-        let base_scale = if input_mp < 0.3 { 0.85 } else if input_mp < 1.0 { 0.55 } else { 0.40 };
-        let lora_scale = (base_scale + (creativity - 0.5) * 0.4).clamp(0.2, 1.2);
+        // 8. Adaptive LoRA Scaling (Significantly Lowered for Realism)
+        let base_scale = if input_mp < 0.15 { 0.70 } else if input_mp < 1.0 { 0.35 } else { 0.20 };
+        let lora_scale = (base_scale + (creativity - 0.5) * 0.3).clamp(0.1, 1.0);
 
         let mut input = serde_json::json!({
             "images": [image_url],
