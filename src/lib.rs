@@ -1,7 +1,6 @@
 pub mod config;
 pub mod errors;
 pub mod auth;
-pub mod client;
 pub mod credits;
 pub mod replicate;
 pub mod models;
@@ -14,8 +13,6 @@ pub mod worker;
 pub mod janitor;
 pub mod handlers;
 
-use crate::client::VertexProvider;
-use crate::auth::AuthProvider;
 use crate::storage::StorageProvider;
 use crate::db::DbProvider;
 use crate::replicate::ReplicateClient;
@@ -23,9 +20,7 @@ use jsonwebtoken::jwk::JwkSet;
 use std::sync::Arc;
 
 pub struct AppState {
-    pub client: Arc<dyn VertexProvider>,
     pub replicate: Arc<ReplicateClient>,
-    pub auth: AuthProvider,
     pub storage: Arc<dyn StorageProvider>,
     pub db: Arc<dyn DbProvider>,
     pub jwks: JwkSet,

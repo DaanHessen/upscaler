@@ -34,15 +34,21 @@ impl ReplicateClient {
         let req_body = serde_json::json!({
             "input": {
                 "image": image_url,
-                "prompt": "Describe this image in a short, comma-separated list of keywords and main subjects."
+                "query": "Describe this image in a short, comma-separated list of keywords and main subjects."
             }
         });
         info!("Running BLIP-3 captioning pass...");
-        let res = self.run_replicate_model_by_name(
-            "zsxkib",
-            "blip-3",
+        let res = match self.run_replicate_model(
+            "zsxkib/blip-3",
+            "72044dfaaa18e83ebee21d2161efe40f59303b5a087b8680aca809e5e53481d8",
             req_body
-        ).await?;
+        ).await {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::error!("BLIP-3 captioning failed: {}", e);
+                return Err(e);
+            }
+        };
 
         // The response is usually a string starting with "Caption: ..." or just the caption
         let caption = res.replace("Caption:", "").trim().to_string();
@@ -75,45 +81,43 @@ impl ReplicateClient {
             neg_prompt.push_str(", color, saturation, sepia, hue, tint");
         }
 
-        let low_caps = caption.as_ref().map(|c| c.to_lowercase()).unwrap_or_default();
-        let is_human = low_caps.contains("skin") || low_caps.contains("person") || low_caps.contains("human") || 
-                       low_caps.contains("face") || low_caps.contains("foot") || low_caps.contains("arm") || 
-                       low_caps.contains("hand") || low_caps.contains("man") || low_caps.contains("woman");
-        
-        let is_organic = is_human || 
-                         low_caps.contains("animal") || low_caps.contains("deer") || low_caps.contains("fur") || 
-                         low_caps.contains("bird") || low_caps.contains("pet") || low_caps.contains("nature") || 
-                         low_caps.contains("flower") || low_caps.contains("dog") || low_caps.contains("cat") ||
-                         (caption.is_none() && style == crate::processor::ImageStyle::Photography);
+        let category = self.derive_category(caption.as_deref(), style);
+        info!("Smarter Prompting — Style: {:?}, Category: {}, Caption: {:?}", style, category, caption);
 
         if is_low_res {
             // --- BRANCH A: RECONSTRUCTION (Low-res) ---
             prompt.push_str("Clean high-fidelity reconstruction and detail restoration");
-            if let Some(cap) = caption {
+            if let Some(cap) = caption.as_ref() {
                 prompt.push_str(&format!(" of {},", cap));
             }
-            if is_organic {
-                prompt.push_str(" preserve soft natural textures and organic smooth gradients, realistic appearance");
-            } else {
-                prompt.push_str(" crisp optical clarity, clean geometric edges");
+
+            match category.as_str() {
+                "Portrait" => prompt.push_str(" preserve soft natural skin textures and organic smooth gradients, realistic human appearance"),
+                "Wildlife" => prompt.push_str(" preserve soft natural fur/feather textures, realistic animal appearance, maintain organic softness"),
+                "Landscape" | "Nature" => prompt.push_str(" preserve natural organic textures, crisp foliage detail, realistic depth"),
+                "Architecture" | "Geometric" => prompt.push_str(" crisp optical clarity, clean geometric edges, maintain straight architectural lines"),
+                _ => prompt.push_str(" crisp optical clarity, natural organic textures"),
             }
         } else if is_premium_pre_pass {
             // --- BRANCH B: PRE-PASS (Premium) ---
             prompt.push_str("Gentle artifact removal, pristine image cleanup, noise reduction");
-            if let Some(cap) = caption {
+            if let Some(cap) = caption.as_ref() {
                 prompt.push_str(&format!(" of {},", cap));
             }
             prompt.push_str(" remove jpeg artifacts, preserve original tonal balance");
         } else {
             // --- BRANCH C: ENHANCEMENT (Standard High-res) ---
             prompt.push_str("Subtle high-fidelity refinement, preserve original character");
-            if let Some(cap) = caption {
+            if let Some(cap) = caption.as_ref() {
                 prompt.push_str(&format!(" of the {}", cap));
             }
-            if is_organic {
-                prompt.push_str(", maintain natural softness and realistic textures");
-            } else {
-                prompt.push_str(", maintain clean geometric edges and original detail");
+            
+            match category.as_str() {
+                "Portrait" => prompt.push_str(", preserve natural skin softness and realistic human detail"),
+                "Wildlife" => prompt.push_str(", maintain soft organic fur texture and natural animal features"),
+                "Landscape" | "Nature" => prompt.push_str(", preserve natural atmospheric clarity and organic detail"),
+                "Architecture" | "Geometric" => prompt.push_str(", maintain clean geometric edges and original detail"),
+                _ => prompt.push_str(", maintain natural softness and realistic textures"),
             }
         }
 
@@ -366,6 +370,45 @@ impl ReplicateClient {
             Err("No output from Replicate".into())
         } else {
             Err("No output from Replicate".into())
+        }
+    }
+
+    fn derive_category(&self, caption: Option<&str>, style: crate::processor::ImageStyle) -> String {
+        let low_caps = caption.unwrap_or_default().to_lowercase();
+        
+        // Portrait keywords
+        if low_caps.contains("face") || low_caps.contains("person") || low_caps.contains("man") || 
+           low_caps.contains("woman") || low_caps.contains("human") || low_caps.contains("eye") || 
+           low_caps.contains("skin") || low_caps.contains("portrait") {
+            return "Portrait".to_string();
+        }
+
+        // Wildlife keywords
+        if low_caps.contains("animal") || low_caps.contains("deer") || low_caps.contains("fur") || 
+           low_caps.contains("bird") || low_caps.contains("pet") || low_caps.contains("nature") || 
+           low_caps.contains("dog") || low_caps.contains("cat") || low_caps.contains("wildlife") {
+            return "Wildlife".to_string();
+        }
+
+        // Nature/Landscape
+        if low_caps.contains("tree") || low_caps.contains("forest") || low_caps.contains("mountain") || 
+           low_caps.contains("sky") || low_caps.contains("grass") || low_caps.contains("field") || 
+           low_caps.contains("landscape") || low_caps.contains("outdoors") || 
+           low_caps.contains("flower") || low_caps.contains("leaf") || low_caps.contains("plant") {
+            return "Nature".to_string();
+        }
+
+        // Architecture
+        if low_caps.contains("building") || low_caps.contains("house") || low_caps.contains("street") || 
+           low_caps.contains("city") || low_caps.contains("room") || low_caps.contains("interior") ||
+           low_caps.contains("architecture") {
+            return "Architecture".to_string();
+        }
+
+        // Fallbacks
+        match style {
+            crate::processor::ImageStyle::Photography => "Photography".to_string(),
+            crate::processor::ImageStyle::Illustration => "Illustration".to_string(),
         }
     }
 }

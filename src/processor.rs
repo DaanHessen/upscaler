@@ -333,9 +333,20 @@ pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle 
     }
 
     // --- Pixel art detection (now with fuzzy grid matching) ---
-    if grid_uniformity > 0.50 && flatness > 0.20 && entropy < 7.0 {
-        info!("Style: Pixel art grid pattern detected (uniformity={:.2})", grid_uniformity);
-        illustration_score += 3.0;
+    // REQUIRE high flatness AND low color count to avoid false positives on natural textures (fur/feathers).
+    if grid_uniformity > 0.60 && flatness > 0.40 && color_count < 1500 && entropy < 6.5 {
+        info!("Style: Pixel art grid pattern detected (uniformity={:.2}) — Strong illustration signal", grid_uniformity);
+        illustration_score += 4.0;
+    } else if grid_uniformity > 0.50 && flatness > 0.30 && entropy < 6.0 {
+        // Weaker signal for low-entropy flat images
+        illustration_score += 1.5;
+    }
+
+    // --- Photography Confidence Boost ---
+    // If we have a reasonable number of colors and some entropy, it's very likely a photo
+    // even if it has flat areas (bokeh).
+    if color_count > 2000 && entropy > 5.5 {
+        photo_score += 2.0;
     }
 
     // --- Gradient bimodality (cross-validated against entropy) ---
@@ -394,12 +405,22 @@ pub fn analyze_style(img: &DynamicImage, raw_data: Option<&[u8]>) -> ImageStyle 
         entropy, flatness, color_count, quantized_color_count, grid_uniformity, grad_flat_ratio, grad_edge_ratio, sat_variance, nsfw_drawing_score);
     info!("Total Scores — Photo: {:.1}, Illustration: {:.1}", photo_score, illustration_score);
 
-    if photo_score >= illustration_score {
-        info!("Final Verdict: PHOTOGRAPHY");
-        ImageStyle::Photography
+    // --- FINAL VERDICT (Conservatism Rule) ---
+    // Illustrations must be CLEARLY dominant. If there is ANY doubt (Photo score > 0),
+    // require a substantial margin to switch to Illustration. This prevents 
+    // high-frequency natural textures (fur/grass) from triggering "clean/flat" signals.
+    let is_illustration = if photo_score > 0.0 {
+        illustration_score > (photo_score + 4.0)
     } else {
+        illustration_score > photo_score
+    };
+
+    if is_illustration {
         info!("Final Verdict: ILLUSTRATION");
         ImageStyle::Illustration
+    } else {
+        info!("Final Verdict: PHOTOGRAPHY");
+        ImageStyle::Photography
     }
 }
 

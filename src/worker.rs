@@ -20,7 +20,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         }
     };
     
-    let (is_low_res, is_grayscale) = {
+    let (is_low_res, is_grayscale, style) = {
         use image::GenericImageView;
         let img = image::load_from_memory(&raw_bytes)?;
         let (w, h) = img.dimensions();
@@ -34,7 +34,16 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     let mut current_uri = state.storage.get_signed_url(&job.input_path).await?;
     
     // Step 1: Captioning (via cheap Replicate BLIP)
-    let caption = state.replicate.run_blip_caption(&current_uri).await.ok();
+    let caption = match state.replicate.run_blip_caption(&current_uri).await {
+        Ok(c) => {
+            info!("Successfully generated caption: {}", c);
+            Some(c)
+        },
+        Err(e) => {
+            tracing::warn!("AI captioning skipped for job {} (using local classification fallback): {}", job.id, e);
+            None
+        }
+    };
 
     // Step 2: Model Branching
     if prompt_settings.model == "Standard" {

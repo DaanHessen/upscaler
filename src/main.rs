@@ -1,5 +1,3 @@
-use upscaler::auth::AuthProvider;
-use upscaler::client::VertexClient;
 use upscaler::storage::StorageService;
 use upscaler::db::DbService;
 use upscaler::processor::init_nsfw;
@@ -43,8 +41,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     info!("--- I haven't named it ---");
     init_nsfw();
 
-    let auth = AuthProvider::new().await?;
-    let client = Arc::new(VertexClient::new(config.project_id.clone(), config.location.clone()));
     let storage = Arc::new(StorageService::new().await?);
     let db = Arc::new(DbService::new().await?);
 
@@ -56,9 +52,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let replicate = Arc::new(upscaler::replicate::ReplicateClient::new()?);
 
     let state = Arc::new(AppState {
-        client,
         replicate,
-        auth,
         storage, 
         db,
         jwks,
