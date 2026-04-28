@@ -28,8 +28,13 @@ pub struct AuthProvider {
 
 impl AuthProvider {
     pub async fn new() -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let provider = gcp_auth::provider().await?;
-        Ok(Self { provider })
+        match gcp_auth::provider().await {
+            Ok(provider) => Ok(Self { provider }),
+            Err(e) => {
+                warn!("GCP Auth failed ({}). Falling back to mock provider.", e);
+                Ok(Self::new_mock())
+            }
+        }
     }
 
     pub fn new_mock() -> Self {

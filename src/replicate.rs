@@ -57,7 +57,8 @@ impl ReplicateClient {
         settings: &crate::prompts::PromptSettings,
         is_low_res: bool,
         is_grayscale: bool,
-        is_premium_pre_pass: bool
+        is_premium_pre_pass: bool,
+        style: crate::processor::ImageStyle
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let creativity = settings.creativity;
         let refinement = settings.refinement;
@@ -79,9 +80,11 @@ impl ReplicateClient {
                        low_caps.contains("face") || low_caps.contains("foot") || low_caps.contains("arm") || 
                        low_caps.contains("hand") || low_caps.contains("man") || low_caps.contains("woman");
         
-        let is_organic = is_human || low_caps.contains("animal") || low_caps.contains("deer") || low_caps.contains("fur") || 
+        let is_organic = is_human || 
+                         low_caps.contains("animal") || low_caps.contains("deer") || low_caps.contains("fur") || 
                          low_caps.contains("bird") || low_caps.contains("pet") || low_caps.contains("nature") || 
-                         low_caps.contains("flower") || low_caps.contains("dog") || low_caps.contains("cat");
+                         low_caps.contains("flower") || low_caps.contains("dog") || low_caps.contains("cat") ||
+                         (caption.is_none() && style == crate::processor::ImageStyle::Photography);
 
         if is_low_res {
             // --- BRANCH A: RECONSTRUCTION (Low-res) ---

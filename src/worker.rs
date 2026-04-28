@@ -27,7 +27,8 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         let mp = (w as f32 * h as f32) / 1_000_000.0;
         let gs = crate::processor::is_grayscale(&img);
         info!("Image classification: {}x{} ({:.3} MP), Grayscale: {}", w, h, mp, gs);
-        (mp < 1.0, gs)
+        let style = crate::processor::analyze_style(&img, Some(&raw_bytes));
+        (mp < 1.0, gs, style)
     };
 
     let mut current_uri = state.storage.get_signed_url(&job.input_path).await?;
@@ -53,7 +54,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
         let restore_uri = state.storage.get_signed_url(&restore_path).await?;
 
-        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, false).await {
+        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, false, style).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Standard restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
@@ -90,7 +91,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
         let restore_uri = state.storage.get_signed_url(&restore_path).await?;
 
-        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, true).await {
+        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, true, style).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Premium restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
