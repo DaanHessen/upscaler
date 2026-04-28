@@ -53,7 +53,9 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     let final_url = if prompt_settings.model == "Standard" {
         // Pass 1: Detail restoration with adaptive scaling
         // For ultra-low res, don't over-scale too early or we just feed blur to the AI.
-        let target_res = if input_mp < 0.1 { "768px" } else { "1.5K" };
+        // For standard mode, we keep the restoration pass at a conservative 1K resolution
+        // to stay within the GPU memory limits (2MP) of the Real-ESRGAN upscaler.
+        let target_res = if input_mp < 0.1 { "768px" } else { "1K" };
         info!("Running Standard Mode Pass 1: Detail restoration ({})...", target_res);
         
         let restore_pre_bytes = match crate::processor::scale_to_resolution(&raw_bytes, target_res) {
@@ -74,7 +76,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             }
         };
 
-        let restored_uri = match state.replicate.run_swinir(&restore_uri).await {
+        let restored_uri = match state.replicate.run_real_esrgan_2x(&restore_uri).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Standard technical restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;

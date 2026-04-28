@@ -225,18 +225,19 @@ impl ReplicateClient {
         ).await
     }
 
-    pub async fn run_swinir(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
+    pub async fn run_real_esrgan_2x(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
         let req_body = serde_json::json!({
             "input": {
                 "image": image_url,
-                "task_type": "JPEG Compression Artifact Reduction"
+                "scale": 2,
+                "face_enhance": false
             }
         });
 
-        info!("Running SwinIR Technical Restoration (Artifact Reduction)...");
+        info!("Running Real-ESRGAN 2x Technical Restoration...");
         self.run_replicate_model(
-            "jingyunliang/swinir",
-            "660d922d33153019e8c263a3bba265de882e7f4f70396546b6c9c8f9d47a021a",
+            "nightmareai/real-esrgan",
+            "42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b",
             req_body
         ).await
     }

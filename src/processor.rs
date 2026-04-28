@@ -42,36 +42,19 @@ pub fn is_nsfw(img: &DynamicImage) -> Result<bool, Box<dyn Error + Send + Sync>>
     info!("NSFW scores — porn: {:.3}, hentai: {:.3}, sexy: {:.3}, neutral: {:.3}, drawing: {:.3}", 
         porn, hentai, sexy, neutral, drawing);
 
-    // --- Layered Decision Logic ---
-    //
-    // The local MobileNet classifier (OpenNSFW2) is highly prone to false positives
-    // on innocuous close-up skin images (feet, hands, shoulders, swimwear).
-    // Vertex AI has its own robust multi-modal safety system as the real gatekeeper.
-    // This local filter exists ONLY to save API costs by catching obviously explicit content.
-    //
-    // Strategy:
-    //   1. If neutral + drawing together account for >15% of the signal, it's extremely
-    //      unlikely to be actual porn — the model is just confused by skin tones.
-    //   2. Only block if a single category is near-certain (>0.99), OR if the combined
-    //      explicit signal (porn + hentai) dominates with >0.95 AND the safe categories
-    //      are nearly zero.
-
     let safe_signal = neutral + drawing;
     let explicit_signal = porn + hentai;
 
-    // Hard block: model is overwhelmingly confident in a single explicit category
     if porn > 0.99 || hentai > 0.99 {
         info!("NSFW BLOCKED — single category near-certain (porn={:.3}, hentai={:.3})", porn, hentai);
         return Ok(true);
     }
 
-    // Combined block: strong explicit signal with almost no safe signal
     if explicit_signal > 0.95 && safe_signal < 0.02 {
         info!("NSFW BLOCKED — combined explicit={:.3}, safe={:.3}", explicit_signal, safe_signal);
         return Ok(true);
     }
 
-    // Everything else passes through — Vertex AI will catch anything we miss
     info!("NSFW PASSED — explicit={:.3}, safe={:.3}", explicit_signal, safe_signal);
     Ok(false)
 }
