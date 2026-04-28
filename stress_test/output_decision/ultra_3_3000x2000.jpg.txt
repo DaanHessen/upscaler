@@ -1,0 +1,10 @@
+IMAGE: ultra_3_3000x2000.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: the golden gate bridge over the water at sunset
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Photography
+STYLE: Photography

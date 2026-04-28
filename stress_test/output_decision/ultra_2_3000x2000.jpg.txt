@@ -1,0 +1,10 @@
+IMAGE: ultra_2_3000x2000.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a view of a beach with trees and water
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Nature
+STYLE: Photography

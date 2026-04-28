@@ -1,0 +1,10 @@
+IMAGE: ultra_5_3000x2000.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a yellow tent sitting on top of a snow covered field
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Nature
+STYLE: Photography

@@ -75,9 +75,10 @@ impl ReplicateClient {
         let mut prompt = String::new();
         let mut neg_prompt = "blurry, smooth, plastic, cartoon, noise, artifacts, smeared, fake, distorted, weird textures, artificial patterns".to_string();
 
-        // 1. Core Instruction: FIDELITY FIRST
-        prompt.push_str("Maintain absolute fidelity to the original image's soul, composition, and lighting. ");
-        prompt.push_str("Strictly preserve the original color balance and white balance. No color shifting. ");
+        // 1. Core Instruction: FIDELITY & IDENTITY
+        prompt.push_str("Modify image 1 with ultra-high-fidelity enhancement. ");
+        prompt.push_str("Strictly preserve the original soul, identity, and lighting of the subject. ");
+        prompt.push_str("Maintain absolute color accuracy; no color shifting or grading. ");
 
         if is_grayscale {
             prompt.push_str("Strictly black and white, monochrome, high-contrast grayscale. ");
@@ -90,48 +91,48 @@ impl ReplicateClient {
 
         if is_low_res {
             // --- BRANCH A: RECONSTRUCTION (Low-res) ---
-            prompt.push_str("Clean high-fidelity reconstruction and detail restoration");
+            prompt.push_str("Reconstruct and de-pixelate with sharp optical clarity");
             if let Some(cap) = caption.as_ref() {
                 prompt.push_str(&format!(" of {},", cap));
             }
 
             match category.as_str() {
-                "Portrait" => prompt.push_str(" preserve soft natural skin textures and organic smooth gradients, realistic human appearance"),
-                "Wildlife" => prompt.push_str(" preserve soft natural fur/feather textures, realistic animal appearance, maintain organic softness"),
-                "Landscape" | "Nature" => prompt.push_str(" preserve natural organic textures, crisp foliage detail, realistic depth"),
-                "Architecture" | "Geometric" => prompt.push_str(" crisp optical clarity, clean geometric edges, maintain straight architectural lines"),
+                "Portrait" => prompt.push_str(" implement realistic skin pores, individual eyelash definition, and natural smooth gradients, avoid uncanny valley"),
+                "Wildlife" => prompt.push_str(" implement intricate individual hair strands, realistic fur depth, and sharp organic eye detail"),
+                "Landscape" | "Nature" => prompt.push_str(" implement crisp foliage textures, realistic leaf detail, and atmospheric depth"),
+                "Architecture" | "Geometric" => prompt.push_str(" implement sharp geometric precision, clean straight architectural lines, and realistic stone/metal textures"),
                 _ => {
                     if effective_style == crate::processor::ImageStyle::Photography {
-                         prompt.push_str(" natural organic textures, realistic clarity");
+                         prompt.push_str(" natural organic micro-textures and realistic clarity");
                     } else {
-                         prompt.push_str(" crisp optical clarity, clean geometric edges");
+                         prompt.push_str(" crisp geometric precision and clean sharp edges");
                     }
                 }
             }
         } else if is_premium_pre_pass {
             // --- BRANCH B: PRE-PASS (Premium) ---
-            prompt.push_str("Gentle artifact removal, pristine image cleanup, noise reduction");
+            prompt.push_str("Gentle artifact removal and pristine image cleanup");
             if let Some(cap) = caption.as_ref() {
                 prompt.push_str(&format!(" of {},", cap));
             }
-            prompt.push_str(" remove jpeg artifacts, preserve original tonal balance");
+            prompt.push_str(" remove jpeg noise while preserving all original high-frequency details");
         } else {
             // --- BRANCH C: ENHANCEMENT (Standard High-res) ---
-            prompt.push_str("Subtle high-fidelity refinement, preserve original character");
+            prompt.push_str("Subtle high-fidelity refinement");
             if let Some(cap) = caption.as_ref() {
                 prompt.push_str(&format!(" of the {}", cap));
             }
             
             match category.as_str() {
-                "Portrait" => prompt.push_str(", preserve natural skin softness and realistic human detail"),
-                "Wildlife" => prompt.push_str(", maintain soft organic fur texture and natural animal features"),
-                "Landscape" | "Nature" => prompt.push_str(", preserve natural atmospheric clarity and organic detail"),
-                "Architecture" | "Geometric" => prompt.push_str(", maintain clean geometric edges and original detail"),
+                "Portrait" => prompt.push_str(", enhance natural skin realism and realistic human micro-detail without altering features"),
+                "Wildlife" => prompt.push_str(", refine natural fur texture and animal features with sharp individual hair detail"),
+                "Landscape" | "Nature" => prompt.push_str(", enhance natural atmospheric clarity and intricate organic detail"),
+                "Architecture" | "Geometric" => prompt.push_str(", refine geometric edges and original surface textures"),
                 _ => {
                     if effective_style == crate::processor::ImageStyle::Photography {
-                        prompt.push_str(", maintain natural softness and realistic textures");
+                        prompt.push_str(", maintain natural softness and sharp realistic textures");
                     } else {
-                        prompt.push_str(", maintain clean geometric edges and original detail");
+                        prompt.push_str(", maintain clean geometric edges and pristine original detail");
                     }
                 }
             }
@@ -139,17 +140,17 @@ impl ReplicateClient {
 
         // Apply Edge Sharpening preference
         if refinement {
-            prompt.push_str(", crisp edge definition, sharp high-frequency details");
+            prompt.push_str(", crisp edge definition, sharp high-frequency micro-details");
         } else {
             prompt.push_str(", natural smooth textures, soft organic finish, realistic preservation");
         }
 
         // Final Anchor
-        prompt.push_str(". Maintain the original dynamic range. Do not crush blacks, do not increase contrast, and do not over-saturate colors.");
-        prompt.push_str(" Do not add new features, do not change the original anatomy, and do not alter the original color grading.");
+        prompt.push_str(". Maintain the original dynamic range. Do not crush blacks or blow out highlights. ");
+        prompt.push_str("Strictly do not add new features, do not change anatomy, and do not alter the original color palette.");
 
-        neg_prompt.push_str(", color shift, color grading, stylized, over-sharpened, etched, scaly, non-human skin, uncanny valley, artificial texture");
-        neg_prompt.push_str(", high contrast, crushed blacks, oversaturated, neon colors, artificial fur, digital art look");
+        neg_prompt.push_str(", color shift, color grading, stylized, over-sharpened, etched texture, scaly skin, uncanny valley, artificial digital noise");
+        neg_prompt.push_str(", high contrast, crushed blacks, oversaturated, neon, artificial fur, digital art look, painting look, smeared details");
 
         let mut input = serde_json::json!({
             "images": [image_url],
@@ -157,7 +158,7 @@ impl ReplicateClient {
             "negative_prompt": neg_prompt,
             "turbo": false,
             "aspect_ratio": "match_input_image",
-            "replicate_weights": if is_low_res { "default" } else { "light_restoration" }
+            "replicate_weights": if is_low_res { "upscale" } else { "light_restoration" }
         });
 
         if let Some(seed) = settings.seed {

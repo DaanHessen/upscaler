@@ -1,0 +1,10 @@
+IMAGE: ultra_4_3000x2000.jpg
+------------------------------------------
+LOCAL STYLE VERDICT: Photography
+------------------------------------------
+RUNNING BLIP CAPTIONING...
+AI CAPTION: a blurry photo of trees in a forest
+------------------------------------------
+FINAL DECISION:
+CATEGORY: Nature
+STYLE: Photography
