@@ -81,7 +81,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             let restore_uri = state.replicate.run_p_image_edit(
                 &input_uri,
                 caption.clone(),
-                prompt_settings,
+                &prompt_settings,
                 true,  // is_low_res
                 false, // is_grayscale
                 false, // is_premium_pre_pass
