@@ -77,8 +77,10 @@ impl ReplicateClient {
 
         // 1. Core Instruction: FIDELITY & IDENTITY
         prompt.push_str("Modify image 1 with ultra-high-fidelity enhancement. ");
-        prompt.push_str("Strictly preserve the original soul, identity, and lighting of the subject. ");
-        prompt.push_str("Maintain absolute color accuracy; no color shifting or grading. ");
+        prompt.push_str("Strictly preserve the original soul, identity, lighting, and composition. ");
+        
+        // 2. Lighting Anchors (Preventing the 'deep-fried' / high-contrast look)
+        prompt.push_str("Well-lit, high-key lighting, balanced exposure, natural raw photo aesthetic, shot on 35mm lens. ");
 
         if is_grayscale {
             prompt.push_str("Strictly black and white, monochrome, high-contrast grayscale. ");
@@ -89,68 +91,68 @@ impl ReplicateClient {
         
         info!("Smarter Prompting — Final Verdict: [Style: {:?}, Category: {}], Caption: {:?}", effective_style, category, caption);
 
+        // 3. Resolution-Specific Strategies
         if is_low_res {
             // --- BRANCH A: RECONSTRUCTION (Low-res) ---
-            prompt.push_str("Reconstruct and de-pixelate with sharp optical clarity");
+            prompt.push_str("Identity-locked reconstruction. Rebuild missing high-frequency data from image 1. Sharp optical clarity");
             if let Some(cap) = caption.as_ref() {
                 prompt.push_str(&format!(" of {},", cap));
-            }
-
-            match category.as_str() {
-                "Portrait" => prompt.push_str(" implement realistic skin pores, individual eyelash definition, and natural smooth gradients, avoid uncanny valley"),
-                "Wildlife" => prompt.push_str(" implement intricate individual hair strands, realistic fur depth, and sharp organic eye detail"),
-                "Landscape" | "Nature" => prompt.push_str(" implement crisp foliage textures, realistic leaf detail, and atmospheric depth"),
-                "Architecture" | "Geometric" => prompt.push_str(" implement sharp geometric precision, clean straight architectural lines, and realistic stone/metal textures"),
-                _ => {
-                    if effective_style == crate::processor::ImageStyle::Photography {
-                         prompt.push_str(" natural organic micro-textures and realistic clarity");
-                    } else {
-                         prompt.push_str(" crisp geometric precision and clean sharp edges");
-                    }
-                }
             }
         } else if is_premium_pre_pass {
             // --- BRANCH B: PRE-PASS (Premium) ---
-            prompt.push_str("Gentle artifact removal and pristine image cleanup");
+            prompt.push_str("Micro-detail refinement and pristine image cleanup. Remove artifacts while preserving all original high-frequency details");
             if let Some(cap) = caption.as_ref() {
                 prompt.push_str(&format!(" of {},", cap));
             }
-            prompt.push_str(" remove jpeg noise while preserving all original high-frequency details");
         } else {
             // --- BRANCH C: ENHANCEMENT (Standard High-res) ---
-            prompt.push_str("Subtle high-fidelity refinement");
+            prompt.push_str("Subtle high-fidelity refinement and upscale of existing textures only. No new features");
             if let Some(cap) = caption.as_ref() {
                 prompt.push_str(&format!(" of the {}", cap));
             }
-            
+        }
+
+        // 4. Texture Locking Vocabulary (Additive Realism)
+        if effective_style == crate::processor::ImageStyle::Photography {
             match category.as_str() {
-                "Portrait" => prompt.push_str(", enhance natural skin realism and realistic human micro-detail without altering features"),
-                "Wildlife" => prompt.push_str(", refine natural fur texture and animal features with sharp individual hair detail"),
-                "Landscape" | "Nature" => prompt.push_str(", enhance natural atmospheric clarity and intricate organic detail"),
-                "Architecture" | "Geometric" => prompt.push_str(", refine geometric edges and original surface textures"),
-                _ => {
-                    if effective_style == crate::processor::ImageStyle::Photography {
-                        prompt.push_str(", maintain natural softness and sharp realistic textures");
-                    } else {
-                        prompt.push_str(", maintain clean geometric edges and pristine original detail");
-                    }
-                }
+                "Portrait" => prompt.push_str(", implement visible skin pores, individual eyelash definition, natural moisture, and realistic iris texture"),
+                "Wildlife" => prompt.push_str(", implement individual hair follicles, realistic fur depth, and sharp organic eye detail"),
+                "Nature" | "Landscape" => prompt.push_str(", implement intricate organic detail, crisp foliage textures, and atmospheric depth"),
+                "Architecture" => prompt.push_str(", implement sharp geometric precision, clean architectural lines, and realistic stone/metal/glass textures"),
+                "Product" => prompt.push_str(", implement pristine product surfaces, sharp labels, and realistic material textures"),
+                "Vehicle" => prompt.push_str(", implement sharp mechanical detail, realistic paint reflections, and crisp material textures"),
+                "Texture" | "Macro" => prompt.push_str(", implement extreme macro detail, sharp tactile surfaces, and realistic material micro-patterns"),
+                _ => prompt.push_str(", implement natural organic micro-textures and realistic clarity"),
+            }
+        } else {
+            // Illustration / Digital Art
+            match category.as_str() {
+                "Architecture" | "Geometric" => prompt.push_str(", maintain sharp geometric precision and clean sharp edges"),
+                _ => prompt.push_str(", maintain clean line art, smooth vector fills, and pristine original detail"),
             }
         }
 
-        // Apply Edge Sharpening preference
+        // 5. Creativity-Based Intensity Scaling
+        if creativity < 0.3 {
+            prompt.push_str(". Minimal changes, subtle enhancement, strictly preserve every pixel.");
+        } else if creativity > 0.7 {
+            prompt.push_str(". Generative reconstruction, highly detailed texture injection, enhanced realism.");
+        }
+
+        // 6. Refinement (Edge Sharpening)
         if refinement {
-            prompt.push_str(", crisp edge definition, sharp high-frequency micro-details");
+            prompt.push_str(". Crisp edge definition, sharp high-frequency micro-details.");
         } else {
-            prompt.push_str(", natural smooth textures, soft organic finish, realistic preservation");
+            prompt.push_str(". Natural smooth textures, soft organic finish, realistic preservation.");
         }
 
         // Final Anchor
-        prompt.push_str(". Maintain the original dynamic range. Do not crush blacks or blow out highlights. ");
+        prompt.push_str(" Maintain original dynamic range. Do not crush blacks or blow out highlights. ");
         prompt.push_str("Strictly do not add new features, do not change anatomy, and do not alter the original color palette.");
 
-        neg_prompt.push_str(", color shift, color grading, stylized, over-sharpened, etched texture, scaly skin, uncanny valley, artificial digital noise");
-        neg_prompt.push_str(", high contrast, crushed blacks, oversaturated, neon, artificial fur, digital art look, painting look, smeared details");
+        // Overhauled Negative Prompt
+        neg_prompt = "plastic skin, airbrushed, waxiness, smeared details, over-sharpened, etched textures, cinematic lighting, dramatic shadows, color shift, cartoonish, digital art look, beauty filter, fake textures, distorted anatomy, artificial digital noise, high contrast, crushed blacks, oversaturated, neon, artificial fur, painting look, smeared details, weird anatomy, extra limbs, fused fingers, low quality, blurry, pixelated, jpeg artifacts".to_string();
+
 
         let mut input = serde_json::json!({
             "images": [image_url],
@@ -401,20 +403,24 @@ impl ReplicateClient {
         let style = if low_caps.contains("illustration") || low_caps.contains("drawing") || 
                        low_caps.contains("anime") || low_caps.contains("sketch") || 
                        low_caps.contains("painting") || low_caps.contains("vector") ||
-                       low_caps.contains("digital art") || low_caps.contains("cartoon") {
+                       low_caps.contains("digital art") || low_caps.contains("cartoon") ||
+                       low_caps.contains("comic") || low_caps.contains("cgi") ||
+                       low_caps.contains("3d render") || low_caps.contains("pixel art") {
             crate::processor::ImageStyle::Illustration
         } else if low_caps.contains("photograph") || low_caps.contains("realistic") || 
                   low_caps.contains("photo") || low_caps.contains("snapshot") || 
-                  low_caps.contains("cinematic") {
+                  low_caps.contains("cinematic") || low_caps.contains("35mm") ||
+                  low_caps.contains("raw photo") || low_caps.contains("portrait") ||
+                  low_caps.contains("wildlife") {
             crate::processor::ImageStyle::Photography
         } else {
             // PRIORITY B: Category Inference
             match category.as_str() {
-                "Portrait" | "Wildlife" | "Nature" | "Food" => {
+                "Portrait" | "Wildlife" | "Nature" | "Food" | "Macro" => {
                     // Natural subjects are Photography unless explicitly stated otherwise above
                     crate::processor::ImageStyle::Photography
                 },
-                "Architecture" | "Product" => {
+                "Architecture" | "Product" | "Vehicle" => {
                     // Neutral categories fallback to local style or photography
                     if local_style == crate::processor::ImageStyle::Illustration {
                          crate::processor::ImageStyle::Illustration
@@ -439,16 +445,16 @@ impl ReplicateClient {
         if low_caps.contains("face") || low_caps.contains("person") || low_caps.contains("man") || 
            low_caps.contains("woman") || low_caps.contains("human") || low_caps.contains("eye") || 
            low_caps.contains("skin") || low_caps.contains("portrait") || low_caps.contains("girl") || 
-           low_caps.contains("boy") {
+           low_caps.contains("boy") || low_caps.contains("selfie") {
             return "Portrait".to_string();
         }
 
         // Wildlife keywords
         if low_caps.contains("animal") || low_caps.contains("deer") || low_caps.contains("fur") || 
-           low_caps.contains("bird") || low_caps.contains("pet") || low_caps.contains("nature") || 
-           low_caps.contains("dog") || low_caps.contains("cat") || low_caps.contains("wildlife") ||
-           low_caps.contains("horse") || low_caps.contains("lion") || low_caps.contains("tiger") ||
-           low_caps.contains("fish") || low_caps.contains("insect") {
+           low_caps.contains("bird") || low_caps.contains("pet") || low_caps.contains("dog") || 
+           low_caps.contains("cat") || low_caps.contains("wildlife") || low_caps.contains("horse") || 
+           low_caps.contains("lion") || low_caps.contains("tiger") || low_caps.contains("fish") || 
+           low_caps.contains("insect") || low_caps.contains("feathers") || low_caps.contains("mammal") {
             return "Wildlife".to_string();
         }
 
@@ -457,20 +463,45 @@ impl ReplicateClient {
            low_caps.contains("sky") || low_caps.contains("grass") || low_caps.contains("field") || 
            low_caps.contains("landscape") || low_caps.contains("outdoors") || 
            low_caps.contains("flower") || low_caps.contains("leaf") || low_caps.contains("plant") ||
-           low_caps.contains("beach") || low_caps.contains("ocean") || low_caps.contains("river") {
+           low_caps.contains("beach") || low_caps.contains("ocean") || low_caps.contains("river") ||
+           low_caps.contains("cloud") || low_caps.contains("sunset") || low_caps.contains("nature") {
             return "Nature".to_string();
         }
 
         // Architecture
         if low_caps.contains("building") || low_caps.contains("house") || low_caps.contains("street") || 
            low_caps.contains("city") || low_caps.contains("room") || low_caps.contains("interior") ||
-           low_caps.contains("architecture") || low_caps.contains("window") || low_caps.contains("door") {
+           low_caps.contains("architecture") || low_caps.contains("window") || low_caps.contains("door") ||
+           low_caps.contains("tower") || low_caps.contains("bridge") || low_caps.contains("temple") {
             return "Architecture".to_string();
+        }
+
+        // Vehicle
+        if low_caps.contains("car") || low_caps.contains("truck") || low_caps.contains("plane") || 
+           low_caps.contains("boat") || low_caps.contains("bike") || low_caps.contains("cycle") || 
+           low_caps.contains("motorcycle") || low_caps.contains("ship") || low_caps.contains("aircraft") {
+            return "Vehicle".to_string();
+        }
+
+        // Product
+        if low_caps.contains("product") || low_caps.contains("bottle") || low_caps.contains("watch") || 
+           low_caps.contains("jewelry") || low_caps.contains("shoe") || low_caps.contains("gadget") || 
+           low_caps.contains("device") || low_caps.contains("electronics") || low_caps.contains("cosmetic") {
+            return "Product".to_string();
+        }
+
+        // Texture/Material/Macro
+        if low_caps.contains("texture") || low_caps.contains("material") || low_caps.contains("pattern") || 
+           low_caps.contains("surface") || low_caps.contains("wood") || low_caps.contains("metal") || 
+           low_caps.contains("fabric") || low_caps.contains("stone") || low_caps.contains("rock") || 
+           low_caps.contains("leather") || low_caps.contains("macro") || low_caps.contains("close up") {
+            return "Texture".to_string();
         }
 
         // Food
         if low_caps.contains("food") || low_caps.contains("drink") || low_caps.contains("fruit") ||
-           low_caps.contains("vegetable") || low_caps.contains("meat") || low_caps.contains("plate") {
+           low_caps.contains("vegetable") || low_caps.contains("meat") || low_caps.contains("plate") ||
+           low_caps.contains("dish") || low_caps.contains("meal") {
             return "Food".to_string();
         }
 
