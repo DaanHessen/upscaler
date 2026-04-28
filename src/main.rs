@@ -5,7 +5,7 @@ use upscaler::janitor::janitor_service;
 use upscaler::handlers::{
     health_check, moderate_handler, balance_handler, history_handler,
     checkout_handler, stripe_webhook_handler, admin_insights_handler,
-    change_password_handler, poll_upscale_handler, upscale_handler,
+    change_password_handler, poll_upscale_handler, upscale_handler, log_handler,
 };
 
 use dotenvy::dotenv;
@@ -90,6 +90,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         .route("/checkout", post(checkout_handler))
         .route("/auth/change-password", post(change_password_handler))
         .route("/admin/insights", get(admin_insights_handler))
+        .route("/log", post(log_handler))
         .layer(axum::extract::DefaultBodyLimit::max(25 * 1024 * 1024))
         .layer(GovernorLayer { config: governor_conf })
         .with_state(state.clone());

@@ -328,4 +328,15 @@ impl ApiClient {
             Err(msg.to_string())
         }
     }
+
+    pub async fn log_error(message: &str, level: &str, token: Option<&str>) {
+        let body = serde_json::json!({
+            "level": level,
+            "message": message
+        });
+
+        if let Ok(req) = Self::authenticated_request("POST", "/api/log", token).json(&body) {
+            let _ = req.send().await;
+        }
+    }
 }

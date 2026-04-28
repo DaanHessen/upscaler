@@ -115,6 +115,7 @@ pub fn Configure() -> impl IntoView {
                     },
                     Err(e) => { 
                         state.show_error(format!("Upload failed: {}", e)); 
+                        ApiClient::log_error(&format!("Upscale submission failed: {}", e), "error", token.as_deref()).await;
                         state.set_is_submitting.set(false);
                     }
                 }

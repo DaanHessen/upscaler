@@ -11,6 +11,23 @@ use serde::Deserialize;
 use crate::AppState;
 use crate::processor::{preprocess_image_internal, ResizeMode, is_nsfw, analyze_style, ImageStyle};
 
+pub async fn log_handler(
+    jwt: Option<crate::auth::JwtAuth>,
+    Json(body): Json<serde_json::Value>,
+) -> impl IntoResponse {
+    let user_id = jwt.and_then(|j| Uuid::parse_str(&j.user_id).ok());
+    let level = body.get("level").and_then(|v| v.as_str()).unwrap_or("error");
+    let message = body.get("message").and_then(|v| v.as_str()).unwrap_or("");
+    
+    match level {
+        "error" => error!("Front-end ERROR (user {:?}): {}", user_id, message),
+        "warn" => tracing::warn!("Front-end WARN (user {:?}): {}", user_id, message),
+        _ => info!("Front-end INFO (user {:?}): {}", user_id, message),
+    }
+    
+    StatusCode::OK
+}
+
 // --- Handlers ---
 
 pub async fn health_check(State(state): State<Arc<AppState>>) -> impl IntoResponse {

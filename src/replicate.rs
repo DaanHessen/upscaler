@@ -73,7 +73,7 @@ impl ReplicateClient {
         let refinement = settings.refinement;
         
         let mut prompt = String::new();
-        let mut neg_prompt = "blurry, smooth, plastic, cartoon, noise, artifacts, smeared, fake, distorted, weird textures, artificial patterns".to_string();
+        let mut neg_prompt = String::new();
 
         // 1. Core Instruction: FIDELITY & IDENTITY
         prompt.push_str("Modify image 1 with ultra-high-fidelity enhancement. ");
@@ -116,7 +116,7 @@ impl ReplicateClient {
         if effective_style == crate::processor::ImageStyle::Photography {
             match category.as_str() {
                 "Portrait" => prompt.push_str(", implement visible skin pores, individual eyelash definition, natural moisture, and realistic iris texture"),
-                "Wildlife" => prompt.push_str(", implement individual hair follicles, realistic fur depth, and sharp organic eye detail"),
+                "Wildlife" => prompt.push_str(", implement individual hair follicles, realistic fur depth, sharp organic eye detail, preserve original fur grain and natural hair flow"),
                 "Nature" | "Landscape" => prompt.push_str(", implement intricate organic detail, crisp foliage textures, and atmospheric depth"),
                 "Architecture" => prompt.push_str(", implement sharp geometric precision, clean architectural lines, and realistic stone/metal/glass textures"),
                 "Product" => prompt.push_str(", implement pristine product surfaces, sharp labels, and realistic material textures"),
@@ -148,11 +148,12 @@ impl ReplicateClient {
 
         // Final Anchor
         prompt.push_str(" Maintain original dynamic range. Do not crush blacks or blow out highlights. ");
-        prompt.push_str("Strictly do not add new features, do not change anatomy, and do not alter the original color palette.");
+        prompt.push_str("Strictly do not add new features, do not change anatomy, do not alter the original color palette, and strictly do not add new hair strands.");
 
         // Overhauled Negative Prompt
         neg_prompt = "plastic skin, airbrushed, waxiness, smeared details, over-sharpened, etched textures, cinematic lighting, dramatic shadows, color shift, cartoonish, digital art look, beauty filter, fake textures, distorted anatomy, artificial digital noise, high contrast, crushed blacks, oversaturated, neon, artificial fur, painting look, smeared details, weird anatomy, extra limbs, fused fingers, low quality, blurry, pixelated, jpeg artifacts".to_string();
 
+        let lora_scale = 0.5 + (creativity * 0.5); // Lower adaptation range: 0.5 to 1.0
 
         let mut input = serde_json::json!({
             "images": [image_url],
@@ -160,7 +161,8 @@ impl ReplicateClient {
             "negative_prompt": neg_prompt,
             "turbo": false,
             "aspect_ratio": "match_input_image",
-            "replicate_weights": if is_low_res { "default" } else { "light_restoration" }
+            "lora_weights": "https://huggingface.co/davidberenstein1957/p-image-edit-photo-enhancement-lora/resolve/main/weights.safetensors",
+            "lora_scale": lora_scale
         });
 
         if let Some(seed) = settings.seed {
@@ -171,10 +173,10 @@ impl ReplicateClient {
             "input": input
         });
 
-        info!("Running Pruna AI P-Image-Edit (Restoration Pass) with creativity={} and refinement={}...", creativity, refinement);
+        info!("Running Pruna AI P-Image-Edit-LoRA (Restoration Pass) with creativity={} and lora_scale={}...", creativity, lora_scale);
         self.run_replicate_model(
-            "prunaai/p-image-edit",
-            "5bf99c2386ca54e33758b7b4d360cf2b9e0f2b61966cd764363173ab3810935b",
+            "prunaai/p-image-edit-lora",
+            "191152bf662a44024fe326e61595d4f84c0293afdee7ff08d973d5e399973a4e",
             req_body
         ).await
     }

@@ -198,6 +198,7 @@ impl DbProvider for DbService {
         error_msg: &str,
         latency_ms: i32,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        tracing::error!("Job {} FAILED: {}", id, error_msg);
         sqlx::query(
             "UPDATE upscales SET status = 'FAILED', error_msg = $1, latency_ms = $2 WHERE id = $3"
         )
