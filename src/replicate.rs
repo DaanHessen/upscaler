@@ -56,48 +56,50 @@ impl ReplicateClient {
         caption: Option<String>,
         settings: &crate::prompts::PromptSettings,
         is_low_res: bool,
+        is_grayscale: bool,
         is_premium_pre_pass: bool
     ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
         let creativity = settings.creativity;
         
         let mut prompt = String::new();
+        let mut neg_prompt = "blurry, smooth, plastic, cartoon, noise, artifacts, smeared, fake, distorted".to_string();
+
+        if is_grayscale {
+            prompt.push_str("Strictly black and white, monochrome, high-contrast grayscale photography. ");
+            neg_prompt.push_str(", color, saturation, sepia, hue, tint, blue, red, green, yellow");
+        }
 
         if is_low_res {
             // --- BRANCH A: GENERATIVE RECONSTRUCTION (Low-res) ---
-            // Focus on "hallucinating" and "rebuilding" missing information
-            prompt.push_str("Accurate generative reconstruction and high-fidelity restoration");
+            prompt.push_str("Extreme high-fidelity generative reconstruction and micro-texture restoration");
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of {},", cap));
             }
-            prompt.push_str(" extreme sharpness, ultra-detailed organic textures, hyper-realistic macro photography, 8k UHD, neutral color balance, natural daylight, crystal clear micro-pores, natural film grain, sharp fur fibers, masterpiece, sharp edges, distinct focal points");
-            
-            if creativity >= 0.5 {
-                prompt.push_str(", hyper-detailed skin and surface micro-textures, extremely sharp high-frequency details, raw photo realism, true-to-life tones");
-            }
+            prompt.push_str(" raw optical sharpness, ultra-detailed organic textures, hyper-realistic macro photography, 8k UHD, neutral lighting, crystal clear micro-pores, sharp fur fibers, masterpiece, sharp edges");
         } else if is_premium_pre_pass {
             // --- BRANCH B: PRE-PASS ARTIFACT REMOVAL (Premium Mode, High-res) ---
-            // Remove artifacts and clean up for Topaz
             prompt.push_str("Gentle artifact removal, pristine image cleanup, noise reduction, sensor artifact removal");
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of {},", cap));
             }
-            prompt.push_str(" clean up image, remove jpeg artifacts, prepare for high-end upscaling, preserve original color balance, maintain 100% fidelity to original color tones");
+            prompt.push_str(" remove jpeg artifacts, prepare for high-end upscaling, preserve original tonal balance");
         } else {
             // --- BRANCH C: ACTUAL UPSCALING & ENHANCEMENT (Standard Mode, High-res) ---
-            prompt.push_str("Professional high-fidelity enhancement, ultra-sharp focus, extreme micro-details, texture reconstruction, lifelike clarity");
+            // Force high-frequency details even on good quality images
+            prompt.push_str("Professional tactile micro-detail enhancement, ultra-sharp focus, extreme high-frequency texture reconstruction, lifelike optical clarity");
             if let Some(cap) = caption {
                 prompt.push_str(&format!(" of the {}", cap));
-            } else {
-                prompt.push_str(" of the image");
             }
+            prompt.push_str(", 8k UHD, raw photo realism, sharp edges, distinct focal points");
         }
 
         // Preservation language is the "Anchor"
-        prompt.push_str(", while preserving the exact composition, lighting, color palette, and subjects of the original image with 100% fidelity. No hallucination of new features.");
+        prompt.push_str(", while preserving the exact composition, lighting, and subjects of the original image with 100% fidelity.");
 
         let mut input = serde_json::json!({
             "images": [image_url],
             "prompt": prompt,
+            "negative_prompt": neg_prompt,
             "turbo": false,
             "aspect_ratio": "match_input_image"
         });

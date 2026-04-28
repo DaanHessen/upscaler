@@ -33,14 +33,14 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         config,
     });
 
-    let input_dir = "stress_test/input";
-    let output_dir = "stress_test/output";
+    let input_dir = "stress_test/input_v2";
+    let output_dir = "stress_test/output_v2";
     fs::create_dir_all(output_dir).await?;
 
     let mut entries = fs::read_dir(input_dir).await?;
     let mut count = 0;
 
-    info!("Starting Stress Test Pipeline...");
+    info!("Starting Stress Test V2 Pipeline...");
 
     while let Some(entry) = entries.next_entry().await? {
         let path = entry.path();
@@ -51,12 +51,14 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         let raw_bytes = fs::read(&path).await?;
         
-        // Determine is_low_res
-        let is_low_res = {
+        // Determine is_low_res and is_grayscale
+        let (is_low_res, is_grayscale) = {
             let img = image::load_from_memory(&raw_bytes)?;
             let (w, h) = img.dimensions();
             let mp = (w as f32 * h as f32) / 1_000_000.0;
-            mp < 1.0
+            let gs = upscaler::processor::is_grayscale(&img);
+            info!("  -> {}x{} ({:.3} MP), Grayscale: {}", w, h, mp, gs);
+            (mp < 1.0, gs)
         };
 
         let mode = "Standard";
@@ -70,7 +72,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         };
 
         // Upload to storage to get a URI
-        let input_path = format!("stress_test/inputs/{}", filename);
+        let input_path = format!("stress_test/inputs_v2/{}", filename);
         state.storage.upload_object(&input_path, raw_bytes.clone(), "image/jpeg").await?;
         let input_uri = state.storage.get_signed_url(&input_path).await?;
 
@@ -78,13 +80,13 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         let caption = state.replicate.run_blip_caption(&input_uri).await.ok();
 
         // Standard Mode Pipeline: Restore -> P-Upscale
-        let res_target = if is_low_res { "1K" } else { "1.5K" };
+        let res_target = if is_low_res { "1K" } else { "1.6K" };
         let restore_pre_bytes = upscaler::processor::scale_to_resolution(&raw_bytes, res_target)?;
         let restore_path = format!("stress_test/temp/{}_restore.jpg", filename);
         state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
         let restore_uri = state.storage.get_signed_url(&restore_path).await?;
         
-        let restored_uri = state.replicate.run_p_image_edit(&restore_uri, caption, &prompt_settings, is_low_res, false).await?;
+        let restored_uri = state.replicate.run_p_image_edit(&restore_uri, caption, &prompt_settings, is_low_res, is_grayscale, false).await?;
         let final_url = state.replicate.run_p_image_upscale(&restored_uri, quality, 0.5).await?;
 
         // Download result

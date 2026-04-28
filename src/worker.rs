@@ -20,13 +20,14 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         }
     };
     
-    let is_low_res = {
+    let (is_low_res, is_grayscale) = {
         use image::GenericImageView;
         let img = image::load_from_memory(&raw_bytes)?;
         let (w, h) = img.dimensions();
         let mp = (w as f32 * h as f32) / 1_000_000.0;
-        info!("Image classification: {}x{} ({:.3} MP)", w, h, mp);
-        mp < 1.0
+        let gs = crate::processor::is_grayscale(&img);
+        info!("Image classification: {}x{} ({:.3} MP), Grayscale: {}", w, h, mp, gs);
+        (mp < 1.0, gs)
     };
 
     let mut current_uri = state.storage.get_signed_url(&job.input_path).await?;
@@ -37,11 +38,11 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
     // Step 2: Model Branching
     if prompt_settings.model == "Standard" {
         // --- STANDARD MODE: Dual-pass Pruna AI (Fast & Cheap) ---
-        // Pass 1: Detail enhancement at model's native resolution (1.4K - 1.5K)
-        // This avoids the 'smear' caused by sending 4K images to a 1.4K model.
-        info!("Running Standard Mode Pass 1: Detail enhancement (1.5K)...");
+        // Pass 1: Detail enhancement at model's native resolution (1.4K - 1.6K)
+        let res_target = if is_low_res { "1K" } else { "1.6K" };
+        info!("Running Standard Mode Pass 1: Detail enhancement ({})", res_target);
         
-        let restore_pre_bytes = match crate::processor::scale_to_resolution(&raw_bytes, "1.5K") {
+        let restore_pre_bytes = match crate::processor::scale_to_resolution(&raw_bytes, res_target) {
             Ok(b) => b,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Standard scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
@@ -53,7 +54,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
         let restore_uri = state.storage.get_signed_url(&restore_path).await?;
 
-        let enhanced_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, false).await {
+        let enhanced_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, false).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Standard edit pass error: {}", e), start_time.elapsed().as_millis() as i32).await;
@@ -90,7 +91,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         state.storage.upload_object(&restore_path, restore_pre_bytes, "image/jpeg").await?;
         let restore_uri = state.storage.get_signed_url(&restore_path).await?;
 
-        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, true).await {
+        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, true).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Premium restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;

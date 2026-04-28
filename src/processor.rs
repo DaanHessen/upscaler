@@ -571,3 +571,35 @@ pub fn scale_to_resolution(data: &[u8], resolution: &str) -> Result<Vec<u8>, Box
     
     Ok(buffer.into_inner())
 }
+pub fn is_grayscale(img: &image::DynamicImage) -> bool {
+    use image::GenericImageView;
+    let (w, h) = img.dimensions();
+    
+    // Sample a few pixels (e.g., 20x20 grid) to check for color variance
+    let sample_step_x = (w / 20).max(1);
+    let sample_step_y = (h / 20).max(1);
+    
+    let mut total_variance = 0.0;
+    let mut count = 0;
+    
+    for y in (0..h).step_by(sample_step_y as usize) {
+        for x in (0..w).step_by(sample_step_x as usize) {
+            let pixel = img.get_pixel(x, y);
+            let r = pixel[0] as f32;
+            let g = pixel[1] as f32;
+            let b = pixel[2] as f32;
+            
+            // Average distance from grayscale (R=G=B)
+            let avg = (r + g + b) / 3.0;
+            let variance = (r - avg).abs() + (g - avg).abs() + (b - avg).abs();
+            total_variance += variance;
+            count += 1;
+        }
+    }
+    
+    if count == 0 { return true; }
+    let mean_variance = total_variance / count as f32;
+    
+    // If mean variance per channel is less than 5.0, it's perceptually grayscale
+    mean_variance < 5.0
+}
