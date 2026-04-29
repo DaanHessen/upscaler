@@ -34,8 +34,6 @@ pub struct GlobalState {
     pub set_face_enhancement: WriteSignal<bool>,
     pub temp_file: ReadSignal<Option<web_sys::File>>,
     pub set_temp_file: WriteSignal<Option<web_sys::File>>,
-    pub temp_classification: ReadSignal<Option<String>>,
-    pub set_temp_classification: WriteSignal<Option<String>>,
     pub preview_base64: ReadSignal<Option<String>>,
     pub set_preview_base64: WriteSignal<Option<String>>,
     pub theme: ReadSignal<String>,
@@ -52,32 +50,22 @@ pub struct GlobalState {
     pub set_is_submitting: WriteSignal<bool>,
     pub avg_latency_secs: ReadSignal<i32>,
     pub set_avg_latency_secs: WriteSignal<i32>,
-    pub pre_processing: ReadSignal<String>,
-    pub set_pre_processing: WriteSignal<String>,
-    pub post_polish: ReadSignal<String>,
-    pub set_post_polish: WriteSignal<String>,
-    pub debug_gemini_only: ReadSignal<bool>,
-    pub set_debug_gemini_only: WriteSignal<bool>,
-    pub topaz_mode: ReadSignal<String>,
-    pub set_topaz_mode: WriteSignal<String>,
-    pub skip_topaz: ReadSignal<bool>,
-    pub set_skip_topaz: WriteSignal<bool>,
-    pub model_choice: ReadSignal<String>,
-    pub set_model_choice: WriteSignal<String>,
-    pub refinement: ReadSignal<bool>,
-    pub set_refinement: WriteSignal<bool>,
     pub creativity: ReadSignal<f32>,
     pub set_creativity: WriteSignal<f32>,
     pub seed: ReadSignal<Option<u64>>,
     pub set_seed: WriteSignal<Option<u64>>,
     pub restoration_pass: ReadSignal<bool>,
     pub set_restoration_pass: WriteSignal<bool>,
+    pub pre_process_pass: ReadSignal<bool>,
+    pub set_pre_process_pass: WriteSignal<bool>,
     pub noise_reduction: ReadSignal<i32>,
     pub set_noise_reduction: WriteSignal<i32>,
     pub sharpen: ReadSignal<i32>,
     pub set_sharpen: WriteSignal<i32>,
     pub remove_artifacts: ReadSignal<i32>,
     pub set_remove_artifacts: WriteSignal<i32>,
+    pub debug_gemini_only: ReadSignal<bool>,
+    pub set_debug_gemini_only: WriteSignal<bool>,
 }
 
 impl GlobalState {
@@ -97,7 +85,6 @@ pub fn provide_global_state() {
     let (style, set_style) = signal("PHOTOGRAPHY".to_string());
     let (face_enhancement, set_face_enhancement) = signal(false);
     let (temp_file, set_temp_file) = signal(None::<web_sys::File>);
-    let (temp_classification, set_temp_classification) = signal(None::<String>);
     let (preview_base64, set_preview_base64) = signal(None::<String>);
     let (theme, set_theme) = signal("dark".to_string());
     let (active_tool, set_active_tool) = signal("UPSCALE".to_string());
@@ -106,26 +93,20 @@ pub fn provide_global_state() {
     let (engine_status, set_engine_status) = signal(Option::<PollResponse>::None);
     let (is_submitting, set_is_submitting) = signal(false);
     let (avg_latency_secs, set_avg_latency_secs) = signal(20);
-    let (pre_processing, set_pre_processing) = signal("Off".to_string());
-    let (post_polish, set_post_polish) = signal("Off".to_string());
-    let (debug_gemini_only, set_debug_gemini_only) = signal(false);
-    let (topaz_mode, set_topaz_mode) = signal("Auto".to_string());
-    let (skip_topaz, set_skip_topaz) = signal(false);
-    let (model_choice, set_model_choice) = signal("Standard".to_string());
-    let (refinement, set_refinement) = signal(true);
-    let (creativity, set_creativity) = signal(0.5);
+    let (creativity, set_creativity) = signal(0.35);
     let (seed, set_seed) = signal(None::<u64>);
     let (restoration_pass, set_restoration_pass) = signal(false);
+    let (pre_process_pass, set_pre_process_pass) = signal(false);
     let (noise_reduction, set_noise_reduction) = signal(0);
     let (sharpen, set_sharpen) = signal(0);
     let (remove_artifacts, set_remove_artifacts) = signal(0);
+    let (debug_gemini_only, set_debug_gemini_only) = signal(false);
 
     provide_context(GlobalState {
         scale, set_scale,
         style, set_style,
         face_enhancement, set_face_enhancement,
         temp_file, set_temp_file,
-        temp_classification, set_temp_classification,
         preview_base64, set_preview_base64,
         theme, set_theme,
         active_tool, set_active_tool,
@@ -134,19 +115,14 @@ pub fn provide_global_state() {
         engine_status, set_engine_status,
         is_submitting, set_is_submitting,
         avg_latency_secs, set_avg_latency_secs,
-        pre_processing, set_pre_processing,
-        post_polish, set_post_polish,
-        debug_gemini_only, set_debug_gemini_only,
-        topaz_mode, set_topaz_mode,
-        skip_topaz, set_skip_topaz,
-        model_choice, set_model_choice,
-        refinement, set_refinement,
         creativity, set_creativity,
         seed, set_seed,
         restoration_pass, set_restoration_pass,
+        pre_process_pass, set_pre_process_pass,
         noise_reduction, set_noise_reduction,
         sharpen, set_sharpen,
         remove_artifacts, set_remove_artifacts,
+        debug_gemini_only, set_debug_gemini_only,
     });
 }
 
@@ -167,16 +143,11 @@ fn App() -> impl IntoView {
             face_enhancement: gs.face_enhancement.get(),
             theme: theme_val.clone(),
             active_tool: gs.active_tool.get(),
-            pre_processing: gs.pre_processing.get(),
-            post_polish: gs.post_polish.get(),
-            debug_gemini_only: gs.debug_gemini_only.get(),
-            topaz_mode: gs.topaz_mode.get(),
-            skip_topaz: gs.skip_topaz.get(),
-            model: gs.model_choice.get(),
-            refinement: gs.refinement.get(),
             creativity: gs.creativity.get(),
             seed: gs.seed.get(),
             restoration_pass: gs.restoration_pass.get(),
+            pre_process_pass: gs.pre_process_pass.get(),
+            debug_gemini_only: gs.debug_gemini_only.get(),
         };
         persistence::save_settings(&settings);
         
@@ -189,10 +160,6 @@ fn App() -> impl IntoView {
 
     // Initial hydration
     Effect::new(move |_| {
-        if let Some(c) = persistence::load_classification() {
-            gs.set_temp_classification.set(Some(c));
-        }
-
         // Hydrate settings (sync)
         if let Some(s) = persistence::load_settings() {
             gs.set_scale.set(s.scale);
@@ -200,16 +167,11 @@ fn App() -> impl IntoView {
             gs.set_face_enhancement.set(s.face_enhancement);
             gs.set_theme.set(s.theme);
             gs.set_active_tool.set(s.active_tool);
-            gs.set_pre_processing.set(s.pre_processing);
-            gs.set_post_polish.set(s.post_polish);
-            gs.set_debug_gemini_only.set(s.debug_gemini_only);
-            gs.set_topaz_mode.set(s.topaz_mode);
-            gs.set_skip_topaz.set(s.skip_topaz);
-            gs.set_model_choice.set(s.model);
-            gs.set_refinement.set(s.refinement);
             gs.set_creativity.set(s.creativity);
             gs.set_seed.set(s.seed);
             gs.set_restoration_pass.set(s.restoration_pass);
+            gs.set_pre_process_pass.set(s.pre_process_pass);
+            gs.set_debug_gemini_only.set(s.debug_gemini_only);
         }
 
         // Hydrate file (async)
@@ -229,7 +191,6 @@ fn App() -> impl IntoView {
             let state = gs;
             leptos::task::spawn_local(async move {
                 loop {
-                    // Check if job is still the active one
                     if untrack(move || state.processing_job.get()) != Some(job_id) { break; }
                     
                     match ApiClient::poll_job(job_id, token.as_deref()).await {
@@ -549,7 +510,7 @@ fn Home() -> impl IntoView {
                         <div class="showcase-actions-row">
                             <div class="action-meta">
                                 <h3 class="action-title">"High-Fidelity AI Reconstruction"</h3>
-                                <p class="action-desc">"Our Gemini-powered engine synthesizes high-frequency details where traditional upscalers fail."</p>
+                                <p class="action-desc">"Our hybrid engine synthesizes high-frequency details where traditional upscalers fail."</p>
                             </div>
                             <div class="action-buttons">
                                 <A href="/editor" attr:class="btn btn-primary cta-btn-hero">

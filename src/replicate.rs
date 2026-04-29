@@ -39,21 +39,47 @@ impl ReplicateClient {
     }
 
 
+    pub async fn run_p_image_edit(
+        &self,
+        image_url: &str,
+        creativity: f32,
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
+        // Map creativity (0.0 - 1.0) to prompt intensity
+        let intensity = if creativity < 0.3 {
+            "slight"
+        } else if creativity < 0.6 {
+            "moderate"
+        } else {
+            "heavy"
+        };
+
+        let input = serde_json::json!({
+            "images": [image_url],
+            "prompt": format!("{} cleanup of artifacts and noise, preserve all original details and textures, maintain photographic high fidelity", intensity),
+            "replicate_weights": "default",
+            "turbo": true
+        });
+        info!("Running AI Pre-Processing pass (p-image-edit) [Intensity: {}]...", intensity);
+        self.run_replicate_model(
+            "prunaai/p-image-edit",
+            "", 
+            input
+        ).await
+    }
+
     pub async fn run_restore_image(
         &self,
         image_url: &str,
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let req_body = serde_json::json!({
-            "input": {
-                "input_image": image_url,
-                "output_format": "png",
-                "safety_tolerance": 2
-            }
+        let input = serde_json::json!({
+            "input_image": image_url,
+            "output_format": "png",
+            "safety_tolerance": 2
         });
         self.run_replicate_model(
             "flux-kontext-apps/restore-image",
             "", // Empty version triggers the model-specific latest endpoint
-            req_body
+            input
         ).await
     }
 
@@ -67,30 +93,28 @@ impl ReplicateClient {
         sharpen: i32,
         remove_artifacts: i32,
     ) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let req_body = serde_json::json!({
-            "input": {
-                "image": image_url,
-                "enhance_model": enhance_model,
-                "upscale_factor": upscale_factor,
-                "output_format": "jpg",
-                "subject_detection": "Main",
-                "face_enhancement": face_enhancement,
-                "noise_reduction": noise_reduction,
-                "sharpen": sharpen,
-                "remove_artifacts": remove_artifacts
-            }
+        let input = serde_json::json!({
+            "image": image_url,
+            "enhance_model": enhance_model,
+            "upscale_factor": upscale_factor,
+            "output_format": "png",
+            "subject_detection": "Foreground",
+            "face_enhancement": face_enhancement,
+            "noise_reduction": noise_reduction,
+            "sharpen": sharpen,
+            "remove_artifacts": remove_artifacts
         });
 
-        info!("Running Topaz Labs [{}] [Upscale: {}, Face: {}, Noise: {}, Sharpen: {}]", 
-            enhance_model, upscale_factor, face_enhancement, noise_reduction, sharpen);
+        info!("Running Topaz Labs [{}] [Upscale: {}, Face: {}, Noise: {}, Sharpen: {}, Artifacts: {}]", 
+            enhance_model, upscale_factor, face_enhancement, noise_reduction, sharpen, remove_artifacts);
         self.run_replicate_model(
             "topazlabs/image-upscale",
             "2fdc3b86a01d338ae89ad58e5d9241398a8a01de9b0dda41ba8a0434c8a00dc3",
-            req_body
+            input
         ).await
     }
 
-    pub async fn run_replicate_model(&self, model: &str, version: &str, req_body: serde_json::Value) -> Result<String, Box<dyn Error + Send + Sync>> {
+    pub async fn run_replicate_model(&self, model: &str, version: &str, input: serde_json::Value) -> Result<String, Box<dyn Error + Send + Sync>> {
         let mut attempts = 0;
         let mut resp;
         
@@ -105,7 +129,7 @@ impl ReplicateClient {
             info!("Replicate [{}]: Sending request (Attempt {})...", model, attempts);
             
             let mut body = serde_json::json!({
-                "input": req_body["input"]
+                "input": input
             });
             if !version.is_empty() {
                 body["version"] = serde_json::json!(version);

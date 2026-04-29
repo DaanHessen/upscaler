@@ -18,22 +18,13 @@ pub struct UserSettings {
     pub theme: String,
     #[serde(default = "default_tool")]
     pub active_tool: String,
-    #[serde(default = "default_off")]
-    pub pre_processing: String,
-    #[serde(default = "default_off")]
-    pub post_polish: String,
-    #[serde(default)]
-    pub debug_gemini_only: bool,
-    #[serde(default = "default_topaz_mode")]
-    pub topaz_mode: String,
-    #[serde(default)]
-    pub skip_topaz: bool,
-    #[serde(default = "default_model")]
-    pub model: String,
-    #[serde(default)]
-    pub refinement: bool,
     #[serde(default)]
     pub restoration_pass: bool,
+    #[serde(default)]
+    pub pre_process_pass: bool,
+
+    #[serde(default)]
+    pub debug_gemini_only: bool,
 
     // Restoration and Seed Parameters
     #[serde(default = "default_creativity")]
@@ -42,11 +33,25 @@ pub struct UserSettings {
     pub seed: Option<u64>,
 }
 
-fn default_off() -> String { "Off".to_string() }
+impl Default for UserSettings {
+    fn default() -> Self {
+        Self {
+            scale: "2x".to_string(),
+            style: "PHOTOGRAPHY".to_string(),
+            face_enhancement: false,
+            theme: "dark".to_string(),
+            active_tool: default_tool(),
+            restoration_pass: false,
+            pre_process_pass: false,
+            debug_gemini_only: false,
+            creativity: default_creativity(),
+            seed: None,
+        }
+    }
+}
+
 fn default_tool() -> String { "UPSCALE".to_string() }
-fn default_topaz_mode() -> String { "Auto".to_string() }
-fn default_model() -> String { "Premium".to_string() }
-fn default_creativity() -> f32 { 0.5 }
+fn default_creativity() -> f32 { 0.35 }
 
 pub fn save_classification(style: Option<String>) {
     if let Some(s) = style {

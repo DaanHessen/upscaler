@@ -410,9 +410,10 @@ pub async fn upscale_handler(
         "6x" => 6,
         _ => 2,
     };
-    let pre_cost = if prompt_settings.pre_processing == "On" { 1 } else { 0 };
-    let post_cost = if prompt_settings.post_polish == "On" { 1 } else { 0 };
-    let credit_cost = base_cost + pre_cost + post_cost;
+    let pre_cost = if prompt_settings.pre_process_pass { 1 } else { 0 };
+    let rest_cost = if prompt_settings.restoration_pass { 1 } else { 0 };
+    let face_cost = if prompt_settings.face_enhancement { 1 } else { 0 };
+    let credit_cost = base_cost + pre_cost + rest_cost + face_cost;
 
     // Credit check
     let balance = state.db.get_balance(user_id).await.map_err(|_| crate::errors::ApiError::Internal("DB Error".to_string()))?;

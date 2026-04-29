@@ -244,10 +244,24 @@ fn ResultView(data: crate::api::PollResponse, job_id: String) -> impl IntoView {
                                             </div>
                                             <div class="pack-item">
                                                 <div class="pack-info">
-                                                    <span class="pack-name">"Topaz Mode"</span>
-                                                    <span class="pack-credits">"Reconstruction Mode"</span>
+                                                    <span class="pack-name">"Cleanup"</span>
+                                                    <span class="pack-credits">"Artifact Pass"</span>
                                                 </div>
-                                                <span class="pack-price" style="font-size: 0.75rem;">{settings.topaz_mode}</span>
+                                                <span class="pack-price" style="font-size: 0.75rem;">{if settings.pre_process_pass { "ON" } else { "OFF" }}</span>
+                                            </div>
+                                            <div class="pack-item">
+                                                <div class="pack-info">
+                                                    <span class="pack-name">"Restoration"</span>
+                                                    <span class="pack-credits">"Detail Pass"</span>
+                                                </div>
+                                                <span class="pack-price" style="font-size: 0.75rem;">{if settings.restoration_pass { "ON" } else { "OFF" }}</span>
+                                            </div>
+                                            <div class="pack-item">
+                                                <div class="pack-info">
+                                                    <span class="pack-name">"Faces"</span>
+                                                    <span class="pack-credits">"Enhancement Pass"</span>
+                                                </div>
+                                                <span class="pack-price" style="font-size: 0.75rem;">{if settings.face_enhancement { "ON" } else { "OFF" }}</span>
                                             </div>
                                         </>
                                     }
