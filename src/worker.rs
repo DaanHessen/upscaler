@@ -51,47 +51,21 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     // Step 2: Model Branching
     let final_url = if prompt_settings.model == "Standard" {
-        if input_mp >= 0.5 {
-            // --- BRANCH A: HIGH-RES PHOTOGRAPHIC (Technical Only) ---
-            // Direct technical upscale for images that already have enough signal.
-            let prep_uri = if input_mp <= 1.5 {
-                info!("Standard Mode [High-Res]: Direct technical upscale ({:.2} MP)", input_mp);
-                input_uri.clone()
-            } else {
-                info!("Standard Mode [High-Res]: Downscaling to 1.5MP for safety ({:.2} MP)", input_mp);
-                let prep_bytes = match crate::processor::scale_to_resolution(&raw_bytes, "1.5MP") {
-                    Ok(b) => b,
-                    Err(e) => {
-                        let _ = state.db.update_job_failed(job.id, &format!("Scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
-                        let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
-                        return Err(e);
-                    }
-                };
-                state.storage.upload_temp(prep_bytes, &format!("{}_std_high.jpg", job.id)).await?
-            };
-
-            state.replicate.run_real_esrgan(&prep_uri, &job.quality).await?
+        // --- V5.0 REVOLUTION: Single-Pass SeeSR Pipeline ---
+        // Strategy: Use a high-fidelity generative upscaler (SeeSR) that handles restoration 
+        // and enlargement in one go. No more blocks, no more softness.
+        info!("Running Standard Mode V5.0: One-Pass SeeSR ({:.2} MP)", input_mp);
+        
+        // Basic safety: If image is massive (>2MP), downscale to 1.5MP for GPU memory
+        let prep_uri = if input_mp <= 2.0 {
+            input_uri.clone()
         } else {
-            // --- BRANCH B: LOW-RES RECONSTRUCTION (Generative + Technical) ---
-            // For tiny thumbnails, we need a light generative pass to "invent" missing detail.
-            info!("Standard Mode [Low-Res]: Running Adaptive Reconstruction ({:.2} MP)", input_mp);
-            
-            // Pass 1: Light Generative Restoration (Fast & Cheap)
-            // The backend run_p_image_edit handles specialized low-res prompts internally.
-            let restore_uri = state.replicate.run_p_image_edit(
-                &input_uri,
-                caption.clone(),
-                &prompt_settings,
-                true,  // is_low_res
-                false, // is_grayscale
-                false, // is_premium_pre_pass
-                crate::processor::ImageStyle::Photography,
-                input_mp
-            ).await?;
+            info!("SeeSR Safety: Downscaling to 1.5MP for memory ({:.2} MP)", input_mp);
+            let prep_bytes = crate::processor::scale_to_resolution(&raw_bytes, "1.5MP")?;
+            state.storage.upload_temp(prep_bytes, &format!("{}_seesr_prep.jpg", job.id)).await?
+        };
 
-            // Pass 2: Final Technical Upscale
-            state.replicate.run_real_esrgan(&restore_uri, &job.quality).await?
-        }
+        state.replicate.run_seesr(&prep_uri, caption.clone(), &job.quality).await?
     } else {
         // --- PREMIUM MODE: Restore (P-Edit) -> Topaz Upscale ---
         info!("Running Premium Mode: Restoration + Topaz pipeline...");

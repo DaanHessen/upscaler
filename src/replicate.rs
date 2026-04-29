@@ -3,7 +3,7 @@ use serde::Deserialize;
 use std::error::Error;
 use std::env;
 use std::time::Duration;
-use tracing::info;
+use tracing::{info, warn};
 
 #[derive(Deserialize, Debug)]
 pub struct ReplicatePredictionResponse {
@@ -21,9 +21,18 @@ pub struct ReplicateClient {
 impl ReplicateClient {
     pub fn new() -> Result<Self, Box<dyn Error + Send + Sync>> {
         let token = env::var("REPLICATE_API_TOKEN").map_err(|_| "REPLICATE_API_TOKEN not set")?;
+        
+        // Single persistent client for high-throughput polling and reliable POSTs
         let client = Client::builder()
+            .http1_only() // CRITICAL: Avoid HTTP/2 stream hangs on certain VPS environments
+            .user_agent("Upscaler-Backend/1.1 (High-Throughput)")
+            .connect_timeout(Duration::from_secs(15))
             .timeout(Duration::from_secs(300))
+            .pool_idle_timeout(Duration::from_secs(90))
+            .pool_max_idle_per_host(20)
+            .tcp_keepalive(Duration::from_secs(30))
             .build()?;
+            
         Ok(Self {
             client,
             token,
@@ -57,6 +66,38 @@ impl ReplicateClient {
         let caption = res.replace("Caption:", "").trim().to_string();
         info!("BLIP-3 generated caption: {}", caption);
         Ok(caption)
+    }
+
+    pub async fn run_seesr(
+        &self,
+        image_url: &str,
+        caption: Option<String>,
+        quality: &str,
+    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
+        let mut prompt = String::new();
+        prompt.push_str("high quality, detailed, sharp, photographic, masterwork, 8k resolution, highly detailed textures, natural skin, realistic fur.");
+        if let Some(cap) = caption {
+            prompt.push_str(&format!(" {}.", cap));
+        }
+
+        // Adaptive upscale factor
+        let upscale = match quality {
+            "4x" | "4K" => 4,
+            _ => 2,
+        };
+
+        let input = serde_json::json!({
+            "image": image_url,
+            "user_prompt": prompt, 
+            "negative_prompt": "AI-generated look, plastic, airbrushed, cartoon, low resolution, blurry, dotted, noise, smooth, unnatural textures",
+            "num_inference_steps": 30, // Reduced from 50 to 30 for cost efficiency and speed
+            "cfg_scale": 5.5, 
+            "scale_factor": upscale,
+        });
+
+        info!("Standard Mode V6.0: Running SeeSR (cswry) [Upscale: {}x, Steps: 30]", upscale);
+        let version = "989cf3a66fd209363de347c3129d95d9fe639e44533ab47e07a6dfb3f250b6e3";
+        self.run_replicate_model("cswry/seesr", version, serde_json::json!({ "input": input })).await
     }
 
     pub async fn run_p_image_edit(
@@ -267,119 +308,54 @@ impl ReplicateClient {
         self.run_replicate_model("topazlabs/image-upscale", "2fdc3b86a01d338ae89ad58e5d9241398a8a01de9b0dda41ba8a0434c8a00dc3", req_body).await
     }
 
-    async fn run_replicate_model(&self, model: &str, version: &str, req_body: serde_json::Value) -> Result<String, Box<dyn Error + Send + Sync>> {
+    pub async fn run_replicate_model(&self, model: &str, version: &str, req_body: serde_json::Value) -> Result<String, Box<dyn Error + Send + Sync>> {
         let mut attempts = 0;
         let mut resp;
+        
         loop {
-            resp = self.client.post("https://api.replicate.com/v1/predictions")
+            attempts += 1;
+            info!("Replicate [{}]: Sending request (Attempt {})...", model, attempts);
+            
+            let req = self.client.post("https://api.replicate.com/v1/predictions")
                 .bearer_auth(&self.token)
                 .json(&serde_json::json!({
                     "version": version,
                     "input": req_body["input"]
-                }))
-                .send()
-                .await?;
+                }));
 
-            if resp.status().is_success() {
-                break;
-            }
-
-            let status = resp.status();
-            if status == 429 && attempts < 10 {
-                attempts += 1;
-                
-                let retry_header = resp.headers()
-                    .get("Retry-After")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|s| s.parse::<u64>().ok());
-
-                let error_body = resp.text().await.unwrap_or_else(|_| "Could not read error body".to_string());
-                
-                // Try to get wait time from JSON body first (Replicate often puts it there)
-                let body_retry_after = serde_json::from_str::<serde_json::Value>(&error_body)
-                    .ok()
-                    .and_then(|v| v.get("retry_after").and_then(|ra| ra.as_u64()))
-                    .or(retry_header);
-
-                let wait_secs = body_retry_after.unwrap_or_else(|| 2_u64.pow(attempts));
-                info!("Replicate API throttled (429) for {}. Reason: {}. Retrying in {} seconds...", model, error_body, wait_secs);
-                
-                tokio::time::sleep(Duration::from_secs(wait_secs)).await;
-            } else {
-                let txt = resp.text().await?;
-                return Err(format!("Replicate API error ({}): {}", status, txt).into());
-            }
-        }
-
-        let mut pred: ReplicatePredictionResponse = resp.json().await?;
-        
-        while pred.status == "starting" || pred.status == "processing" {
-            tokio::time::sleep(Duration::from_secs(3)).await;
-            let get_resp = self.client.get(&format!("https://api.replicate.com/v1/predictions/{}", pred.id))
-                .bearer_auth(&self.token)
-                .send()
-                .await?;
-            if !get_resp.status().is_success() {
-                 return Err("Failed to poll Replicate".into());
-            }
-            pred = get_resp.json().await?;
-        }
-
-        if pred.status == "failed" || pred.status == "canceled" {
-            return Err(format!("Replicate job failed: {:?}", pred.error).into());
-        }
-
-        if let Some(out) = pred.output {
-            if let Some(out_url) = out.as_str() {
-                return Ok(out_url.to_string());
-            } else if let Some(out_arr) = out.as_array() {
-                let joined: String = out_arr.iter().filter_map(|v| v.as_str()).collect();
-                if !joined.is_empty() {
-                    return Ok(joined);
+            // Use explicit tokio timeout to prevent silent hangs in the reqwest state machine
+            let send_future = req.send();
+            resp = match tokio::time::timeout(Duration::from_secs(45), send_future).await {
+                Ok(Ok(r)) => r,
+                Ok(Err(e)) => {
+                    warn!("Replicate [{}]: Connection error (Attempt {}): {}. Retrying...", model, attempts, e);
+                    if attempts >= 5 { return Err(e.into()); }
+                    tokio::time::sleep(Duration::from_secs(2)).await;
+                    continue;
                 }
-            }
-            Err("No output from Replicate".into())
-        } else {
-            Err("No output from Replicate".into())
-        }
-    }
-
-    async fn run_replicate_model_by_name(&self, model_owner: &str, model_name: &str, req_body: serde_json::Value) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let mut attempts = 0;
-        let mut resp;
-        loop {
-            resp = self.client.post(&format!("https://api.replicate.com/v1/models/{}/{}/predictions", model_owner, model_name))
-                .bearer_auth(&self.token)
-                .json(&serde_json::json!({
-                    "input": req_body["input"]
-                }))
-                .send()
-                .await?;
+                Err(_) => {
+                    warn!("Replicate [{}]: Request timed out at 45s (Attempt {}). Connection likely stuck. Retrying...", model, attempts);
+                    if attempts >= 3 { return Err("Replicate POST request timed out persistently".into()); }
+                    continue;
+                }
+            };
 
             if resp.status().is_success() {
+                info!("Replicate [{}]: Request accepted. Status: {}", model, resp.status());
                 break;
             }
 
             let status = resp.status();
             if status == 429 && attempts < 10 {
-                attempts += 1;
-                
-                let retry_header = resp.headers()
-                    .get("Retry-After")
-                    .and_then(|v| v.to_str().ok())
-                    .and_then(|s| s.parse::<u64>().ok());
-
-                let error_body = resp.text().await.unwrap_or_else(|_| "Could not read error body".to_string());
-                
-                let body_retry_after = serde_json::from_str::<serde_json::Value>(&error_body)
+                let error_body = resp.text().await.unwrap_or_default();
+                let wait_secs = serde_json::from_str::<serde_json::Value>(&error_body)
                     .ok()
                     .and_then(|v| v.get("retry_after").and_then(|ra| ra.as_u64()))
-                    .or(retry_header);
+                    .unwrap_or(attempts as u64 * 3 + 2);
 
-                let wait_secs = body_retry_after.unwrap_or_else(|| 2_u64.pow(attempts));
-                info!("Replicate API throttled (429) for {}/{}. Reason: {}. Retrying in {} seconds...", model_owner, model_name, error_body, wait_secs);
-                
+                warn!("Replicate Throttled (429). Waiting {}s before retry {}/10...", wait_secs, attempts);
                 tokio::time::sleep(Duration::from_secs(wait_secs)).await;
+                continue;
             } else {
                 let txt = resp.text().await?;
                 return Err(format!("Replicate API error ({}): {}", status, txt).into());
@@ -387,17 +363,32 @@ impl ReplicateClient {
         }
 
         let mut pred: ReplicatePredictionResponse = resp.json().await?;
+        let start_poll = std::time::Instant::now();
         
         while pred.status == "starting" || pred.status == "processing" {
-            tokio::time::sleep(Duration::from_secs(3)).await;
-            let get_resp = self.client.get(&format!("https://api.replicate.com/v1/predictions/{}", pred.id))
-                .bearer_auth(&self.token)
-                .send()
-                .await?;
-            if !get_resp.status().is_success() {
-                 return Err("Failed to poll Replicate".into());
+            if start_poll.elapsed().as_secs() > 600 {
+                return Err("Replicate job timed out after 10 minutes".into());
             }
-            pred = get_resp.json().await?;
+
+            tokio::time::sleep(Duration::from_secs(3)).await;
+            
+            let poll_req = self.client.get(&format!("https://api.replicate.com/v1/predictions/{}", pred.id))
+                .bearer_auth(&self.token);
+
+            let poll_res = match tokio::time::timeout(Duration::from_secs(20), poll_req.send()).await {
+                Ok(Ok(r)) => r,
+                _ => {
+                    warn!("Replicate [{}]: Polling request hung or timed out. Retrying poll...", model);
+                    continue;
+                }
+            };
+                
+            if !poll_res.status().is_success() {
+                 warn!("Replicate [{}]: Polling failed (status: {}). Retrying poll...", model, poll_res.status());
+                 continue;
+            }
+            pred = poll_res.json().await?;
+            info!("Replicate [{}]: Status: {} ({}s)", model, pred.status, start_poll.elapsed().as_secs());
         }
 
         if pred.status == "failed" || pred.status == "canceled" {

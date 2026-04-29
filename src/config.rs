@@ -13,6 +13,7 @@ pub struct Config {
     pub stripe_webhook_secret: String,
     pub public_url: String,
     pub admin_user_id: Option<String>,
+    pub google_api_key: String,
 }
 
 impl Config {

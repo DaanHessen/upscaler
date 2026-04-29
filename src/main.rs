@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
 async fn queue_worker(state: Arc<AppState>) {
     info!("Queue worker loop started.");
-    let semaphore = Arc::new(tokio::sync::Semaphore::new(5));
+    let semaphore = Arc::new(tokio::sync::Semaphore::new(10));
 
     loop {
         let permit = match semaphore.clone().acquire_owned().await {
