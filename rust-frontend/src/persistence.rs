@@ -32,8 +32,10 @@ pub struct UserSettings {
     pub model: String,
     #[serde(default)]
     pub refinement: bool,
+    #[serde(default)]
+    pub restoration_pass: bool,
 
-    // Internalized SeeSR Parameters
+    // Restoration and Seed Parameters
     #[serde(default = "default_creativity")]
     pub creativity: f32,
     #[serde(default)]

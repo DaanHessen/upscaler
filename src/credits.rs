@@ -6,9 +6,9 @@ use tracing::{info, warn};
 /// Credit cost per quality tier (placeholder values — will be tuned later)
 pub fn calculate_cost(quality: &str) -> i32 {
     match quality {
-        "4x" | "4K" | "STD_4K" => 10,
-        "2x" | "2K" => 5,
-        _ => 5, // fallback to default 5 credit tier
+        "4x" | "4K" => 4,
+        "2x" | "2K" => 2,
+        _ => 2,
     }
 }
 

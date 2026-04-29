@@ -16,15 +16,26 @@ pub struct PromptSettings {
     pub model: String, // "Standard" or "Premium"
     #[serde(default)]
     pub refinement: bool, // For Premium model
+    #[serde(default)]
+    pub restoration_pass: bool, // Manual override for restoration
     
-    // Internalized SeeSR Parameters
     #[serde(default = "default_creativity")]
     pub creativity: f32,
     #[serde(default)]
     pub seed: Option<u64>,
+    
+    #[serde(default = "default_0")]
+    pub noise_reduction: i32,
+    #[serde(default = "default_0")]
+    pub sharpen: i32,
+    #[serde(default = "default_0")]
+    pub remove_artifacts: i32,
+    
     #[serde(default)]
     pub original_filename: Option<String>,
 }
+
+fn default_0() -> i32 { 0 }
 
 fn default_off() -> String { "Off".to_string() }
 fn default_model() -> String { "Premium".to_string() }

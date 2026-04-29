@@ -22,9 +22,8 @@ impl ReplicateClient {
     pub fn new() -> Result<Self, Box<dyn Error + Send + Sync>> {
         let token = env::var("REPLICATE_API_TOKEN").map_err(|_| "REPLICATE_API_TOKEN not set")?;
         
-        // Single persistent client for high-throughput polling and reliable POSTs
         let client = Client::builder()
-            .http1_only() // CRITICAL: Avoid HTTP/2 stream hangs on certain VPS environments
+            .http1_only()
             .user_agent("Upscaler-Backend/1.1 (High-Throughput)")
             .connect_timeout(Duration::from_secs(15))
             .timeout(Duration::from_secs(300))
@@ -62,268 +61,88 @@ impl ReplicateClient {
             }
         };
 
-        // The response is usually a string starting with "Caption: ..." or just the caption
         let caption = res.replace("Caption:", "").trim().to_string();
-        info!("BLIP-3 generated caption: {}", caption);
+        info!("BLIP generated caption: {}", caption);
         Ok(caption)
     }
 
-    pub async fn run_seesr(
+    pub async fn run_restore_image(
         &self,
         image_url: &str,
-        caption: Option<String>,
-        quality: &str,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let mut prompt = String::new();
-        prompt.push_str("high quality, detailed, sharp, photographic, masterwork, 8k resolution, highly detailed textures, natural skin, realistic fur.");
-        if let Some(cap) = caption {
-            prompt.push_str(&format!(" {}.", cap));
-        }
-
-        // Adaptive upscale factor
-        let upscale = match quality {
-            "4x" | "4K" => 4,
-            _ => 2,
-        };
-
-        let input = serde_json::json!({
-            "image": image_url,
-            "user_prompt": prompt, 
-            "negative_prompt": "AI-generated look, plastic, airbrushed, cartoon, low resolution, blurry, dotted, noise, smooth, unnatural textures",
-            "num_inference_steps": 30, // Reduced from 50 to 30 for cost efficiency and speed
-            "cfg_scale": 5.5, 
-            "scale_factor": upscale,
-        });
-
-        info!("Standard Mode V6.0: Running SeeSR (cswry) [Upscale: {}x, Steps: 30]", upscale);
-        let version = "989cf3a66fd209363de347c3129d95d9fe639e44533ab47e07a6dfb3f250b6e3";
-        self.run_replicate_model("cswry/seesr", version, serde_json::json!({ "input": input })).await
-    }
-
-    pub async fn run_p_image_edit(
-        &self,
-        image_url: &str,
-        caption: Option<String>,
-        settings: &crate::prompts::PromptSettings,
-        _is_low_res: bool,
-        _is_grayscale: bool,
-        _is_premium_pre_pass: bool,
-        style: crate::processor::ImageStyle,
-        input_mp: f32,
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        let creativity = settings.creativity;
-        let _refinement = settings.refinement;
-        
-        let mut prompt = String::new();
-        
-        // 1. Mandatory Trigger Word
-        prompt.push_str("tok_enhance. ");
-
-        // 2. Identity & Fidelity Anchor
-        prompt.push_str("Subtle photographic cleanup of image 1. ");
-        prompt.push_str("Strictly preserve the original identity, composition, and soul. ");
-
-        let (effective_style, category) = self.decide_style_and_category(caption.as_deref(), style);
-        
-        // 3. Resolution-Specific Strategy (Reconstruction vs. Subtle Cleanup)
-        if input_mp < 0.15 {
-            // --- BRANCH A: RECONSTRUCTION (Ultra Low-Res, e.g., < 300px) ---
-            prompt.push_str("Structural restoration pass. Remove heavy blur and fix pixelation. ");
-            prompt.push_str("Cleanly reconstruct missing details based on image 1. ");
-            if let Some(cap) = caption.as_ref() {
-                prompt.push_str(&format!("Accurately restore the features of {}. ", cap));
-            }
-        } else {
-            // --- BRANCH B: CONSERVATIVE CLEANUP (Standard/High-Res) ---
-            prompt.push_str("High-fidelity artifact removal. Remove JPEG compression, noise, and digital grain. ");
-            prompt.push_str("Maintain 100% fidelity to the original features. Do not regenerate textures. ");
-            prompt.push_str("Strictly no changes to the subject or background. ");
-        }
-
-        // 4. Texture & Detail Preservation
-        if effective_style == crate::processor::ImageStyle::Photography {
-            if input_mp < 0.15 {
-                match category.as_str() {
-                    "Portrait" => prompt.push_str("Maintain skin texture and sharp iris detail. "),
-                    "Wildlife" => prompt.push_str("Maintain natural fur flow and sharp eye detail. "),
-                    _ => prompt.push_str("Maintain realistic photographic micro-textures. "),
-                }
-            } else {
-                prompt.push_str("Preserve existing photographic textures. Maintain organic softness. ");
-            }
-        } else {
-            prompt.push_str("Maintain clean line art and original color fields. ");
-        }
-
-        // 5. Lighting & Finish
-        prompt.push_str("Balanced exposure, soft natural lighting. ");
-        prompt.push_str("Strictly preserve smooth out-of-focus bokeh background. Do not sharpen or add detail to the background. ");
-        prompt.push_str("No halos, no white outlines, no over-sharpening. ");
-
-        // 6. Creativity Scaling (Affects Prompt Density)
-        if creativity > 0.7 && input_mp < 0.3 {
-            prompt.push_str("Enhanced reconstruction. ");
-        } else if creativity < 0.3 {
-            prompt.push_str("Minimal cleanup only. ");
-        }
-
-        // 7. Overhauled Negative Prompt (Blocking the "AI Look")
-        let neg_prompt = "AI look, digital painting, generative artifacts, plastic skin, airbrushed, waxiness, smeared details, over-sharpened, etched textures, cinematic lighting, dramatic shadows, color shift, cartoonish, digital art look, beauty filter, fake textures, distorted anatomy, artificial digital noise, high contrast, crushed blacks, halos, white outlines, over-etched edges, artificial sharpness, over-saturated, blurry, pixelated, jpeg artifacts, sharpening artifacts in bokeh, textured blur".to_string();
-
-        // 8. Adaptive LoRA Scaling (Significantly Lowered for Realism)
-        let base_scale = if input_mp < 0.15 { 0.70 } else if input_mp < 1.0 { 0.35 } else { 0.20 };
-        let lora_scale = (base_scale + (creativity - 0.5) * 0.3).clamp(0.1, 1.0);
-
-        let mut input = serde_json::json!({
-            "images": [image_url],
-            "prompt": prompt,
-            "negative_prompt": neg_prompt,
-            "turbo": false,
-            "aspect_ratio": "match_input_image",
-            "lora_weights": "https://huggingface.co/davidberenstein1957/p-image-edit-photo-enhancement-lora/resolve/main/weights.safetensors",
-            "lora_scale": lora_scale
-        });
-
-        if let Some(seed) = settings.seed {
-            input["seed"] = serde_json::json!(seed);
-        }
-
-        let req_body = serde_json::json!({
-            "input": input
-        });
-
-        info!("V3 Pipeline — Branching: [MP: {:.2}, Scale: {:.2}], Style: {:?}, Category: {}", input_mp, lora_scale, effective_style, category);
-        self.run_replicate_model(
-            "prunaai/p-image-edit-lora",
-            "191152bf662a44024fe326e61595d4f84c0293afdee7ff08d973d5e399973a4e",
-            req_body
-        ).await
-    }
-
-    pub async fn run_p_image_upscale(
-        &self,
-        image_url: &str,
-        quality: &str,
-        creativity: f32,
-        input_mp: f32, // New parameter
-    ) -> Result<String, Box<dyn std::error::Error + Send + Sync>> {
-        // Map quality to target MP
-        let target_mp = match quality {
-            "2x" | "2K" => 4,
-            "4x" | "4K" => 8,
-            "6x" | "6K" => 8, // Cap at 8MP for p-image-upscale
-            _ => 4,
-        };
-
-        // Resolution-aware tuning for polish
-        let enhance_details = if input_mp < 0.3 { true } else { creativity >= 0.4 };
-        let enhance_realism = if input_mp < 0.3 { creativity >= 0.3 } else { creativity >= 0.6 };
-
-        let input = serde_json::json!({
-            "image": image_url,
-            "target": target_mp,
-            "upscale_mode": "target",
-            "enhance_details": enhance_details,
-            "enhance_realism": enhance_realism,
-            "output_format": "jpg",
-            "output_quality": 95
-        });
-
-        let req_body = serde_json::json!({
-            "input": input
-        });
-
-        info!("Running Pruna AI P-Image-Upscale — [Target: {}MP, Details: {}, Realism: {}]", target_mp, enhance_details, enhance_realism);
-        self.run_replicate_model(
-            "prunaai/p-image-upscale",
-            "9018fe338f75cea08d1e3abc5f4f795d62594abf94326d5e590090f593bb1bac",
-            req_body
-        ).await
-    }
-
-    pub async fn run_real_esrgan(&self, image_url: &str, quality: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let scale = match quality {
-            "2x" | "2K" => 2,
-            "4x" | "4K" => 4,
-            "6x" | "6K" => 4,
-            _ => 2,
-        };
-
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
         let req_body = serde_json::json!({
             "input": {
-                "image": image_url,
-                "upscale": scale,
-                "face_enhance": false,
+                "input_image": image_url,
+                "output_format": "png",
+                "safety_tolerance": 2
             }
         });
-
-        info!("Running Real-ESRGAN Upscale (Factor: {}x)...", scale);
-        // Using a stable version of nightmareai/real-esrgan
+        info!("Running AI Restoration pass (flux-kontext-apps/restore-image)...");
         self.run_replicate_model(
-            "nightmareai/real-esrgan",
-            "42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b",
+            "flux-kontext-apps/restore-image",
+            "", // Empty version triggers the model-specific latest endpoint
             req_body
         ).await
     }
 
-    pub async fn run_real_esrgan_2x(&self, image_url: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let req_body = serde_json::json!({
-            "input": {
-                "image": image_url,
-                "scale": 2,
-                "face_enhance": false
-            }
-        });
-
-        info!("Running Real-ESRGAN 2x Technical Restoration...");
-        self.run_replicate_model(
-            "nightmareai/real-esrgan",
-            "42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b",
-            req_body
-        ).await
-    }
-
-    pub async fn run_topaz(&self, image_url: &str, upscale_factor: &str, style: &str, topaz_mode: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let enhance_model = match topaz_mode {
-            "Low Quality Recovery" => "Low Resolution V2",
-            "Standard" => "Standard V2",
-            "High Fidelity" => "High Fidelity V2",
-            "CGI" => "CGI",
-            "Text Refine" => "Text Refine",
-            _ => {
-                if style == "PHOTOGRAPHY" { "Standard V2" } else { "CGI" }
-            }
-        };
+    pub async fn run_topaz(
+        &self,
+        image_url: &str,
+        upscale_factor: &str,
+        enhance_model: &str,
+        face_enhancement: bool,
+        noise_reduction: i32,
+        sharpen: i32,
+        remove_artifacts: i32,
+    ) -> Result<String, Box<dyn Error + Send + Sync>> {
         let req_body = serde_json::json!({
             "input": {
                 "image": image_url,
                 "enhance_model": enhance_model,
                 "upscale_factor": upscale_factor,
-                "face_enhancement": false,
-                "subject_detection": "None",
+                "output_format": "jpg",
+                "subject_detection": "All",
+                "face_enhancement": face_enhancement,
+                "noise_reduction": noise_reduction,
+                "sharpen": sharpen,
+                "remove_artifacts": remove_artifacts
             }
         });
 
-        info!("Starting Replicate Topaz job...");
-        self.run_replicate_model("topazlabs/image-upscale", "2fdc3b86a01d338ae89ad58e5d9241398a8a01de9b0dda41ba8a0434c8a00dc3", req_body).await
+        info!("Running Topaz Labs [{}] [Upscale: {}, Face: {}, Noise: {}, Sharpen: {}]", 
+            enhance_model, upscale_factor, face_enhancement, noise_reduction, sharpen);
+        self.run_replicate_model(
+            "topazlabs/image-upscale",
+            "2fdc3b86a01d338ae89ad58e5d9241398a8a01de9b0dda41ba8a0434c8a00dc3",
+            req_body
+        ).await
     }
 
     pub async fn run_replicate_model(&self, model: &str, version: &str, req_body: serde_json::Value) -> Result<String, Box<dyn Error + Send + Sync>> {
         let mut attempts = 0;
         let mut resp;
         
+        let url = if version.is_empty() {
+            format!("https://api.replicate.com/v1/models/{}/predictions", model)
+        } else {
+            "https://api.replicate.com/v1/predictions".to_string()
+        };
+
         loop {
             attempts += 1;
             info!("Replicate [{}]: Sending request (Attempt {})...", model, attempts);
             
-            let req = self.client.post("https://api.replicate.com/v1/predictions")
-                .bearer_auth(&self.token)
-                .json(&serde_json::json!({
-                    "version": version,
-                    "input": req_body["input"]
-                }));
+            let mut body = serde_json::json!({
+                "input": req_body["input"]
+            });
+            if !version.is_empty() {
+                body["version"] = serde_json::json!(version);
+            }
 
-            // Use explicit tokio timeout to prevent silent hangs in the reqwest state machine
+            let req = self.client.post(&url)
+                .bearer_auth(&self.token)
+                .json(&body);
+
             let send_future = req.send();
             resp = match tokio::time::timeout(Duration::from_secs(45), send_future).await {
                 Ok(Ok(r)) => r,
@@ -412,12 +231,8 @@ impl ReplicateClient {
 
     pub fn decide_style_and_category(&self, caption: Option<&str>, local_style: crate::processor::ImageStyle) -> (crate::processor::ImageStyle, String) {
         let low_caps = caption.unwrap_or_default().to_lowercase();
-        
-        // 1. Determine Category (Subject Matter)
         let category = self.derive_category(caption, local_style);
 
-        // 2. Determine Style (Photography vs Illustration)
-        // PRIORITY A: Explicit keywords in caption
         let style = if low_caps.contains("illustration") || low_caps.contains("drawing") || 
                        low_caps.contains("anime") || low_caps.contains("sketch") || 
                        low_caps.contains("painting") || low_caps.contains("vector") ||
@@ -426,20 +241,17 @@ impl ReplicateClient {
                        low_caps.contains("3d render") || low_caps.contains("pixel art") {
             crate::processor::ImageStyle::Illustration
         } else if low_caps.contains("photograph") || low_caps.contains("realistic") || 
-                  low_caps.contains("photo") || low_caps.contains("snapshot") || 
-                  low_caps.contains("cinematic") || low_caps.contains("35mm") ||
-                  low_caps.contains("raw photo") || low_caps.contains("portrait") ||
-                  low_caps.contains("wildlife") {
+                   low_caps.contains("photo") || low_caps.contains("snapshot") || 
+                   low_caps.contains("cinematic") || low_caps.contains("35mm") ||
+                   low_caps.contains("raw photo") || low_caps.contains("portrait") ||
+                   low_caps.contains("wildlife") {
             crate::processor::ImageStyle::Photography
         } else {
-            // PRIORITY B: Category Inference
             match category.as_str() {
                 "Portrait" | "Wildlife" | "Nature" | "Food" | "Macro" => {
-                    // Natural subjects are Photography unless explicitly stated otherwise above
                     crate::processor::ImageStyle::Photography
                 },
                 "Architecture" | "Product" | "Vehicle" => {
-                    // Neutral categories fallback to local style or photography
                     if local_style == crate::processor::ImageStyle::Illustration {
                          crate::processor::ImageStyle::Illustration
                     } else {
@@ -447,7 +259,6 @@ impl ReplicateClient {
                     }
                 },
                 _ => {
-                    // PRIORITY C: Local Classifier Fallback
                     local_style
                 }
             }
@@ -456,10 +267,9 @@ impl ReplicateClient {
         (style, category)
     }
 
-    pub fn derive_category(&self, caption: Option<&str>, style: crate::processor::ImageStyle) -> String {
+    pub fn derive_category(&self, caption: Option<&str>, _style: crate::processor::ImageStyle) -> String {
         let low_caps = caption.unwrap_or_default().to_lowercase();
         
-        // Portrait keywords
         if low_caps.contains("face") || low_caps.contains("person") || low_caps.contains("man") || 
            low_caps.contains("woman") || low_caps.contains("human") || low_caps.contains("eye") || 
            low_caps.contains("skin") || low_caps.contains("portrait") || low_caps.contains("girl") || 
@@ -467,7 +277,6 @@ impl ReplicateClient {
             return "Portrait".to_string();
         }
 
-        // Wildlife keywords
         if low_caps.contains("animal") || low_caps.contains("deer") || low_caps.contains("fur") || 
            low_caps.contains("bird") || low_caps.contains("pet") || low_caps.contains("dog") || 
            low_caps.contains("cat") || low_caps.contains("wildlife") || low_caps.contains("horse") || 
@@ -476,7 +285,6 @@ impl ReplicateClient {
             return "Wildlife".to_string();
         }
 
-        // Nature/Landscape
         if low_caps.contains("tree") || low_caps.contains("forest") || low_caps.contains("mountain") || 
            low_caps.contains("sky") || low_caps.contains("grass") || low_caps.contains("field") || 
            low_caps.contains("landscape") || low_caps.contains("outdoors") || 
@@ -486,7 +294,6 @@ impl ReplicateClient {
             return "Nature".to_string();
         }
 
-        // Architecture
         if low_caps.contains("building") || low_caps.contains("house") || low_caps.contains("street") || 
            low_caps.contains("city") || low_caps.contains("room") || low_caps.contains("interior") ||
            low_caps.contains("architecture") || low_caps.contains("window") || low_caps.contains("door") ||
@@ -494,39 +301,6 @@ impl ReplicateClient {
             return "Architecture".to_string();
         }
 
-        // Vehicle
-        if low_caps.contains("car") || low_caps.contains("truck") || low_caps.contains("plane") || 
-           low_caps.contains("boat") || low_caps.contains("bike") || low_caps.contains("cycle") || 
-           low_caps.contains("motorcycle") || low_caps.contains("ship") || low_caps.contains("aircraft") {
-            return "Vehicle".to_string();
-        }
-
-        // Product
-        if low_caps.contains("product") || low_caps.contains("bottle") || low_caps.contains("watch") || 
-           low_caps.contains("jewelry") || low_caps.contains("shoe") || low_caps.contains("gadget") || 
-           low_caps.contains("device") || low_caps.contains("electronics") || low_caps.contains("cosmetic") {
-            return "Product".to_string();
-        }
-
-        // Texture/Material/Macro
-        if low_caps.contains("texture") || low_caps.contains("material") || low_caps.contains("pattern") || 
-           low_caps.contains("surface") || low_caps.contains("wood") || low_caps.contains("metal") || 
-           low_caps.contains("fabric") || low_caps.contains("stone") || low_caps.contains("rock") || 
-           low_caps.contains("leather") || low_caps.contains("macro") || low_caps.contains("close up") {
-            return "Texture".to_string();
-        }
-
-        // Food
-        if low_caps.contains("food") || low_caps.contains("drink") || low_caps.contains("fruit") ||
-           low_caps.contains("vegetable") || low_caps.contains("meat") || low_caps.contains("plate") ||
-           low_caps.contains("dish") || low_caps.contains("meal") {
-            return "Food".to_string();
-        }
-
-        // Fallbacks
-        match style {
-            crate::processor::ImageStyle::Photography => "Photography".to_string(),
-            crate::processor::ImageStyle::Illustration => "Illustration".to_string(),
-        }
+        "Other".to_string()
     }
 }

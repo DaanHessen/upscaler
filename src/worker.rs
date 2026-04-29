@@ -2,7 +2,7 @@ use crate::AppState;
 use std::error::Error;
 use std::sync::Arc;
 use uuid::Uuid;
-use tracing::{info, warn};
+use tracing::info;
 
 pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::UpscaleRecord) -> Result<(), Box<dyn Error + Send + Sync>> {
     let start_time = std::time::Instant::now();
@@ -19,91 +19,89 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
             return Err(e);
         }
     };
-    
-    let (is_low_res, is_grayscale, style, input_mp) = {
+    let input_mp = {
         use image::GenericImageView;
         let img = image::load_from_memory(&raw_bytes)?;
         let (w, h) = img.dimensions();
         let mp = (w as f32 * h as f32) / 1_000_000.0;
-        let gs = crate::processor::is_grayscale(&img);
-        info!("Image classification: {}x{} ({:.3} MP), Grayscale: {}", w, h, mp, gs);
-        let style = crate::processor::analyze_style(&img, Some(&raw_bytes));
-        (mp < 1.0, gs, style, mp)
+        info!("Image size: {}x{} ({:.3} MP)", w, h, mp);
+        mp
     };
 
     let input_uri = state.storage.get_signed_url(&job.input_path).await?;
 
-    // Step 1: Captioning (Crucial for Golden Prompt)
-    info!("Step 1: Generating descriptive caption...");
-    let caption = match state.replicate.run_blip_caption(&input_uri).await {
-        Ok(cap) => {
-            info!("Successfully generated caption: {}", cap);
-            Some(cap)
-        },
-        Err(e) => {
-            warn!("Captioning failed (falling back to generic): {}", e);
-            None
-        }
-    };
-    
     // Small jitter to stagger bursty Replicate calls
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-    // Step 2: Model Branching
-    let final_url = if prompt_settings.model == "Standard" {
-        // --- V5.0 REVOLUTION: Single-Pass SeeSR Pipeline ---
-        // Strategy: Use a high-fidelity generative upscaler (SeeSR) that handles restoration 
-        // and enlargement in one go. No more blocks, no more softness.
-        info!("Running Standard Mode V5.0: One-Pass SeeSR ({:.2} MP)", input_mp);
-        
-        // Basic safety: If image is massive (>2MP), downscale to 1.5MP for GPU memory
-        let prep_uri = if input_mp <= 2.0 {
-            input_uri.clone()
-        } else {
-            info!("SeeSR Safety: Downscaling to 1.5MP for memory ({:.2} MP)", input_mp);
-            let prep_bytes = crate::processor::scale_to_resolution(&raw_bytes, "1.5MP")?;
-            state.storage.upload_temp(prep_bytes, &format!("{}_seesr_prep.jpg", job.id)).await?
-        };
-
-        state.replicate.run_seesr(&prep_uri, caption.clone(), &job.quality).await?
+    // Step 2: Restoration Pass (Optional / Manual)
+    let restored_uri = if prompt_settings.restoration_pass {
+        info!("Step 2: Running manual AI Restoration pass [Override: {}]", prompt_settings.restoration_pass);
+        match state.replicate.run_restore_image(&input_uri).await {
+            Ok(url) => url,
+            Err(e) => {
+                let _ = state.db.update_job_failed(job.id, &format!("Restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+                return Err(e);
+            }
+        }
     } else {
-        // --- PREMIUM MODE: Restore (P-Edit) -> Topaz Upscale ---
-        info!("Running Premium Mode: Restoration + Topaz pipeline...");
-        
-        // 1. Restoration Pass (Premium Sweet Spot: 2MP)
-        // Topaz works best when the input image is around 2 megapixels.
-        let restore_pre_bytes = match crate::processor::scale_to_resolution(&raw_bytes, "2MP") {
-            Ok(b) => b,
-            Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Premium restoration scaling error: {}", e), start_time.elapsed().as_millis() as i32).await;
-                return Err(e);
-            }
-        };
+        input_uri.clone()
+    };
 
-        let restore_uri = match state.storage.upload_temp(restore_pre_bytes, &format!("{}_premium_restore.jpg", job.id)).await {
+    // Step 3: Topaz Upscale Pipeline (Dynamic Routing)
+    // Threshold: 0.6MP. Below this, we use the Dual-Pass strategy (Low Res -> High Fid).
+    let final_url = if input_mp < 0.6 {
+        // --- DUAL-PASS STRATEGY FOR LOW-RES (< 0.6MP) ---
+        info!("Step 3: Running Dual-Pass Topaz for Low-Res image ({:.2} MP)", input_mp);
+        
+        // Pass 1: Clean up pixelation with Low Resolution V2 (2x)
+        let pass1_url = match state.replicate.run_topaz(
+            &restored_uri, "2x", "Low Resolution V2", true,
+            prompt_settings.noise_reduction, prompt_settings.sharpen, prompt_settings.remove_artifacts
+        ).await {
             Ok(url) => url,
             Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Storage error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                let _ = state.db.update_job_failed(job.id, &format!("Topaz Pass 1 error: {}", e), start_time.elapsed().as_millis() as i32).await;
                 let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
                 return Err(e);
             }
         };
 
-        let restored_uri = match state.replicate.run_p_image_edit(&restore_uri, caption.clone(), &prompt_settings, is_low_res, is_grayscale, true, style, input_mp).await {
-            Ok(url) => url,
-            Err(e) => {
-                let _ = state.db.update_job_failed(job.id, &format!("Premium restoration error: {}", e), start_time.elapsed().as_millis() as i32).await;
-                let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
-                return Err(e);
-            }
+        // Pass 2: Final detail with High Fidelity V2 (Remaining factor)
+        let remaining_factor = match job.quality.as_str() {
+            "4x" | "4K" => "2x", 
+            _ => "None",
         };
 
-        // 2. Final Topaz Upscale
-        info!("Running final Topaz upscale...");
-        let style = job.style.as_deref().unwrap_or("PHOTOGRAPHY");
-        let topaz_mode = prompt_settings.topaz_mode.as_deref().unwrap_or("Standard");
+        if remaining_factor == "None" {
+            pass1_url
+        } else {
+            match state.replicate.run_topaz(
+                &pass1_url, remaining_factor, "High Fidelity V2", false,
+                prompt_settings.noise_reduction, prompt_settings.sharpen, prompt_settings.remove_artifacts
+            ).await {
+                Ok(url) => url,
+                Err(e) => {
+                    let _ = state.db.update_job_failed(job.id, &format!("Topaz Pass 2 error: {}", e), start_time.elapsed().as_millis() as i32).await;
+                    let _ = state.db.refund_credits(job.user_id, job.credits_charged, job.id).await;
+                    return Err(e);
+                }
+            }
+        }
+    } else {
+        // --- SINGLE-PASS STRATEGY FOR MID/HIGH-RES (>= 0.6MP) ---
+        // Use "Standard V2" for a balanced approach on mid-range images.
+        let model = if input_mp < 1.5 { "Standard V2" } else { "High Fidelity V2" };
+        info!("Step 3: Running Single-Pass Topaz [{}] for image ({:.2} MP)", model, input_mp);
         
-        match state.replicate.run_topaz(&restored_uri, &job.quality, style, topaz_mode).await {
+        let factor = match job.quality.as_str() {
+            "4x" | "4K" => "4x",
+            _ => "2x",
+        };
+        match state.replicate.run_topaz(
+            &restored_uri, factor, model, false,
+            prompt_settings.noise_reduction, prompt_settings.sharpen, prompt_settings.remove_artifacts
+        ).await {
             Ok(url) => url,
             Err(e) => {
                 let _ = state.db.update_job_failed(job.id, &format!("Topaz error: {}", e), start_time.elapsed().as_millis() as i32).await;

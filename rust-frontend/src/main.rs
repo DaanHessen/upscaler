@@ -70,6 +70,14 @@ pub struct GlobalState {
     pub set_creativity: WriteSignal<f32>,
     pub seed: ReadSignal<Option<u64>>,
     pub set_seed: WriteSignal<Option<u64>>,
+    pub restoration_pass: ReadSignal<bool>,
+    pub set_restoration_pass: WriteSignal<bool>,
+    pub noise_reduction: ReadSignal<i32>,
+    pub set_noise_reduction: WriteSignal<i32>,
+    pub sharpen: ReadSignal<i32>,
+    pub set_sharpen: WriteSignal<i32>,
+    pub remove_artifacts: ReadSignal<i32>,
+    pub set_remove_artifacts: WriteSignal<i32>,
 }
 
 impl GlobalState {
@@ -107,6 +115,10 @@ pub fn provide_global_state() {
     let (refinement, set_refinement) = signal(true);
     let (creativity, set_creativity) = signal(0.5);
     let (seed, set_seed) = signal(None::<u64>);
+    let (restoration_pass, set_restoration_pass) = signal(false);
+    let (noise_reduction, set_noise_reduction) = signal(0);
+    let (sharpen, set_sharpen) = signal(0);
+    let (remove_artifacts, set_remove_artifacts) = signal(0);
 
     provide_context(GlobalState {
         scale, set_scale,
@@ -131,6 +143,10 @@ pub fn provide_global_state() {
         refinement, set_refinement,
         creativity, set_creativity,
         seed, set_seed,
+        restoration_pass, set_restoration_pass,
+        noise_reduction, set_noise_reduction,
+        sharpen, set_sharpen,
+        remove_artifacts, set_remove_artifacts,
     });
 }
 
@@ -160,6 +176,7 @@ fn App() -> impl IntoView {
             refinement: gs.refinement.get(),
             creativity: gs.creativity.get(),
             seed: gs.seed.get(),
+            restoration_pass: gs.restoration_pass.get(),
         };
         persistence::save_settings(&settings);
         
@@ -192,6 +209,7 @@ fn App() -> impl IntoView {
             gs.set_refinement.set(s.refinement);
             gs.set_creativity.set(s.creativity);
             gs.set_seed.set(s.seed);
+            gs.set_restoration_pass.set(s.restoration_pass);
         }
 
         // Hydrate file (async)

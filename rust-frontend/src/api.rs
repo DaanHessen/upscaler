@@ -69,13 +69,24 @@ pub struct PromptSettings {
     pub model: String,
     #[serde(default)]
     pub refinement: bool,
+    #[serde(default)]
+    pub restoration_pass: bool,
 
-    // Internalized SeeSR Parameters
+    // Creativity and Seed Parameters
     #[serde(default = "default_creativity")]
     pub creativity: f32,
     #[serde(default)]
     pub seed: Option<u64>,
+
+    #[serde(default = "default_0")]
+    pub noise_reduction: i32,
+    #[serde(default = "default_0")]
+    pub sharpen: i32,
+    #[serde(default = "default_0")]
+    pub remove_artifacts: i32,
 }
+
+fn default_0() -> i32 { 0 }
 
 fn default_off() -> String { "Off".to_string() }
 fn default_auto() -> String { "Auto".to_string() }

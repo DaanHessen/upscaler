@@ -102,8 +102,12 @@ pub fn Configure() -> impl IntoView {
                 skip_topaz: gs.skip_topaz.get(),
                 model: gs.model_choice.get(),
                 refinement: gs.refinement.get(),
+                restoration_pass: gs.restoration_pass.get(),
                 creativity: gs.creativity.get(),
                 seed: gs.seed.get(),
+                noise_reduction: gs.noise_reduction.get(),
+                sharpen: gs.sharpen.get(),
+                remove_artifacts: gs.remove_artifacts.get(),
             };
             leptos::task::spawn_local(async move {
                 match ApiClient::submit_upscale(&file, &scale_val, &p_settings, token.as_deref()).await {
@@ -477,44 +481,113 @@ pub fn Configure() -> impl IntoView {
                                     // ── Model Parameters ─────────────
                                      <div class="card editor-card animate-in">
                                         <div class="editor-card-body">
-                                            <div class="card-tag" style="margin-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                            <div 
+                                                class="card-tag clickable" 
+                                                style="margin-bottom: var(--s-8); display: flex; justify-content: space-between; align-items: center; width: 100%; cursor: pointer;"
+                                                on:click=move |_| gs.set_debug_gemini_only.update(|v| *v = !*v)
+                                            >
                                                 <div style="display: flex; align-items: center; gap: 4px;">
-                                                    <Target size={10} />
-                                                    <span>"RESTORATION PARAMETERS"</span>
+                                                    <Settings size={10} />
+                                                    <span>"ADVANCED PARAMETERS"</span>
                                                 </div>
-                                                <ChevronDown size={12} />
+                                                <div class:rotate-180=move || gs.debug_gemini_only.get() style="transition: transform 0.2s ease;">
+                                                    <ChevronDown size={12} />
+                                                </div>
                                             </div>
 
-                                            <div class="sb-field" style="margin-bottom: var(--s-4);">
-                                                <label class="sb-label" style="display: flex; justify-content: space-between; align-items: center;">
-                                                    <span>"RESTORATION LEVEL"</span>
-                                                    <span class="sb-label-val">{move || format!("{:.0}%", gs.creativity.get() * 100.0)}</span>
-                                                </label>
-                                                <input 
-                                                    type="range" 
-                                                    min="0.0" 
-                                                    max="1.0" 
-                                                    step="0.01" 
-                                                    class="sb-slider"
-                                                    on:input=move |ev| gs.set_creativity.set(event_target_value(&ev).parse().unwrap_or(0.5))
-                                                    prop:value=move || gs.creativity.get()
-                                                />
-                                                <p class="sb-hint">"Higher values reconstruct more missing detail but may diverge from the original."</p>
-                                            </div>
+                                            <Show when=move || gs.debug_gemini_only.get()>
+                                                <div class="sb-field animate-in" style="margin-bottom: var(--s-6);">
+                                                    <label class="sb-label" style="display: flex; align-items: center;">"AI IMAGE RESTORATION"<span title="Uses a specialized commercial restoration model (FLUX Kontext) to repair scratches, noise, and physical damage. Slows down processing." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
+                                                    <div class="seg-control">
+                                                        <button 
+                                                            class:active=move || gs.restoration_pass.get()
+                                                            on:click=move |_| gs.set_restoration_pass.set(true)
+                                                        >"On"</button>
+                                                        <button 
+                                                            class:active=move || !gs.restoration_pass.get()
+                                                            on:click=move |_| gs.set_restoration_pass.set(false)
+                                                        >"Off"</button>
+                                                    </div>
+                                                    <p class="sb-hint" style="margin-top: 4px; color: var(--accent-red); font-weight: 500;">"Use ONLY for damaged photos. Never automatic."</p>
+                                                </div>
+                                                            <div class="sb-field animate-in" style="margin-bottom: var(--s-4);">
+                                                    <label class="sb-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span>"NOISE REDUCTION"</span>
+                                                        <span class="sb-label-val">{move || gs.noise_reduction.get()}</span>
+                                                    </label>
+                                                    <input 
+                                                        type="range" 
+                                                        min="0" 
+                                                        max="100" 
+                                                        step="1" 
+                                                        class="sb-slider"
+                                                        on:input=move |ev| gs.set_noise_reduction.set(event_target_value(&ev).parse().unwrap_or(50))
+                                                        prop:value=move || gs.noise_reduction.get()
+                                                    />
+                                                </div>
 
-                                            <div class="sb-field">
-                                                <label class="sb-label">"SEED (OPTIONAL)"</label>
-                                                <input type="number" class="sb-input" placeholder="Random"
-                                                    on:input=move |ev| {
-                                                        let val = event_target_value(&ev);
-                                                        if val.is_empty() {
-                                                            gs.set_seed.set(None);
-                                                        } else {
-                                                            gs.set_seed.set(val.parse().ok());
+                                                <div class="sb-field animate-in" style="margin-bottom: var(--s-4);">
+                                                    <label class="sb-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span>"EDGE SHARPENING"</span>
+                                                        <span class="sb-label-val">{move || gs.sharpen.get()}</span>
+                                                    </label>
+                                                    <input 
+                                                        type="range" 
+                                                        min="0" 
+                                                        max="100" 
+                                                        step="1" 
+                                                        class="sb-slider"
+                                                        on:input=move |ev| gs.set_sharpen.set(event_target_value(&ev).parse().unwrap_or(50))
+                                                        prop:value=move || gs.sharpen.get()
+                                                    />
+                                                </div>
+
+                                                <div class="sb-field animate-in" style="margin-bottom: var(--s-4);">
+                                                    <label class="sb-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span>"ARTIFACT REMOVAL"</span>
+                                                        <span class="sb-label-val">{move || gs.remove_artifacts.get()}</span>
+                                                    </label>
+                                                    <input 
+                                                        type="range" 
+                                                        min="0" 
+                                                        max="100" 
+                                                        step="1" 
+                                                        class="sb-slider"
+                                                        on:input=move |ev| gs.set_remove_artifacts.set(event_target_value(&ev).parse().unwrap_or(50))
+                                                        prop:value=move || gs.remove_artifacts.get()
+                                                    />
+                                                </div>
+
+                                                <div class="sb-field animate-in" style="margin-bottom: var(--s-4);">
+                                                    <label class="sb-label" style="display: flex; justify-content: space-between; align-items: center;">
+                                                        <span>"RESTORATION FIDELITY"</span>
+                                                        <span class="sb-label-val">{move || format!("{:.0}%", gs.creativity.get() * 100.0)}</span>
+                                                    </label>
+                                                    <input 
+                                                        type="range" 
+                                                        min="0.0" 
+                                                        max="1.0" 
+                                                        step="0.01" 
+                                                        class="sb-slider"
+                                                        on:input=move |ev| gs.set_creativity.set(event_target_value(&ev).parse().unwrap_or(0.5))
+                                                        prop:value=move || gs.creativity.get()
+                                                    />
+                                                </div>
+
+                                                <div class="sb-field animate-in">
+                                                    <label class="sb-label">"DETERMINISTIC SEED"</label>
+                                                    <input type="number" class="sb-input" placeholder="Random"
+                                                        on:input=move |ev| {
+                                                            let val = event_target_value(&ev);
+                                                            if val.is_empty() {
+                                                                gs.set_seed.set(None);
+                                                            } else {
+                                                                gs.set_seed.set(val.parse().ok());
+                                                            }
                                                         }
-                                                    }
-                                                    prop:value=move || gs.seed.get().map(|s| s.to_string()).unwrap_or_default() />
-                                            </div>
+                                                        prop:value=move || gs.seed.get().map(|s| s.to_string()).unwrap_or_default() />
+                                                </div>
+                                            </Show>
                                         </div>
                                     </div>
                                 </div>

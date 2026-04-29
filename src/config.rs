@@ -32,6 +32,7 @@ impl Config {
             stripe_webhook_secret: env::var("STRIPE_WEBHOOK_SECRET").map_err(|_| "STRIPE_WEBHOOK_SECRET must be set")?,
             public_url: env::var("PUBLIC_URL").unwrap_or_else(|_| "http://localhost:3000".to_string()),
             admin_user_id: env::var("ADMIN_USER_ID").ok(),
+            google_api_key: env::var("GOOGLE_API_KEY").unwrap_or_default(),
         })
     }
 }
