@@ -35,7 +35,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
 
     // Step 2: Restoration Pass (Optional / Manual)
     let restored_uri = if prompt_settings.restoration_pass {
-        info!("Step 2: Running manual AI Restoration pass [Override: {}]", prompt_settings.restoration_pass);
+        info!("Step 2: AI Restoration pass");
         match state.replicate.run_restore_image(&input_uri).await {
             Ok(url) => url,
             Err(e) => {
@@ -56,7 +56,7 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         
         // Pass 1: Clean up pixelation with Low Resolution V2 (2x)
         let pass1_url = match state.replicate.run_topaz(
-            &restored_uri, "2x", "Low Resolution V2", true,
+            &restored_uri, "2x", "Low Resolution V2", prompt_settings.face_enhancement,
             prompt_settings.noise_reduction, prompt_settings.sharpen, prompt_settings.remove_artifacts
         ).await {
             Ok(url) => url,
@@ -111,11 +111,11 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
         }
     };
     let latency_ms = start_time.elapsed().as_millis() as i32;
-    let mut usage_json = serde_json::json!({
-        "model": prompt_settings.model,
-        "refinement": prompt_settings.refinement,
-        "creativity": prompt_settings.creativity,
+    let usage_json = serde_json::json!({
         "quality": job.quality,
+        "face_enhancement": prompt_settings.face_enhancement,
+        "noise_reduction": prompt_settings.noise_reduction,
+        "sharpen": prompt_settings.sharpen,
     });
 
     let original_filename = job.prompt_settings.get("original_filename")
@@ -129,9 +129,6 @@ pub async fn process_upscale_job(state: &Arc<AppState>, job: &crate::db::Upscale
                 .to_string()
         });
 
-    if let Some(fname) = job.prompt_settings.get("original_filename").and_then(|v| v.as_str()) {
-        usage_json["original_filename"] = serde_json::json!(fname);
-    }
 
     info!("Pipeline completed for job {}. Updating success.", job.id);
     state.db.update_job_success(job.id, &final_url, &usage_json, latency_ms).await?;

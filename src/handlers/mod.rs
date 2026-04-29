@@ -70,11 +70,7 @@ pub async fn moderate_handler(
              return Ok::<(bool, String, Option<String>), String>((true, "SKIPPED".to_string(), None));
         }
 
-        let detected_style = analyze_style(&img, Some(&data));
-        let style_str = match detected_style {
-            ImageStyle::Illustration => "ILLUSTRATION",
-            ImageStyle::Photography => "PHOTOGRAPHY",
-        };
+        let style_str = "PHOTOGRAPHY";
 
         let preview = preprocess_image_internal(img, ResizeMode::Pad, None).map_err(|e| e.to_string())?;
         use base64::{engine::general_purpose, Engine as _};
@@ -472,43 +468,10 @@ pub async fn upscale_handler(
     if final_prompt_settings.is_object() {
         if let Some(obj) = final_prompt_settings.as_object_mut() {
             let requested_mode = obj.get("topaz_mode").and_then(|v| v.as_str()).unwrap_or("Auto").to_string();
-            let final_mode = if requested_mode == "Auto" || requested_mode == "" {
-                if megapixels < 0.5 {
-                    "Low Quality Recovery".to_string()
-                } else if megapixels > 2.0 {
-                    "High Fidelity".to_string()
-                } else {
-                    "Standard".to_string()
-                }
-            } else {
-                requested_mode.clone()
-            };
-            
-            let requested_pre = obj.get("pre_processing").and_then(|v| v.as_str()).unwrap_or("Off").to_string();
-            let final_pre = if requested_pre == "Auto" {
-                // If the image is very small/degraded, we will use generative upscaler or NAFNet
-                megapixels < 0.8
-            } else {
-                requested_pre == "On"
-            };
-
-            let requested_post = obj.get("post_polish").and_then(|v| v.as_str()).unwrap_or("Off").to_string();
-            let final_post = if requested_post == "Auto" {
-                // Polish images to remove artifacts after upscale if they were originally somewhat noisy but not tiny
-                megapixels >= 0.5 && megapixels <= 2.0
-            } else {
-                requested_post == "On"
-            };
-
-            obj.insert("topaz_mode".to_string(), serde_json::Value::String(final_mode.clone()));
-            obj.insert("pre_processing_actual".to_string(), serde_json::Value::Bool(final_pre));
-            obj.insert("post_polish_actual".to_string(), serde_json::Value::Bool(final_post));
-            obj.insert("megapixels".to_string(), serde_json::Value::Number(serde_json::Number::from_f64(megapixels as f64).unwrap()));
             if let Some(fname) = original_filename {
                 obj.insert("original_filename".to_string(), serde_json::Value::String(fname));
             }
-            
-            info!("Image classified: {} MP. Routing to Topaz mode: {}. Pre: {}, Post: {}", megapixels, final_mode, final_pre, final_post);
+            info!("Image received: {} MP. Mode: {}", megapixels, requested_mode);
         }
     }
 

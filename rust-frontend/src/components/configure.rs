@@ -411,19 +411,6 @@ pub fn Configure() -> impl IntoView {
                                                 </p>
                                             </div>
 
-                                            <div class="sb-field" style="margin-top: var(--s-4);">
-                                                <label class="sb-label" style="display: flex; align-items: center;">"EDGE SHARPENING"<span title="Enhances high-frequency details and edge definition for a crisp, punchy finish." style="cursor: help; margin-left: 4px; display: inline-flex; align-items: center;"><Info size={12} /></span></label>
-                                                <div class="seg-control">
-                                                    <button 
-                                                        class:active=move || gs.refinement.get()
-                                                        on:click=move |_| gs.set_refinement.set(true)
-                                                    >"On"</button>
-                                                    <button 
-                                                        class:active=move || !gs.refinement.get()
-                                                        on:click=move |_| gs.set_refinement.set(false)
-                                                    >"Off"</button>
-                                                </div>
-                                            </div>
                                         </div>
                                     </div>
 
@@ -560,7 +547,7 @@ pub fn Configure() -> impl IntoView {
 
                                                 <div class="sb-field animate-in" style="margin-bottom: var(--s-4);">
                                                     <label class="sb-label" style="display: flex; justify-content: space-between; align-items: center;">
-                                                        <span>"RESTORATION FIDELITY"</span>
+                                                        <span>"AI RESTORATION STRENGTH"</span>
                                                         <span class="sb-label-val">{move || format!("{:.0}%", gs.creativity.get() * 100.0)}</span>
                                                     </label>
                                                     <input 
